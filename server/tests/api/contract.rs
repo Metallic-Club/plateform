@@ -261,7 +261,20 @@ async fn every_operation_answers_as_documented() {
     const HAT: &str = "1000000000000202";
 
     // ops and auth
-    ok(&anon.op("getReadiness", &[], Value::Null).await, 200);
+    // Readiness gives the database two seconds. Under a parallel `cargo test` opening a pool connection can take
+    // longer, so wait (bounded) for the documented 200; every answer, 503 included, is validated against the schema.
+    let ready = tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        loop {
+            let r = anon.op("getReadiness", &[], Value::Null).await;
+            if r.status.as_u16() != 503 {
+                return r;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        }
+    })
+    .await
+    .expect("readiness reports ok once the database answers");
+    ok(&ready, 200);
     ok(
         &anon
             .op("checkUsername", &[("?username", "ada_test")], Value::Null)

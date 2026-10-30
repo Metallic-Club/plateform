@@ -50,6 +50,14 @@ incremental = false
 [profile.dev.package."*"]
 debug = false
 
+# Password hashing (argon2id, m=19456) is very slow unoptimized; every test signup pays for it, and under a parallel
+# `cargo test` that CPU load starves the timing-bounded lock tests. Release builds are unaffected.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
+
 [profile.test]
 debug = "line-tables-only"
 incremental = false

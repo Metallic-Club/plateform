@@ -8,12 +8,20 @@ use std::time::Duration;
 
 use crate::{auth::device_tokens, support::TestApp};
 
+/// How long a request may take to reach an observed lock. Generous: under a parallel `cargo test` (template copies,
+/// password hashing in other tests) a request can take seconds before it gets there.
+const LOCK_WAIT: Duration = Duration::from_secs(30);
+/// Deadlock guard around a whole race, including its setup (database copy, signups) and one or more lock waits.
+const RACE_GUARD: Duration = Duration::from_secs(120);
+/// An operation that must not wait on the held lock; it still has to finish under load.
+const UNBLOCKED: Duration = Duration::from_secs(15);
+
 fn refresh(token: &str) -> Value {
     json!({ "grant_type": "refresh_token", "refresh_token": token, "client_id": "metallic-studio" })
 }
 
 async fn waiting_pid(app: &TestApp, blocker: Option<i32>) -> i32 {
-    tokio::time::timeout(Duration::from_secs(5), async {
+    tokio::time::timeout(LOCK_WAIT, async {
         loop {
             let pid: Option<i32> = sqlx::query_scalar(
                 "SELECT pid FROM pg_stat_activity WHERE datname = current_database() \
@@ -31,7 +39,7 @@ async fn waiting_pid(app: &TestApp, blocker: Option<i32>) -> i32 {
         }
     })
     .await
-    .expect("request must reach the observed database lock within five seconds")
+    .expect("request must reach the observed database lock within the lock-wait deadline")
 }
 
 /// A test-only BEFORE INSERT trigger pauses a descendant rotation after its parent row is locked. The two-int
@@ -77,7 +85,7 @@ enum Revocation {
 }
 
 async fn rotation_overlapping_revocation(mode: Revocation) {
-    tokio::time::timeout(Duration::from_secs(20), async {
+    tokio::time::timeout(RACE_GUARD, async {
         let app = TestApp::new().await;
         let user = app.user("family_race", "1990-05-05").await;
         let tokens = device_tokens(&app, &user).await;
@@ -121,7 +129,7 @@ async fn rotation_overlapping_revocation(mode: Revocation) {
             let release = async {
                 waiting_pid(&app, Some(rotation_pid)).await;
                 let independent = tokio::time::timeout(
-                    Duration::from_secs(2),
+                    UNBLOCKED,
                     anon.op(
                         "exchangeToken",
                         &[],
@@ -178,7 +186,7 @@ async fn rotation_overlapping_revocation(mode: Revocation) {
         app.finish().await;
     })
     .await
-    .expect("family race must finish without deadlock within twenty seconds");
+    .expect("family race must finish without deadlock");
 }
 
 #[tokio::test]
@@ -198,7 +206,7 @@ async fn native_logout_cannot_leave_a_concurrently_minted_refresh_alive() {
 
 #[tokio::test]
 async fn duplicate_concurrent_refresh_is_replay_but_distinct_families_both_rotate() {
-    tokio::time::timeout(Duration::from_secs(20), async {
+    tokio::time::timeout(RACE_GUARD, async {
         let app = TestApp::new().await;
         let user = app.user("parallel_family", "1990-05-05").await;
         let first = device_tokens(&app, &user).await;
@@ -291,7 +299,7 @@ async fn failed_family_revocation_rolls_back_both_tables_and_releases_its_lock()
         StatusCode::OK
     );
     let retry = tokio::time::timeout(
-        Duration::from_secs(3),
+        UNBLOCKED,
         anon.op(
             "exchangeToken",
             &[],
@@ -355,7 +363,7 @@ async fn access_only_revocation_and_wrong_client_keep_existing_semantics() {
 
 #[tokio::test]
 async fn refresh_expiry_is_validated_after_waiting_for_the_family_lock() {
-    tokio::time::timeout(Duration::from_secs(20), async {
+    tokio::time::timeout(RACE_GUARD, async {
         let app = TestApp::new().await;
         let user = app.user("wait_expiry", "1990-05-05").await;
         let pair = device_tokens(&app, &user).await;

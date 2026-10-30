@@ -50,3 +50,20 @@ transaction starts before the boundary): a 20 s window (`LOCK_WINDOW_SECS`), the
 
 M2b test sessions, M2c edit sessions/ops/versions, M2d reports. Open alignment points are listed in
 `docs/m2-backend-contract.md`.
+
+## Merge of platform/p1-backend (after #13, #16, #18, #20)
+
+Normal merge, no rebase. Conflicts only in `server/tests/api/main.rs` (both sides' test modules kept) and the
+operation count in `server/README.md` (68). `support.rs` is p1-backend's cleanup plus `TestApp::with_config` and
+the legacy-secret flag. No migration collision (p1-backend ends at 000006; #11 has 000007, this branch 000008).
+No `web/` folder on this base, so no spec copy.
+
+The merged suite (61 API tests) failed intermittently under a parallel `cargo test` in timing-bounded tests:
+p1-backend's `oauth_family` and `web_session_expiry` races, and readiness in the contract walkthrough. Causes were
+CPU and database load, not code races. Unoptimized argon2 in dev builds made every signup and seed slow. A 20 s
+guard also covered test setup (serialized template copies). There were 2 s to 7 s lock windows, and readiness had
+a 2 s database budget while Windows Postgres starts a process per connection.
+Fixes: `argon2` and `blake2` built with `opt-level = 3` in the dev profile (tests only; release unchanged);
+`waiting_pid` deadline 30 s, race guards 120 s, unblocked operations 15 s; web-session expiry window 20 s with a
+60 s request timeout (same pattern as the connection lock tests); the walkthrough waits (30 s, every answer
+schema-checked) for readiness 200. What each test proves is unchanged; nothing is ignored or single-threaded.

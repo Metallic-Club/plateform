@@ -31,12 +31,23 @@ async fn session_count(app: &TestApp, user: i64) -> i64 {
         .expect("owned fixture session count")
 }
 
+/// Time a request has, from shortening the code's validity, to begin and reach the held row lock. Generous: under a
+/// parallel `cargo test` a request can take seconds to get there. The request then waits up to this long on the lock.
+const LOCK_WINDOW_SECS: f64 = 20.0;
+
+/// An app whose request timeout outlasts a full lock window.
+async fn app_for_lock_waits() -> TestApp {
+    let mut config = crate::support::test_config();
+    config.request_timeout = Duration::from_secs_f64(LOCK_WINDOW_SECS * 3.0);
+    TestApp::with_config(config).await
+}
+
 async fn release_after_observed_expiry(
     app: &TestApp,
     blocker_pid: i32,
     expires_at: OffsetDateTime,
 ) {
-    tokio::time::timeout(Duration::from_secs(7), async {
+    tokio::time::timeout(Duration::from_secs_f64(LOCK_WINDOW_SECS * 2.0), async {
         loop {
             let waiting: bool = sqlx::query_scalar(
                 "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname=current_database() \
@@ -70,15 +81,16 @@ async fn release_after_observed_expiry(
 }
 
 async fn expiry_during_row_wait(changed_tuple: bool) {
-    tokio::time::timeout(Duration::from_secs(20), async {
-        let app = TestApp::new().await;
+    // Deadlock guard around setup, the lock window and the request.
+    tokio::time::timeout(Duration::from_secs(120), async {
+        let app = app_for_lock_waits().await;
         let owner = app.user(if changed_tuple { "web_expiry_update" } else { "web_expiry_lock" }, "1990-05-05").await;
         let code = issue_code(&app, &owner).await;
         let hash = token_hash(&code);
         let before = session_count(&app, owner.user_id()).await;
         let expires: OffsetDateTime = sqlx::query_scalar(
-            "UPDATE identity.web_session_codes SET expires_at=clock_timestamp()+interval '2 seconds' WHERE code_hash=$1 RETURNING expires_at",
-        ).bind(&hash).fetch_one(&app.db).await.expect("shorten only the owned fixture's validity");
+            "UPDATE identity.web_session_codes SET expires_at=clock_timestamp()+make_interval(secs => $2::float8) WHERE code_hash=$1 RETURNING expires_at",
+        ).bind(&hash).bind(LOCK_WINDOW_SECS).fetch_one(&app.db).await.expect("shorten only the owned fixture's validity");
         let mut blocker = app.db.begin().await.expect("owned blocking transaction");
         let blocker_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
             .fetch_one(&mut *blocker).await.expect("known blocker pid");
@@ -130,7 +142,7 @@ async fn concurrent_valid_redemptions_have_exactly_one_session_winner() {
     let code = issue_code(&app, &owner).await;
     let before = session_count(&app, owner.user_id()).await;
     let anon = app.anon();
-    let (first, second) = tokio::time::timeout(Duration::from_secs(10), async {
+    let (first, second) = tokio::time::timeout(Duration::from_secs(30), async {
         tokio::join!(
             anon.op("redeemWebSessionCode", &[], json!({"code":code})),
             anon.op("redeemWebSessionCode", &[], json!({"code":code}))
