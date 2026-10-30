@@ -28,9 +28,9 @@ import type { MockScenario } from "@/lib/prefs";
 export { MOCK_SCENARIOS, type MockScenario } from "@/lib/prefs";
 
 function summary(g: GameDetail): GameSummary {
-  const { description: _d, gallery: _g, tags: _t, sessionLength: _s, visits: _v, favourites: _f, ...rest } = g;
-  void _d, _g, _t, _s, _v, _f;
-  return rest;
+  const rest: Partial<GameDetail> = { ...g };
+  for (const k of ["description", "gallery", "tags", "sessionLength", "visits", "favourites"] as const) delete rest[k];
+  return rest as GameSummary;
 }
 
 function game(id: string): GameSummary {
@@ -74,9 +74,15 @@ const REGIONS: { region: Region; ping: number }[] = [
   { region: "oceania", ping: 196 },
 ];
 
+/** Servers running for a game: players spread over servers about 80% full. */
+function serverTotal(g: GameSummary) {
+  return Math.max(1, Math.ceil(g.playing / (g.maxPlayersPerServer * 0.8)));
+}
+
+/** The browser lists the 12 nearest servers, as a real API would page them. */
 function serversFor(g: GameDetail): GameServer[] {
   const r = rng(g.art.seed * 7919);
-  const count = Math.min(14, Math.max(3, Math.round(g.playing / g.maxPlayersPerServer / 400)));
+  const count = Math.min(12, serverTotal(g));
   const friendsHere = people.filter(
     (p) => viewerFriendIds.includes(p.id) && p.presence.status === "in-game" && p.presence.gameId === g.id,
   );
@@ -169,7 +175,7 @@ export function createMockApi(scenario: MockScenario = "normal"): MetallicApi {
       await gate();
       if (empty) return { items: [], total: 0, next: null };
       let list = games.map(summary);
-      if (query.q) list = list.filter((g) => matches(`${g.name} ${g.tagline} ${g.creator.name} ${g.genre}`, query.q!));
+      if (query.q) list = list.filter((g) => matches(`${g.name} ${g.tagline} ${g.creator.name} ${g.genre} ${gameById.get(g.id)?.tags.join(" ")}`, query.q!));
       if (query.genre) list = list.filter((g) => g.genre === query.genre);
       if (query.party) list = list.filter((g) => g.partySize === query.party);
       if (query.device) list = list.filter((g) => g.devices.includes(query.device!));
@@ -219,7 +225,7 @@ export function createMockApi(scenario: MockScenario = "normal"): MetallicApi {
       await gate();
       const g = gameById.get(gameId);
       if (!g) throw new ApiError("Game not found.", 404, "not_found");
-      const servers = empty ? 0 : serversFor(g).length;
+      const servers = empty ? 0 : serverTotal(g);
       return { gameId, playing: empty ? 0 : livePlaying(g), servers, at: new Date().toISOString() };
     },
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Icon } from "../Icon";
-import { button, type ButtonSize } from "../ui/button";
+import { button, type ButtonSize, type ButtonVariant } from "../ui/button";
 import { Dialog } from "../ui/Dialog";
 import styles from "./play.module.css";
 
@@ -17,17 +17,19 @@ export function GetMetallicButton({
   size = "regular",
   label = "Play",
   block = false,
+  variant = "primary",
 }: {
   gameName: string;
   href: string;
   size?: ButtonSize;
   label?: string;
   block?: boolean;
+  variant?: ButtonVariant;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className={button("primary", size, block)} onClick={() => setOpen(true)} aria-haspopup="dialog">
+      <button type="button" className={button(variant, size, block)} onClick={() => setOpen(true)} aria-haspopup="dialog">
         <Icon name="play" size={size === "large" ? 20 : 16} />
         {label}
       </button>

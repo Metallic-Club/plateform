@@ -264,15 +264,36 @@ export function AvatarFigure({
   );
 }
 
+/** A pair of shoes in side view, apart, so they read as shoes rather than a bar. */
+function shoePair(a: ItemArt) {
+  const tall = a.shape === "boots" ? 14 : 0;
+  const one = (x: number) => (
+    <g key={x}>
+      <rect x={x} y={160 - tall} width={20} height={16 + tall} fill={a.primary} />
+      <rect x={x} y={168} width={30} height={8} fill={a.primary} />
+      <rect x={x} y={176} width={31} height={5} fill={a.secondary} />
+    </g>
+  );
+  return [one(26), one(62)];
+}
+
 /** Draws a single catalog item on its own, centred, for marketplace tiles. */
 export function ItemArtView({ art, className, label }: { art: ItemArt; className?: string; label?: string }) {
   const skin = "#00000000";
   const views: Record<ItemSlot, { box: string; node: ReactNode }> = {
     top: { box: "10 50 100 72", node: pick(tops, art, "#c9a487") },
     bottom: { box: "18 104 84 84", node: pick(bottoms, art, "#c9a487") },
-    shoes: { box: "26 140 68 48", node: pick(shoes, art, skin) },
+    shoes: { box: "24 136 72 52", node: shoePair(art) },
     hat: { box: "24 0 72 48", node: pick(hats, art, skin) },
-    hair: { box: "26 4 68 60", node: pick(hair, art, skin) },
+    hair: {
+      box: "26 4 68 60",
+      node: (
+        <>
+          <rect x={40} y={18} width={40} height={40} fill="#c9a487" />
+          {pick(hair, art, skin)}
+        </>
+      ),
+    },
     face: {
       box: "36 16 48 46",
       node: (

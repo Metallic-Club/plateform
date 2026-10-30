@@ -70,5 +70,5 @@ export const SLOT_LABEL = {
   top: "Tops",
   bottom: "Bottoms",
   shoes: "Shoes",
-  back: "Back",
+  back: "Back items",
 } as const;

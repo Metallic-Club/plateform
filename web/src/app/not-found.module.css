@@ -1,0 +1,33 @@
+.wrap {
+  display: grid;
+  gap: var(--s-4);
+  justify-items: start;
+  padding-block: var(--s-8);
+  min-height: 60vh;
+  align-content: center;
+}
+
+/* The status number set huge in a quiet tone, so the sentence below leads. */
+.code {
+  font-size: clamp(6rem, 3rem + 18vw, 16rem);
+  font-weight: 800;
+  line-height: 0.8;
+  letter-spacing: -0.04em;
+  color: var(--surface-3);
+}
+
+.title {
+  font-size: var(--t-title);
+}
+
+.text {
+  max-width: 56ch;
+  color: var(--ink-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}

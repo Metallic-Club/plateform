@@ -2,13 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { setPreference } from "@/app/actions";
+import { setRootData } from "@/lib/dom";
 import { THEMES, type Theme } from "@/lib/prefs";
 import styles from "./ThemePicker.module.css";
-
-function current(): Theme {
-  if (typeof document === "undefined") return "graphite";
-  return (document.documentElement.dataset.theme as Theme) ?? "graphite";
-}
 
 /** Radio group of themes. Applies instantly, then stores the choice in a cookie. */
 export function ThemePicker({ initial, variant = "full" }: { initial: Theme; variant?: "full" | "compact" }) {
@@ -17,7 +13,7 @@ export function ThemePicker({ initial, variant = "full" }: { initial: Theme; var
 
   function choose(next: Theme) {
     setTheme(next);
-    document.documentElement.dataset.theme = next;
+    setRootData("theme", next);
     startTransition(() => setPreference("theme", next));
   }
 
@@ -31,7 +27,7 @@ export function ThemePicker({ initial, variant = "full" }: { initial: Theme; var
               type="radio"
               name={`theme-${variant}`}
               value={t.id}
-              checked={(theme ?? current()) === t.id}
+              checked={theme === t.id}
               onChange={() => choose(t.id)}
               className={styles.input}
             />

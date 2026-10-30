@@ -23,7 +23,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Metallic", template: "%s · Metallic" },
+  title: { default: "Metallic", template: "%s | Metallic" },
   description: "Play games made by the Metallic community, dress your avatar and find friends.",
   applicationName: "Metallic",
 };

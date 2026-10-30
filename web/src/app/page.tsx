@@ -125,6 +125,7 @@ export default async function HomePage() {
                   serverId={friend.presence.status === "in-game" ? (friend.presence.serverId ?? undefined) : undefined}
                   label="Join"
                   size="small"
+                  variant="secondary"
                 />
               </li>
             ))}
