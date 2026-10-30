@@ -77,5 +77,5 @@ The emblem is a placeholder and is drawn in `src/components/Emblem.tsx` only. To
 - In the Launcher: Play calls the bridge's `play`; there are no "get the app" prompts; the header shows a status chip only when something needs attention ("Restart to update", an update or Studio install in progress); Downloads has Get Studio / Open Studio and the app's update state; Settings has the close-to-tray switch; sign-in and sign-up use the device flow and never show a password field.
 - The layout is checked at the Launcher's minimum window, 960 x 600: the game page goes two-column from 900px, and the header search folds into its icon below 1200px.
 - Every page gets a nonce-based CSP from `src/proxy.ts` and HSTS from `next.config.ts`. No third-party scripts, fonts or frames.
-- `/healthz` belongs to the API (`api/openapi.yaml`, same origin), not to this app.
+- `/healthz` on the public origin is this app's cheap liveness check (`src/app/healthz/route.ts`), used by the Launcher. API readiness is `/v1/readyz`, internal only.
 - Screenshots: `docs/screenshots/launcher/` (before and after, browser at 1440 and Launcher at 960 x 600 with a stand-in bridge).

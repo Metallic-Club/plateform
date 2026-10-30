@@ -4,15 +4,18 @@
  */
 
 export interface paths {
-    "/healthz": {
+    "/v1/readyz": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Liveness and readiness */
-        get: operations["getHealth"];
+        /**
+         * Readiness (internal only)
+         * @description Readiness for load balancers and monitoring, with database and cache checks. Internal only: the gateway never exposes it on the public origin. Public `/healthz` on the site's origin is the website's cheap liveness check, which the desktop Launcher calls before showing the site (plateform #7).
+         */
+        get: operations["getReadiness"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1600,7 +1603,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getHealth: {
+    getReadiness: {
         parameters: {
             query?: never;
             header?: never;
