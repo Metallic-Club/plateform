@@ -59,3 +59,10 @@ The prior [integration issue 14](https://github.com/Metallic-Club/plateform/issu
 for exact old base `7b0f69b`, PR 11 `11d402c` and PR 13 `3637db2`; it is not acceptance of the updated canonical base.
 Do not rewrite that evidence or update the earlier published branches in this task. Lead integration needs a fresh
 composition audit against the new base. No production edit or acceptance is claimed here yet.
+
+## Handoff
+
+[PR 16](https://github.com/Metallic-Club/plateform/pull/16) is open against `platform/p1-backend`, with all final-base
+local gates passed. The implemented production diff is the one login length expression described above;
+repository review remains required. No merge, deployment or acceptance is claimed. The existing PostgreSQL
+cluster remains running for other development sessions, and no Cargo process remains active.
