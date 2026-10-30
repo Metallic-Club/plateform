@@ -355,3 +355,63 @@ async fn usernames_are_unique_case_insensitively_and_reserved_names_are_held() {
     );
     app.finish().await;
 }
+
+#[tokio::test]
+async fn web_session_codes_are_single_use_short_lived_and_app_only() {
+    let app = TestApp::new().await;
+    let ada = app.user("handoff_test", "1990-05-05").await;
+    let anon = app.anon();
+
+    // A browser session cannot mint a code (it could hand its session to another browser).
+    let r = ada.op("createWebSessionCode", &[], Value::Null).await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN);
+    assert_eq!(r.body["code"], "native_app_required");
+
+    let tokens = device_tokens(&app, &ada).await;
+    let launcher = ada.with_bearer(tokens["access_token"].as_str().expect("access"));
+    let issue = || async {
+        let r = launcher.op("createWebSessionCode", &[], Value::Null).await;
+        assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+        assert_eq!(r.header("cache-control"), Some("no-store"));
+        let code = r.body["code"].as_str().expect("code").to_owned();
+        assert!(code.starts_with("wsc_"), "{code}");
+        code
+    };
+    let redeem = |code: String| {
+        let anon = &anon;
+        async move {
+            anon.op("redeemWebSessionCode", &[], json!({ "code": code }))
+                .await
+        }
+    };
+
+    let code = issue().await;
+    let r = redeem(code.clone()).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let cookie = r.header("set-cookie").expect("Set-Cookie").to_owned();
+    assert!(
+        cookie.starts_with("metallic_session=") && cookie.contains("HttpOnly"),
+        "{cookie}"
+    );
+    assert_eq!(r.body["user"]["id"], ada.id_str());
+
+    // Used, made-up and expired codes all get the same answer.
+    let expired = issue().await;
+    app.sql(
+        "UPDATE identity.web_session_codes SET expires_at = now() - interval '1 second'          WHERE user_id = $1 AND used_at IS NULL",
+        ada.user_id(),
+    )
+    .await;
+    for bad in [
+        code,
+        "wsc_madeup".to_owned(),
+        "not-a-code".to_owned(),
+        expired,
+    ] {
+        let r = redeem(bad.clone()).await;
+        assert_eq!(r.status, StatusCode::BAD_REQUEST, "{bad}: {}", r.body);
+        assert_eq!(r.body["code"], "invalid_code");
+        assert!(r.header("set-cookie").is_none());
+    }
+    app.finish().await;
+}

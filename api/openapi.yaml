@@ -54,11 +54,16 @@ security:
   - bearerAuth: []
 
 paths:
-  /healthz:
+  /v1/readyz:
     get:
       tags: [ops]
-      operationId: getHealth
-      summary: Liveness and readiness
+      operationId: getReadiness
+      summary: Readiness (internal only)
+      description: >-
+        Readiness for load balancers and monitoring, with database and cache checks.
+        Internal only: the gateway never exposes it on the public origin. Public
+        `/healthz` on the site's origin is the website's cheap liveness check, which
+        the desktop Launcher calls before showing the site (plateform #7).
       security: []
       responses:
         '200':
@@ -377,6 +382,65 @@ paths:
       responses:
         '200': { description: 'Revoked, or the token was already invalid.' }
         '400': { $ref: '#/components/responses/OAuthBadRequest' }
+
+  /v1/oauth/web-session:
+    post:
+      tags: [auth]
+      operationId: createWebSessionCode
+      summary: One-time code that signs the website in as this app's user (Launcher web view)
+      description: |
+        A first-party app (bearer token with the `profile` scope) asks for a code, then opens
+        `/auth/launcher-handoff?code=...` on the website, which redeems it server-side. The code is single use,
+        lives 60 seconds and is stored only as a hash. Browser sessions cannot ask for one.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Code issued.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebSessionCode' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/oauth/web-session/redeem:
+    post:
+      tags: [auth]
+      operationId: redeemWebSessionCode
+      summary: Trade a web-session code for a website session (called by the website's server)
+      description: |
+        Answers like `logIn`: the session and `Set-Cookie`. A wrong, used or expired code is always the same 400
+        (`invalid_code`).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebSessionRedeemRequest' }
+            example: { code: wsc_4f1a9cE7bQ2kLm0X }
+      responses:
+        '200':
+          description: Signed in. Sets the `metallic_session` cookie.
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/SetSessionCookie' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400':
+          description: The code is wrong, used or expired.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                type: https://docs.metallic.example/errors/invalid-code
+                title: This sign-in link has expired
+                status: 400
+                code: invalid_code
+                detail: Sign in again from the Metallic app.
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 
   # ---------------------------------------------------------------- users
   /v1/users/me:
@@ -1798,6 +1862,20 @@ components:
           description: |
             `reserved`: held for a known creator, brand or Metallic. `released_recently`: freed by a rename or
             deletion and held for 90 days. `not_allowed`: fails the name filter.
+    WebSessionCode:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code: { type: string, pattern: '^wsc_[A-Za-z0-9_-]+$' }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+      examples:
+        - code: wsc_4f1a9cE7bQ2kLm0X
+          expiresAt: '2026-10-30T18:01:00Z'
+    WebSessionRedeemRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, maxLength: 128 }
     DeviceCodeRequest:
       type: object
       required: [client_id]

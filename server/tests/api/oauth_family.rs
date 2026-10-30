@@ -339,7 +339,7 @@ async fn access_only_revocation_and_wrong_client_keep_existing_semantics() {
         .op("getMe", &[], Value::Null)
         .await;
     assert_eq!(profile.status, StatusCode::OK);
-    assert_eq!(profile.id(), user.user_id());
+    assert_eq!(profile.body["id"], user.id_str());
     assert_eq!(
         anon.op(
             "revokeToken",

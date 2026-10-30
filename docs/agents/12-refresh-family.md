@@ -7,6 +7,26 @@ revocation or native logout. Independent branch `platform/12-refresh-family` use
 `origin/platform/p1-backend` at `7b0f69b`; no main branch exists or is created. This is an implementation and audit,
 not repository lead acceptance. No handoff, UI, new OAuth flow, age-band or minor-policy change.
 
+## Current canonical refresh
+
+Normal merge of canonical `c12b8c044ebd86f95b73ce810075066db425e91c` is resolved in this same issue branch;
+the original published head was `3637db2`. No rebase or force push. Canonical catalog/account
+files and complete Problem serializer/builders replace the obsolete #10 prerequisites. The wire/header unit test
+remains, checks the supported <=128-byte compact bound, and verifies canonical's derived error type URI.
+
+OAuth retains canonical `DeviceAuthRow` / `RefreshRow` aliases and their comments while applying the reviewed
+family-before-token, pair-issuance and transactional revocation changes. No game-server connection feature is
+included. Canonical readiness/handoff code and its 000006 migration are unchanged. The removed unused Resp::id
+helper stays removed; this branch's affected test compares its response ID directly. #8 safe cleanup remains.
+Current contract has 63 operations. Fresh mandatory gates passed **71 tests** (34 unit + 37 API), including all
+63 operations, strict Clippy, fmt, licenses, Redocly and whitespace checks. The shared wire regression retains
+canonical's <=128-byte supported bound; its identical representation measured 112 bytes in PR 11's focused check.
+Pre-push read-only resolution review found no blocking issue. Logs: `metallic-platform13-refreshed-full.log` and
+`metallic-platform13-refreshed-clippy.log`.
+
+Evidence below describes the original `7b0f69b` base / `3637db2` head unless explicitly identified as refreshed.
+In particular the original #10 public-field representations are not the current canonical implementation.
+
 ## Confirmed evidence
 
 - [Issue 12](https://github.com/Metallic-Club/plateform/issues/12) was filed before production edits, after checking
@@ -81,5 +101,5 @@ credentials. The existing cluster remains running for other sessions.
 
 Independent read-only review found no blocking issue. [PR 13](https://github.com/Metallic-Club/plateform/pull/13) is
 open against `platform/p1-backend`; repository review remains required. No merge or deployment was performed and
-no nonexistent CI result is claimed. If PR 11 lands first, reconcile only the identical #8/#10 overlap against the
-updated base.
+no nonexistent CI result is claimed. Any later canonical update needs a fresh composition check; do not replace
+canonical's current serializer or aliases with the historical #10 representation.

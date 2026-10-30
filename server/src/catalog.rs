@@ -381,6 +381,7 @@ pub struct Avatar {
     updated_at: String,
 }
 
+/// `catalog.avatars` row: body_colors, equipped_inventory_ids, headshot_url, full_body_url, updated_at.
 type AvatarRow = (
     Value,
     Vec<i64>,

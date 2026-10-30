@@ -1,6 +1,6 @@
 # Metallic platform server
 
-Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 61 operations implemented, none
+Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 63 operations implemented, none
 answer 501). Design: `../docs/superpowers/specs/2026-10-30-platform-design.md`.
 
 ## Local database (no Docker, no admin rights)
@@ -73,7 +73,7 @@ cargo test -j 4
 The API tests (`tests/api/`) need the dev cluster running (or `METALLIC_TEST_DATABASE_URL` pointing at a server
 whose user may create databases). Each test copies a migrated template database and drops it at the end; leftovers
 from failed runs are dropped at the next run. Every response is validated against the OpenAPI schemas, and
-`contract::every_operation_answers_as_documented` calls all 61 operations.
+`contract::every_operation_answers_as_documented` calls all 63 operations.
 
 ## Security notes
 
