@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Metallic Platform API
-  version: 0.1.2
-  summary: Public HTTP API for the Metallic website, Launcher, Player and Studio (milestone P1).
+  version: 0.2.0
+  summary: Public HTTP API for the Metallic website, Launcher, Player and Studio (milestone P1, M2 multiplayer).
   description: |
     The platform API behind the Metallic website, the desktop Launcher, the Metallic player and Metallic Studio.
     Design: `docs/superpowers/specs/2026-10-30-platform-design.md`. This file is the source of truth: the server
@@ -46,8 +46,13 @@ tags:
     description: Avatar items, inventory and the worn avatar (read in P1, plus equip).
   - name: economy
     description: Currency balance and transaction history (read only in P1).
+  - name: net
+    description: Multiplayer networking facts for edges and host agents (public keys).
   - name: internal
-    description: Game-server calls (`/internal/v1`). Not public; the gateway blocks them from the internet.
+    description: |
+      Host-agent and game-server calls (`/internal/v1`). Not public; the gateway blocks them from the internet.
+      Hosts authenticate with their `mht_` token and may only touch their own servers. The shared
+      `gameServerSecret` is deprecated and off unless `METALLIC_LEGACY_SERVER_SECRET` is on.
 
 security:
   - sessionCookie: []
@@ -1176,12 +1181,20 @@ paths:
     post:
       tags: [servers]
       operationId: createJoinTicket
-      summary: Get a join ticket and the `metallic://` link that starts the Player
+      summary: Get a signed join ticket and the `metallic://` link that starts the Player
       description: |
-        With no body fields the matchmaker picks a server (best region, friends, fill). `serverId` joins a listed
-        server; `followUserId` joins a friend if their `joinPolicy` allows it. The ticket is single-use and lives 60
-        seconds. Inside the Launcher the web app opens `launchUri` directly; in a browser it opens the same link,
-        which the installed Launcher handles.
+        With no body fields the matchmaker places the player: the fullest live server of the place with room (the
+        requested region first; servers of 8 or more slots keep one slot free for friends). When none has room it
+        allocates a new server on a host with spare capacity, the host agent starts it on its next heartbeat, and the
+        answer is `202 pending` with `retryAfterSecs`: ask again then. `serverId` joins a listed server;
+        `followUserId` joins a friend if their `joinPolicy` allows it (a follow may use the friend slot).
+
+        `ticket` is an Ed25519-signed ticket (`mjt1.` prefix, at most 512 characters; byte layout and test vectors
+        in `docs/m2-join-tickets.md`) bound to the user, place, server (when placed), kind `play` and audience
+        `metallic-server`. It is single use and lives 60 seconds. Edges verify it offline with `getNetKeys`; the
+        server redeems it online. `serverId` is null only on deployments without a host agent (legacy), where
+        `connectJoinTicket` binds the ticket later. Inside the Launcher the web app opens `launchUri` directly; in a
+        browser it opens the same link, which the installed Launcher handles. Responses use `Cache-Control: no-store`.
       parameters:
         - $ref: '#/components/parameters/GameId'
       requestBody:
@@ -1199,10 +1212,22 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/JoinTicket' }
               example:
-                ticket: jt_q3Vn0w9LkS2c
-                launchUri: metallic://play?place=2150000000000010&ticket=jt_q3Vn0w9LkS2c
+                status: ready
+                ticket: mjt1.TUpUAQx0ZXN0LTIwMjYtMTA.c2lnbmF0dXJl
+                launchUri: metallic://play?place=2150000000000010&ticket=mjt1.TUpUAQx0ZXN0LTIwMjYtMTA.c2lnbmF0dXJl
                 placeId: '2150000000000010'
                 expiresAt: '2026-10-30T06:01:12Z'
+                ticketId: ERERERERERERERERERERER
+                serverId: '4050000000000301'
+        '202':
+          description: A server for this place is starting. Ask again after `retryAfterSecs` (also in `Retry-After`).
+          headers:
+            Retry-After: { schema: { type: integer } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JoinPending' }
+              example: { status: pending, retryAfterSecs: 2, placeId: '2150000000000010' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1216,19 +1241,31 @@ paths:
                 title: Server full
                 status: 409
                 code: server_full
+        '503':
+          description: Hosts exist but none has room for a new server (`no_capacity`). Wait `Retry-After` seconds.
+          headers:
+            Retry-After: { schema: { type: integer } }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /v1/join-tickets/connect:
     post:
       tags: [servers]
       operationId: connectJoinTicket
-      summary: Resolve an owned join ticket to its game-server connection metadata
+      summary: Resolve an owned join ticket to where the Player connects
       description: |
         Native clients only: a bearer access token with the `play` scope must belong to the ticket owner.
-        Resolution does not consume or extend the ticket. An unbound ticket is atomically bound to one eligible
-        live server for the same game and place; later calls never redirect an already bound ticket. Only servers
-        registered with complete connection metadata can resolve. A full, draining, stale or metadata-less bound
-        server produces `server_unavailable`; an unknown, expired, redeemed or differently owned ticket produces
-        the same `ticket_invalid` response. Connection facts are never included in launch URIs or public server lists.
+        Resolution does not consume or extend the ticket. An unbound (legacy) ticket is atomically bound to one
+        eligible live server for the same game and place; later calls never redirect an already bound ticket.
+        For a host-managed server, `host`, `port` and `certSha256` are the host's **edge** (its public host, else the
+        host agent's observed public address), not the game-server process. Legacy servers resolve to their own
+        registered facts; a legacy registration without them cannot resolve. `sni` is the first 16 hex digits of
+        `certSha256`. `knockToken` is an Ed25519-signed token bound to the caller's address as the backend sees it,
+        the server and the ticket expiry, for the edge's under-attack mode (`docs/m2-join-tickets.md`). A full,
+        draining, stale or fact-less bound server, or a server whose host went silent, produces
+        `server_unavailable`; an unknown, expired, redeemed or differently owned ticket produces the same
+        `ticket_invalid` response. Connection facts are never included in launch URIs or public server lists.
         Responses use `Cache-Control: no-store`. Redeem the ticket only after connecting to the selected server.
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -1239,7 +1276,7 @@ paths:
               type: object
               required: [ticket]
               properties:
-                ticket: { type: string, minLength: 4, maxLength: 128, pattern: '^jt_[A-Za-z0-9_-]+$' }
+                ticket: { $ref: '#/components/schemas/JoinTicketString' }
       responses:
         '200':
           description: Connection metadata for the ticket's server; the ticket remains unconsumed.
@@ -1261,6 +1298,31 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+
+  # ---------------------------------------------------------------- net
+  /v1/net/keys:
+    get:
+      tags: [net]
+      operationId: getNetKeys
+      summary: Ed25519 public keys for verifying join tickets and knock tokens
+      description: |
+        JWKS-like. Host agents fetch it every 10 minutes and whenever a host heartbeat's `keysVersion` changes; an
+        edge refetches once (rate limited) on an unknown `kid`. New tickets are signed with the `active` key. A
+        `next` key is published at least 1 hour before it becomes active; a `retired` key stays listed until 10
+        minutes after the last ticket it signed expired (`notAfter`). Cacheable for 5 minutes.
+      security: [{}]
+      responses:
+        '200':
+          description: Published keys.
+          headers:
+            Cache-Control: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NetKeys' }
+              example:
+                keysVersion: 3f1c0d2a9b8e7f60
+                keys:
+                  - { kid: '2026-10a', kty: OKP, crv: Ed25519, alg: Ed25519, use: sig, x: A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg, status: active, notBefore: '2026-10-30T00:00:00Z', notAfter: null }
 
   # ---------------------------------------------------------------- library
   /v1/me/favorites:
@@ -1541,7 +1603,7 @@ paths:
         The certificate hash is SHA-256 of the complete DER certificate (not its public key). Neither endpoint
         fields nor credentials belong in logs. Register a new server process to rotate its certificate/endpoint.
       x-internal: true
-      security: [{ gameServerSecret: [] }]
+      security: [{ hostToken: [] }, { gameServerSecret: [] }]
       requestBody:
         required: true
         content:
@@ -1589,7 +1651,7 @@ paths:
         Players new since the last heartbeat start a play session (and count a visit); players gone end it and add
         the time to their play history. A server silent for 30 seconds stops counting as live and is stopped.
       x-internal: true
-      security: [{ gameServerSecret: [] }]
+      security: [{ hostToken: [] }, { gameServerSecret: [] }]
       parameters:
         - { name: serverId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
       requestBody:
@@ -1618,7 +1680,7 @@ paths:
       operationId: stopGameServer
       summary: The server is shutting down
       x-internal: true
-      security: [{ gameServerSecret: [] }]
+      security: [{ hostToken: [] }, { gameServerSecret: [] }]
       parameters:
         - { name: serverId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
       responses:
@@ -1634,9 +1696,10 @@ paths:
         Single use, 60 seconds, bound to the user, the place and (once chosen) the server. The privileged response
         includes the existing identity age band for admission decisions; it does not grant voice/chat permissions
         or change minor defaults. `partyId` is explicitly null until party membership is implemented.
-        Age-band output requires lead review under the repository's Children rule.
+        Age-band output requires lead review under the repository's Children rule. The host agent calls this for each
+        join and refuses the join without an answer in 3 s; lookups are by primary key. Accepts the signed ticket.
       x-internal: true
-      security: [{ gameServerSecret: [] }]
+      security: [{ hostToken: [] }, { gameServerSecret: [] }]
       requestBody:
         required: true
         content:
@@ -1645,7 +1708,7 @@ paths:
               type: object
               required: [ticket, serverId]
               properties:
-                ticket: { type: string, maxLength: 128 }
+                ticket: { $ref: '#/components/schemas/JoinTicketString' }
                 serverId: { $ref: '#/components/schemas/Id' }
       responses:
         '200':
@@ -1654,7 +1717,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [userId, username, displayName, gameId, placeId, ageBand, partyId]
+                required: [userId, username, displayName, gameId, placeId, ageBand, partyId, kind, canEdit, chatAllowed, voiceAllowed, accountStatus]
                 properties:
                   userId: { $ref: '#/components/schemas/Id' }
                   username: { type: string }
@@ -1667,6 +1730,15 @@ paths:
                       - { $ref: '#/components/schemas/Id' }
                       - { type: 'null' }
                     description: Always null in P1; no party membership is inferred or created.
+                  kind: { $ref: '#/components/schemas/TicketKind' }
+                  canEdit: { type: boolean, description: Edit rights in this session; only edit tickets (M2c) can carry them. }
+                  chatAllowed:
+                    type: boolean
+                    description: |
+                      In-game text chat. False for under-13 and unknown age, unverified or non-active accounts, and
+                      for everyone while the chat policy switch is off (until age assurance exists).
+                  voiceAllowed: { type: boolean, description: "In-game voice: same rule as chat, with its own switch." }
+                  accountStatus: { type: string, enum: [active, limited, suspended] }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409':
@@ -1680,6 +1752,171 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
 
+  /internal/v1/hosts/register:
+    post:
+      tags: [internal]
+      operationId: registerHost
+      summary: A host agent announces its capacity and edge
+      description: |
+        Called by `metallic-host` at start (and again after a restart). The host is identified by its `mht_` token;
+        `region` must match the region the host was created with. The edge address handed to players is the
+        agent's public address as this request arrives (`observedAddress`), unless `edge.publicHost` is given
+        (relay phase). Reported capacity can only lower the admin limits. The backend never connects to the host:
+        everything it wants arrives as orders in heartbeat responses. Addresses are never logged.
+      x-internal: true
+      security: [{ hostToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [region, agentVersion, engineVersion, protocolMajor, engineBuilds, capacity, edge]
+              properties:
+                region: { $ref: '#/components/schemas/RegionCode' }
+                agentVersion: { $ref: '#/components/schemas/EngineVersion' }
+                engineVersion: { $ref: '#/components/schemas/EngineVersion' }
+                protocolMajor: { type: integer, minimum: 1, maximum: 2147483647 }
+                engineBuilds:
+                  type: array
+                  minItems: 1
+                  maxItems: 16
+                  items: { $ref: '#/components/schemas/GameServerBuildId' }
+                  description: Builds this host can start; the first is reported to players as `buildId`.
+                capacity:
+                  type: object
+                  additionalProperties: false
+                  required: [cores, memoryMiB, maxServers, maxPlayers]
+                  properties:
+                    cores: { type: integer, minimum: 1, maximum: 4096 }
+                    memoryMiB: { type: integer, minimum: 1, maximum: 67108864 }
+                    maxServers: { type: integer, minimum: 1, maximum: 1000 }
+                    maxPlayers: { type: integer, minimum: 1, maximum: 100000 }
+                edge:
+                  type: object
+                  additionalProperties: false
+                  required: [port, certSha256]
+                  properties:
+                    port: { type: integer, minimum: 1, maximum: 65535 }
+                    certSha256: { $ref: '#/components/schemas/CertificateSha256' }
+                    certSha256Next: { $ref: '#/components/schemas/CertificateSha256' }
+                    publicHost: { $ref: '#/components/schemas/GameServerHost' }
+      responses:
+        '201':
+          description: Registered.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hostId, heartbeatIntervalSecs, observedAddress]
+                properties:
+                  hostId: { $ref: '#/components/schemas/Id' }
+                  heartbeatIntervalSecs: { type: integer, minimum: 1 }
+                  observedAddress: { type: string, maxLength: 45, description: The agent's address as the backend sees it. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /internal/v1/hosts/{hostId}/heartbeat:
+    post:
+      tags: [internal]
+      operationId: heartbeatHost
+      summary: Host load, edge certificates and every server's state; orders come back
+      description: |
+        Every `nextHeartbeatSecs` (5). `servers` lists every server the host runs: `starting`, `ready`, `draining`
+        or `stopped` (with `exitCode`), its authoritative player list (sessions start and end as with the
+        per-server heartbeat) and `joinable`. Orders: `start` (a server the matchmaker allocated; idempotent by
+        `serverId`, repeated until the host reports it), `drain` (no new players; stop when empty or after
+        `deadlineSecs`), `stop`, and `rotateToken` (call `rotateHostToken`). A server the backend does not know
+        for this host gets `stop`. A host silent for 30 s makes its servers unjoinable and uncounted; after 120 s
+        they are stopped. `keysVersion` changes when `getNetKeys` changes. `410` = not registered: register again.
+      x-internal: true
+      security: [{ hostToken: [] }]
+      parameters:
+        - { name: hostId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [load, edge, servers]
+              properties:
+                load:
+                  type: object
+                  additionalProperties: false
+                  required: [cpu, memoryMiB, upMbps]
+                  properties:
+                    cpu: { type: number, minimum: 0, maximum: 100, description: Percent of all cores. }
+                    memoryMiB: { type: integer, minimum: 0 }
+                    upMbps: { type: number, minimum: 0 }
+                edge:
+                  type: object
+                  additionalProperties: false
+                  required: [certSha256]
+                  properties:
+                    certSha256: { $ref: '#/components/schemas/CertificateSha256' }
+                    certSha256Next: { $ref: '#/components/schemas/CertificateSha256' }
+                servers:
+                  type: array
+                  maxItems: 100
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [serverId, kind, status, players, joinable]
+                    properties:
+                      serverId: { $ref: '#/components/schemas/Id' }
+                      kind: { $ref: '#/components/schemas/TicketKind' }
+                      status: { type: string, enum: [starting, ready, draining, stopped] }
+                      players: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/Id' } }
+                      joinable: { type: boolean }
+                      tickP99Ms: { type: number, minimum: 0 }
+                      exitCode: { type: integer }
+      responses:
+        '200':
+          description: Recorded; orders for the host.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orders, keysVersion, nextHeartbeatSecs]
+                properties:
+                  orders: { type: array, items: { $ref: '#/components/schemas/HostOrder' } }
+                  keysVersion: { type: string }
+                  nextHeartbeatSecs: { type: integer, minimum: 1 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: The host has not registered (or must register again).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /internal/v1/hosts/{hostId}/token/rotate:
+    post:
+      tags: [internal]
+      operationId: rotateHostToken
+      summary: Replace the host token
+      description: |
+        Returns a new `mht_` token once (`Cache-Control: no-store`). The previous token keeps working for 10
+        minutes so the agent can store the new one first. Sent when a heartbeat carries `rotateToken`, or any time.
+      x-internal: true
+      security: [{ hostToken: [] }]
+      parameters:
+        - { name: hostId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+      responses:
+        '200':
+          description: The new token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token]
+                properties:
+                  token: { type: string, pattern: '^mht_[A-Za-z0-9_-]{43}$' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
 components:
   securitySchemes:
     sessionCookie:
@@ -1691,11 +1928,20 @@ components:
       type: http
       scheme: bearer
       description: Access token from `/v1/oauth/token` (15 minutes). Native apps only.
+    hostToken:
+      type: http
+      scheme: bearer
+      bearerFormat: mht_
+      description: |
+        Per-host token (`mht_` + 43 base64url characters) created by `metallic-platform host add`, stored only as a
+        hash. Internal endpoints only; a host may only touch its own servers. Rate limited per host.
     gameServerSecret:
       type: apiKey
       in: header
       name: X-Metallic-Server-Secret
-      description: Shared secret for game servers (`METALLIC_SERVER_SECRET`). Internal endpoints only.
+      description: |
+        Deprecated shared secret (`METALLIC_SERVER_SECRET`), accepted only while `METALLIC_LEGACY_SERVER_SECRET` is
+        on (off by default). May only touch servers registered without a host. Use `hostToken`.
 
   headers:
     SetSessionCookie:
@@ -2380,16 +2626,88 @@ components:
         region: { $ref: '#/components/schemas/RegionCode' }
       not:
         required: [serverId, followUserId]
+    JoinTicketString:
+      type: string
+      minLength: 4
+      maxLength: 512
+      pattern: '^(jt_[A-Za-z0-9_-]+|mjt1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$'
+      description: |
+        A join ticket: the Ed25519-signed form `mjt1.<payload>.<signature>` (base64url, at most 512 characters,
+        `docs/m2-join-tickets.md`). Legacy opaque `jt_` tickets are still accepted on input. A bearer secret for
+        60 seconds: never log it.
+    TicketKind:
+      type: string
+      enum: [play, edit, test]
+      description: What a ticket admits to; edges route `edit` tickets only to edit sessions.
     JoinTicket:
       type: object
-      required: [ticket, launchUri, placeId, expiresAt]
+      required: [status, ticket, launchUri, placeId, expiresAt, ticketId, serverId]
       properties:
-        ticket: { type: string }
+        status: { type: string, const: ready }
+        ticket: { $ref: '#/components/schemas/JoinTicketString' }
         launchUri:
           type: string
           pattern: '^metallic://play\?'
         placeId: { $ref: '#/components/schemas/Id' }
         expiresAt: { $ref: '#/components/schemas/Timestamp' }
+        ticketId:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{22}$'
+          description: The ticket's `jti` (16 bytes, base64url). Not secret; safe to log for support.
+        serverId:
+          anyOf:
+            - { $ref: '#/components/schemas/Id' }
+            - { type: 'null' }
+          description: The server the ticket is bound to; null only without a host agent (legacy).
+    JoinPending:
+      type: object
+      required: [status, retryAfterSecs, placeId]
+      properties:
+        status: { type: string, const: pending }
+        retryAfterSecs: { type: integer, minimum: 1 }
+        placeId: { $ref: '#/components/schemas/Id' }
+    NetKey:
+      type: object
+      required: [kid, kty, crv, alg, use, x, status, notBefore, notAfter]
+      properties:
+        kid: { type: string, pattern: '^[A-Za-z0-9_-]{1,32}$' }
+        kty: { type: string, const: OKP }
+        crv: { type: string, const: Ed25519 }
+        alg: { type: string, const: Ed25519 }
+        use: { type: string, const: sig }
+        x: { type: string, pattern: '^[A-Za-z0-9_-]{43}$', description: '32-byte public key, base64url.' }
+        status: { type: string, enum: [active, next, retired] }
+        notBefore: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+        notAfter: { anyOf: [{ $ref: '#/components/schemas/Timestamp' }, { type: 'null' }] }
+    NetKeys:
+      type: object
+      required: [keys, keysVersion]
+      properties:
+        keys: { type: array, items: { $ref: '#/components/schemas/NetKey' } }
+        keysVersion: { type: string }
+    HostOrder:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [start, drain, stop, rotateToken] }
+        serverId: { $ref: '#/components/schemas/Id' }
+        gameId: { $ref: '#/components/schemas/Id' }
+        placeId: { $ref: '#/components/schemas/Id' }
+        placeVersionId:
+          anyOf:
+            - { $ref: '#/components/schemas/Id' }
+            - { type: 'null' }
+        assetHash:
+          type: ['string', 'null']
+          description: Always null until the asset service exists; the agent loads the place by version.
+        maxPlayers: { type: integer, minimum: 1, maximum: 200 }
+        kind: { $ref: '#/components/schemas/TicketKind' }
+        region: { $ref: '#/components/schemas/RegionCode' }
+        reason: { type: string, enum: [admin, host_draining] }
+        deadlineSecs: { type: integer, minimum: 1 }
+      description: |
+        `start` has serverId, gameId, placeId, placeVersionId, assetHash, maxPlayers, kind and region; `drain` has
+        serverId, reason and deadlineSecs; `stop` has serverId; `rotateToken` has nothing else.
 
     GameServerHost:
       type: string
@@ -2415,12 +2733,21 @@ components:
       description: Opaque ASCII build identifier, for example a release label or revision id.
     GameServerConnection:
       type: object
-      required: [serverId, host, port, certSha256, protocol, engineVersion, buildId, expiresAt]
+      required: [serverId, host, port, certSha256, sni, protocol, engineVersion, buildId, expiresAt, knockToken]
       properties:
         serverId: { $ref: '#/components/schemas/Id' }
         host: { $ref: '#/components/schemas/GameServerHost' }
         port: { type: integer, minimum: 1, maximum: 65535 }
         certSha256: { $ref: '#/components/schemas/CertificateSha256' }
+        sni:
+          type: string
+          pattern: '^[a-f0-9]{16}$'
+          description: First 16 hex digits of `certSha256`; the TLS SNI, so the edge can serve current and next certificates.
+        knockToken:
+          type: string
+          maxLength: 512
+          pattern: '^mkt1[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$'
+          description: Signed `{ip, server, exp}` for the edge's under-attack mode. A bearer secret; never log it.
         protocol:
           type: string
           pattern: '^metallic/[1-9][0-9]{0,9}$'

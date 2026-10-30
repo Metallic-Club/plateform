@@ -5,5 +5,6 @@ mod connection;
 mod contract;
 mod games;
 mod ledger;
+mod m2;
 mod social;
 mod support;

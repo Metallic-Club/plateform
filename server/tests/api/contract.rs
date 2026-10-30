@@ -6,7 +6,9 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-use metallic_platform::{contract::OPERATIONS, economy, routes::IMPLEMENTED, seed};
+use metallic_platform::{
+    contract::OPERATIONS, economy, matchmaker::hosts, routes::IMPLEMENTED, seed,
+};
 use serde_json::{Map, Value, json};
 use yaml_rust2::{Yaml, YamlLoader};
 
@@ -619,6 +621,45 @@ async fn every_operation_answers_as_documented() {
             .op("stopGameServer", &[("serverId", &server_id)], Value::Null)
             .await,
         204,
+    );
+
+    // net keys and host agents (M2)
+    ok(&anon.op("getNetKeys", &[], Value::Null).await, 200);
+    let (host_id, host_token) =
+        hosts::add_host(&app.db, &app.state.ids, "contract-host", "us-east", 2, 100)
+            .await
+            .expect("host add");
+    let host_id = host_id.to_string();
+    let agent = anon.with_bearer(&host_token);
+    ok(&anon.op("registerHost", &[], json!({})).await, 401);
+    let edge = json!({ "port": 47000, "certSha256": "ef".repeat(32) });
+    ok(
+        &agent
+            .op(
+                "registerHost",
+                &[],
+                json!({ "region": "us-east", "agentVersion": "0.2.0", "engineVersion": "0.2.0", "protocolMajor": 1,
+                    "engineBuilds": ["contract-build"], "edge": edge,
+                    "capacity": { "cores": 4, "memoryMiB": 8192, "maxServers": 2, "maxPlayers": 100 } }),
+            )
+            .await,
+        201,
+    );
+    ok(
+        &agent
+            .op(
+                "heartbeatHost",
+                &[("hostId", &host_id)],
+                json!({ "load": { "cpu": 1, "memoryMiB": 1, "upMbps": 0 }, "edge": { "certSha256": "ef".repeat(32) }, "servers": [] }),
+            )
+            .await,
+        200,
+    );
+    ok(
+        &agent
+            .op("rotateHostToken", &[("hostId", &host_id)], Value::Null)
+            .await,
+        200,
     );
 
     // library

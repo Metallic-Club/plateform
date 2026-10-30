@@ -1,8 +1,11 @@
 //! matchmaker: regions, live servers and counts, the server browser and join tickets (spec 9.7).
 //! Game servers report through the internal endpoints in [`internal`]; counts come only from those heartbeats.
 
+pub mod allocate;
 pub mod connection;
+pub mod hosts;
 pub mod internal;
+pub mod ticket;
 
 use std::collections::{HashMap, HashSet};
 
@@ -19,9 +22,9 @@ use time::{Duration, OffsetDateTime};
 
 use crate::{
     AppState,
-    crypto::{new_token, token_hash},
+    crypto::token_hash,
     games,
-    http::{ApiQuery, IdPath, Page, parse_flag, rfc3339},
+    http::{ApiQuery, ClientIp, IdPath, Page, parse_flag, rfc3339},
     identity::{
         UserSummary,
         auth::{MaybeViewer, Viewer, limit},
@@ -35,7 +38,12 @@ use crate::{
 pub const LIVE_WINDOW_SECS: i64 = 30;
 pub const HEARTBEAT_INTERVAL_SECS: i64 = 5;
 pub const TICKET_TTL: Duration = Duration::seconds(60);
-const LIVE: &str = "status IN ('starting', 'running', 'draining') AND last_heartbeat_at > now() - make_interval(secs => 30)";
+/// Live: running (not starting, draining or asked to drain), beat within 30 s, and, for host servers, a host that is
+/// active and was seen within 30 s. Live counts, the server browser and follows only see these (spec 8.3).
+/// Use only where `matchmaker.servers` is the nearest table in scope.
+const LIVE: &str = "status = 'running' AND desired = 'run' AND last_heartbeat_at > now() - make_interval(secs => 30) \
+    AND (host_id IS NULL OR EXISTS (SELECT 1 FROM matchmaker.hosts h WHERE h.id = host_id AND h.status = 'active' \
+    AND h.last_seen_at > now() - make_interval(secs => 30)))";
 const JOIN_LIMIT: Limit = Limit::per_minute("join_ticket", 30);
 
 /// (players, servers, newest heartbeat) per game.
@@ -317,16 +325,29 @@ pub struct JoinRequest {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JoinTicket {
+    status: &'static str,
     ticket: String,
     launch_uri: String,
     place_id: String,
     expires_at: String,
+    ticket_id: String,
+    server_id: Option<String>,
 }
 
-/// `createJoinTicket`
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JoinPending {
+    status: &'static str,
+    retry_after_secs: i64,
+    place_id: String,
+}
+
+/// `createJoinTicket`: places the player (allocating a server through a host's heartbeat orders when none has
+/// room) and issues an Ed25519-signed ticket bound to the chosen server. `202 pending` while a server starts.
 pub async fn create_join_ticket(
     State(state): State<AppState>,
     viewer: Viewer,
+    ClientIp(client): ClientIp,
     IdPath(game_id): IdPath,
     body: Bytes,
 ) -> ApiResult<Response> {
@@ -375,55 +396,143 @@ pub async fn create_join_ticket(
     )
     .await?
     .ok_or_else(Problem::not_found)?;
-    let place_id = game.start_place_id.ok_or_else(Problem::not_found)?;
+    let start_place = game.start_place_id.ok_or_else(Problem::not_found)?;
     let full = || Problem::conflict("server_full", "Server full");
-
-    let chosen: Option<ServerRow> = if let Some(sid) = server_id {
-        let s = live_server(&state.db, sid)
-            .await?
-            .filter(|s| s.game_id == game_id)
-            .ok_or_else(Problem::not_found)?;
-        if !s.can_join() {
-            return Err(full());
-        }
-        Some(s)
-    } else if let Some(target) = follow {
-        let s = follow_target(&state, viewer.user_id, target, game_id).await?;
-        if !s.can_join() {
-            return Err(full());
-        }
-        Some(s)
-    } else {
-        let friends = visible_friends(&state, viewer.user_id).await?;
-        let hidden: HashSet<i64> = social::hidden_for(&state.db, viewer.user_id)
-            .await?
-            .into_iter()
-            .collect();
-        let servers = live_servers(&state.db, game_id).await?;
-        pick_server(&servers, req.region.as_deref(), &friends, &hidden)
+    // Social reads happen before the transaction so waiting joins do not hold pooled connections twice.
+    let friends = visible_friends(&state, viewer.user_id).await?;
+    let hidden: HashSet<i64> = social::hidden_for(&state.db, viewer.user_id)
+        .await?
+        .into_iter()
+        .collect();
+    let follow_server = match follow {
+        Some(target) => Some(
+            follow_target(&state, viewer.user_id, target, game_id)
+                .await?
+                .id,
+        ),
+        None => None,
     };
 
-    let ticket = new_token("jt_");
-    let expires_at = OffsetDateTime::now_utc() + TICKET_TTL;
+    let mut tx = state.db.begin().await?;
+    // (server, place, region) the ticket binds to; None = unbound (legacy deployments with no host agent).
+    let bound: Option<(i64, i64, String)> = if let Some(sid) = server_id.or(follow_server) {
+        // A follow may use the friend slot; so may a listed server where a visible friend already plays.
+        let friend_inside = follow_server.is_some()
+            || sqlx::query_scalar::<_, bool>(
+                "SELECT player_ids && $2 FROM matchmaker.servers WHERE id = $1",
+            )
+            .bind(sid)
+            .bind(friends.iter().copied().collect::<Vec<i64>>())
+            .fetch_optional(&mut *tx)
+            .await?
+            .unwrap_or(false);
+        match allocate::hold_slot(&mut tx, sid, game_id, viewer.user_id, !friend_inside).await? {
+            allocate::Room::Held { region, place } => Some((sid, place, region)),
+            allocate::Room::Full => return Err(full()),
+            allocate::Room::Gone if follow_server.is_some() => {
+                return Err(
+                    Problem::forbidden("join_not_allowed", "You cannot join this player")
+                        .with_detail("They are not in a server you can join."),
+                );
+            }
+            allocate::Room::Gone => return Err(Problem::not_found()),
+        }
+    } else {
+        let quick = allocate::QuickJoin {
+            game: game_id,
+            place: start_place,
+            viewer: viewer.user_id,
+            region: req.region.as_deref(),
+            friends: &friends,
+            hidden: &hidden,
+            new_server_players: game.max_players,
+        };
+        match allocate::quick_place(&mut tx, &state.ids, &quick).await? {
+            allocate::Placement::Ready { server, region } => Some((server, start_place, region)),
+            allocate::Placement::Pending => {
+                tx.commit().await?;
+                return Ok((
+                    StatusCode::ACCEPTED,
+                    [
+                        (header::CACHE_CONTROL, "no-store".to_owned()),
+                        (
+                            header::RETRY_AFTER,
+                            allocate::PENDING_RETRY_SECS.to_string(),
+                        ),
+                    ],
+                    Json(JoinPending {
+                        status: "pending",
+                        retry_after_secs: allocate::PENDING_RETRY_SECS,
+                        place_id: start_place.to_string(),
+                    }),
+                )
+                    .into_response());
+            }
+            allocate::Placement::NoCapacity => {
+                drop(tx);
+                let mut r = Problem::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "no_capacity",
+                    "No server capacity right now",
+                )
+                .into_response();
+                r.headers_mut().insert(
+                    header::RETRY_AFTER,
+                    axum::http::HeaderValue::from(allocate::NO_CAPACITY_RETRY_SECS),
+                );
+                return Ok(r);
+            }
+            allocate::Placement::NoHost => None,
+        }
+    };
+
+    let place = bound.as_ref().map_or(start_place, |b| b.1);
+    let region = bound.as_ref().map(|b| b.2.clone()).or(req.region.clone());
+    let now = OffsetDateTime::now_utc();
+    let expires_at = now + TICKET_TTL;
+    let jti = crate::crypto::random_bytes::<16>();
+    let ticket = state
+        .secrets
+        .ticket_keys
+        .issue(ticket::Claims {
+            kid: String::new(),
+            jti,
+            iat: now.unix_timestamp(),
+            exp: expires_at.unix_timestamp(),
+            user: viewer.user_id,
+            game: game_id,
+            place,
+            server: bound.as_ref().map_or(0, |b| b.0),
+            kind: ticket::Kind::Play,
+            aud: ticket::AUDIENCE.to_owned(),
+            region: region.clone().unwrap_or_default(),
+            ip: state.config.ticket_bind_ip.then_some(client),
+            display_name: me.display_name.clone(),
+        })
+        .ok_or_else(Problem::internal)?;
     sqlx::query(
-        "INSERT INTO matchmaker.join_tickets (ticket_hash, user_id, game_id, place_id, server_id, region, expires_at) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO matchmaker.join_tickets (ticket_hash, user_id, game_id, place_id, server_id, region, expires_at, jti, kind) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'play')",
     )
     .bind(token_hash(&ticket))
     .bind(viewer.user_id)
     .bind(game_id)
-    .bind(chosen.as_ref().map(|s| s.place_id).unwrap_or(place_id))
-    .bind(chosen.as_ref().map(|s| s.id))
-    .bind(chosen.as_ref().map(|s| s.region.clone()).or(req.region))
+    .bind(place)
+    .bind(bound.as_ref().map(|b| b.0))
+    .bind(region)
     .bind(expires_at)
-    .execute(&state.db)
+    .bind(jti.as_slice())
+    .execute(&mut *tx)
     .await?;
-    let place = chosen.as_ref().map(|s| s.place_id).unwrap_or(place_id);
+    tx.commit().await?;
     let body = JoinTicket {
+        status: "ready",
         launch_uri: format!("metallic://play?place={place}&ticket={ticket}"),
         ticket,
         place_id: place.to_string(),
         expires_at: rfc3339(expires_at),
+        ticket_id: base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, jti),
+        server_id: bound.map(|b| b.0.to_string()),
     };
     Ok((
         StatusCode::CREATED,
@@ -431,6 +540,58 @@ pub async fn create_join_ticket(
         Json(body),
     )
         .into_response())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NetKey {
+    kid: String,
+    kty: &'static str,
+    crv: &'static str,
+    alg: &'static str,
+    #[serde(rename = "use")]
+    use_: &'static str,
+    x: String,
+    status: ticket::KeyStatus,
+    not_before: Option<String>,
+    not_after: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NetKeys {
+    keys: Vec<NetKey>,
+    keys_version: String,
+}
+
+/// `getNetKeys` (`GET /v1/net/keys`): the Ed25519 public keys edges and servers verify join tickets with.
+pub async fn get_net_keys(State(state): State<AppState>) -> Response {
+    let ring = &state.secrets.ticket_keys;
+    let keys = ring
+        .published(OffsetDateTime::now_utc())
+        .map(|k| NetKey {
+            kid: k.kid.clone(),
+            kty: "OKP",
+            crv: "Ed25519",
+            alg: "Ed25519",
+            use_: "sig",
+            x: base64::Engine::encode(
+                &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+                k.key.as_bytes(),
+            ),
+            status: k.status,
+            not_before: k.not_before.map(rfc3339),
+            not_after: k.not_after.map(rfc3339),
+        })
+        .collect();
+    (
+        [(header::CACHE_CONTROL, "public, max-age=300")],
+        Json(NetKeys {
+            keys,
+            keys_version: ring.version().to_owned(),
+        }),
+    )
+        .into_response()
 }
 
 /// The server a friend is in, if their privacy lets the viewer follow them (spec 9.7).

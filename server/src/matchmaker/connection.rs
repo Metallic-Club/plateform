@@ -14,7 +14,7 @@ use super::{SERVER_COLUMNS, ServerRow, pick_server, visible_friends};
 use crate::{
     AppState,
     crypto::token_hash,
-    http::{ApiJson, rfc3339},
+    http::{ApiJson, ClientIp, rfc3339},
     identity::auth::{Viewer, limit},
     problem::{ApiResult, Problem},
     services::Limit,
@@ -22,8 +22,14 @@ use crate::{
 };
 
 const CONNECT_LIMIT: Limit = Limit::per_minute("join_connect", 30);
-const ELIGIBLE: &str = "status = 'running' AND joinable AND cardinality(player_ids) < max_players \
-    AND last_heartbeat_at > clock_timestamp() - interval '30 seconds' AND host IS NOT NULL";
+/// Joinable now, with connection facts: its own (legacy process registration) or its host's edge. Host servers also
+/// need a live, active host. Used only where `matchmaker.servers` is the nearest table in scope.
+const ELIGIBLE: &str = "status = 'running' AND desired = 'run' AND joinable \
+    AND cardinality(player_ids) < max_players \
+    AND last_heartbeat_at > clock_timestamp() - interval '30 seconds' \
+    AND (host IS NOT NULL OR EXISTS (SELECT 1 FROM matchmaker.hosts e WHERE e.id = host_id AND e.edge_port IS NOT NULL)) \
+    AND (host_id IS NULL OR EXISTS (SELECT 1 FROM matchmaker.hosts h WHERE h.id = host_id AND h.status = 'active' \
+        AND h.last_seen_at > clock_timestamp() - interval '30 seconds'))";
 
 /// An optional field must be absent, rather than explicitly null, when using legacy registration.
 fn supplied<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -67,7 +73,8 @@ fn invalid_field(field: &'static str) -> Problem {
     Problem::invalid(field, "invalid", "Invalid connection metadata.")
 }
 
-fn host(text: &str) -> Option<String> {
+/// A DNS name or IP literal, normalized; None for anything else (URLs, ports, user info).
+pub(super) fn normalize_host(text: &str) -> Option<String> {
     if text.is_empty() || text.len() > 253 || !text.is_ascii() {
         return None;
     }
@@ -126,7 +133,7 @@ impl ConnectionFields {
                 Some(engine),
                 Some(build),
             ) => {
-                let host = host(address).ok_or_else(|| invalid_field("host"))?;
+                let host = normalize_host(address).ok_or_else(|| invalid_field("host"))?;
                 if !(1..=65535).contains(&port) {
                     return Err(invalid_field("port"));
                 }
@@ -172,10 +179,23 @@ struct Connected {
     host: String,
     port: i32,
     cert_sha256: String,
+    sni: String,
     protocol: String,
     engine_version: String,
     build_id: String,
     expires_at: String,
+    knock_token: String,
+}
+
+/// Facts for a host-managed server: the host's edge, not the process (spec 8.2).
+#[derive(sqlx::FromRow)]
+struct EdgeMetadata {
+    host: String,
+    port: i32,
+    cert_sha256: String,
+    protocol_major: i32,
+    engine_version: String,
+    build_id: String,
 }
 
 #[derive(sqlx::FromRow)]
@@ -232,6 +252,7 @@ async fn choose_server(
 pub async fn connect_join_ticket(
     State(state): State<AppState>,
     viewer: Viewer,
+    ClientIp(client): ClientIp,
     ApiJson(raw): ApiJson<serde_json::Value>,
 ) -> ApiResult<Response> {
     if viewer.is_session() {
@@ -246,13 +267,7 @@ pub async fn connect_join_ticket(
         .map_err(|_| Problem::bad_request("Invalid connection request."))?;
     let ticket = req
         .ticket
-        .filter(|text| {
-            (4..=128).contains(&text.len())
-                && text.starts_with("jt_")
-                && text.as_bytes()[3..]
-                    .iter()
-                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-'))
-        })
+        .filter(|text| super::internal::ticket_text_ok(text))
         .ok_or_else(|| Problem::invalid("ticket", "invalid", "Not a ticket."))?;
     let hash = token_hash(&ticket);
     // Read social state before taking a pooled transaction connection. Concurrent waiters must not exhaust the
@@ -276,12 +291,9 @@ pub async fn connect_join_ticket(
         return Err(invalid_ticket());
     }
     let chosen = choose_server(&mut tx, &ticket, &friends, &hidden).await?;
-    let metadata: Option<ConnectionMetadata> = if let Some(server) = chosen {
-        sqlx::query_as(sqlx::AssertSqlSafe(format!("SELECT host, port, cert_sha256, protocol_major, engine_version, build_id \
-            FROM matchmaker.servers WHERE id = $1 AND game_id = $2 AND place_id = $3 AND {ELIGIBLE} FOR UPDATE")))
-            .bind(server).bind(ticket.game_id).bind(ticket.place_id).fetch_optional(&mut *tx).await?
-    } else {
-        None
+    let metadata: Option<ConnectionMetadata> = match chosen {
+        Some(server) => connection_facts(&mut tx, server, ticket.game_id, ticket.place_id).await?,
+        None => None,
     };
     let Some((server, metadata)) = chosen.zip(metadata) else {
         if !current_ticket(&mut tx, &hash, viewer.user_id).await? {
@@ -310,18 +322,71 @@ pub async fn connect_join_ticket(
         ));
     };
     tx.commit().await?;
+    let knock_token = state
+        .secrets
+        .ticket_keys
+        .knock(client, server, expires.unix_timestamp())
+        .ok_or_else(Problem::internal)?;
     Ok((
         [(header::CACHE_CONTROL, "no-store")],
         Json(Connected {
             server_id: server.to_string(),
             host: metadata.host,
             port: metadata.port,
+            sni: metadata.cert_sha256[..16].to_owned(),
             cert_sha256: metadata.cert_sha256,
             protocol: format!("metallic/{}", metadata.protocol_major),
             engine_version: metadata.engine_version,
             build_id: metadata.build_id,
             expires_at: rfc3339(expires),
+            knock_token,
         }),
     )
         .into_response())
+}
+
+/// Locks an eligible server and returns where the Player connects: the host's edge (public host, else the agent's
+/// observed address) for host-managed servers with a registered edge, else the process's own registration.
+async fn connection_facts(
+    tx: &mut Transaction<'_, Postgres>,
+    server: i64,
+    game: i64,
+    place: i64,
+) -> ApiResult<Option<ConnectionMetadata>> {
+    let edge: Option<EdgeMetadata> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT coalesce(e.public_host, e.observed_address) AS host, e.edge_port AS port, \
+         e.edge_cert_sha256 AS cert_sha256, e.protocol_major, e.engine_version, \
+         coalesce(s.build_id, e.engine_builds[1]) AS build_id \
+         FROM matchmaker.servers s JOIN matchmaker.hosts e ON e.id = s.host_id \
+         WHERE s.id = $1 AND s.game_id = $2 AND s.place_id = $3 AND e.edge_port IS NOT NULL \
+         AND coalesce(e.public_host, e.observed_address) IS NOT NULL AND e.edge_cert_sha256 IS NOT NULL \
+         AND e.protocol_major IS NOT NULL AND e.engine_version IS NOT NULL \
+         AND coalesce(s.build_id, e.engine_builds[1]) IS NOT NULL \
+         AND s.id IN (SELECT id FROM matchmaker.servers WHERE id = $1 AND {ELIGIBLE}) FOR UPDATE OF s"
+    )))
+    .bind(server)
+    .bind(game)
+    .bind(place)
+    .fetch_optional(&mut **tx)
+    .await?;
+    if let Some(e) = edge {
+        return Ok(Some(ConnectionMetadata {
+            host: e.host,
+            port: e.port,
+            cert_sha256: e.cert_sha256,
+            protocol_major: e.protocol_major,
+            engine_version: e.engine_version,
+            build_id: e.build_id,
+        }));
+    }
+    Ok(sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT host, port, cert_sha256, protocol_major, engine_version, build_id \
+         FROM matchmaker.servers WHERE id = $1 AND game_id = $2 AND place_id = $3 AND host IS NOT NULL \
+         AND {ELIGIBLE} FOR UPDATE"
+    )))
+    .bind(server)
+    .bind(game)
+    .bind(place)
+    .fetch_optional(&mut **tx)
+    .await?)
 }

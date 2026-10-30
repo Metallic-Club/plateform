@@ -2,9 +2,11 @@
 //! Secrets have no defaults: the process refuses to start without them (`metallic-platform keygen` prints fresh ones).
 //! Policy values for the owner's open questions (design spec section 14) live in [`Policy`] so they are easy to change.
 
-use std::{fmt, net::SocketAddr, time::Duration};
+use std::{fmt, net::SocketAddr, sync::Arc, time::Duration};
 
 use base64::Engine as _;
+
+use crate::matchmaker::ticket::Keyring;
 
 /// Which job this process does. One binary, several roles (design spec D3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,8 +32,11 @@ pub struct Secrets {
     pub hmac_key: Vec<u8>,
     /// AES-256-GCM key for personal data at rest (email, birth date).
     pub data_key: [u8; 32],
-    /// Shared secret game servers send to the internal endpoints.
-    pub server_secret: String,
+    /// Deprecated shared secret for the internal endpoints. Only set when `METALLIC_LEGACY_SERVER_SECRET` is on
+    /// (off by default); hosts use their own `mht_` token instead.
+    pub server_secret: Option<String>,
+    /// Ed25519 join-ticket keys (`METALLIC_TICKET_KEYS_FILE` or `METALLIC_TICKET_KEYS`; a random key in dev).
+    pub ticket_keys: Arc<Keyring>,
 }
 
 impl fmt::Debug for Secrets {
@@ -61,6 +66,11 @@ pub struct Policy {
     pub username_checks_per_hour: u32,
     /// Age under which a parent must consent (digital-consent age).
     pub parental_consent_age: i32,
+    /// In-game text chat for players 13 and over with a verified, active account. Off until age assurance exists
+    /// (design spec: chat is gated by age assurance); under-13 and unknown-age players never get it here.
+    pub game_chat_enabled: bool,
+    /// In-game voice, same rule as chat (multiplayer spec section 9: off for under-13 and unknown age).
+    pub game_voice_enabled: bool,
 }
 
 impl Default for Policy {
@@ -75,6 +85,8 @@ impl Default for Policy {
             name_release_jitter_days: 7,
             username_checks_per_hour: 30,
             parental_consent_age: 13,
+            game_chat_enabled: false,
+            game_voice_enabled: false,
         }
     }
 }
@@ -106,6 +118,8 @@ pub struct Config {
     pub run_jobs: bool,
     /// Apply migrations at startup.
     pub migrate_on_start: bool,
+    /// Put the client address (as the backend sees it) into join tickets (`ip` claim). Off by default.
+    pub ticket_bind_ip: bool,
     pub policy: Policy,
 }
 
@@ -172,6 +186,12 @@ impl Config {
             |v| int_in(v, 1, 500),
         )?;
 
+        let legacy_server_secret = parse(
+            "METALLIC_LEGACY_SERVER_SECRET",
+            get("METALLIC_LEGACY_SERVER_SECRET"),
+            "false",
+            parse_bool,
+        )?;
         let secrets = match (
             get("METALLIC_HMAC_KEY"),
             get("METALLIC_DATA_KEY"),
@@ -186,15 +206,22 @@ impl Config {
                         variable: "METALLIC_DATA_KEY",
                         message: "must decode to exactly 32 bytes".to_owned(),
                     })?,
-                server_secret: match server {
-                    Some(s) if s.len() >= 32 => s,
-                    _ => {
+                server_secret: match (legacy_server_secret, server) {
+                    (false, _) => None,
+                    (true, Some(s)) if s.len() >= 32 => Some(s),
+                    (true, _) => {
                         return Err(ConfigError {
                             variable: "METALLIC_SERVER_SECRET",
-                            message: "must be set, at least 32 characters".to_owned(),
+                            message: "must be set, at least 32 characters, while METALLIC_LEGACY_SERVER_SECRET is on"
+                                .to_owned(),
                         });
                     }
                 },
+                ticket_keys: Arc::new(ticket_keys(
+                    get("METALLIC_TICKET_KEYS"),
+                    get("METALLIC_TICKET_KEYS_FILE"),
+                    dev,
+                )?),
             }),
         };
 
@@ -248,6 +275,13 @@ impl Config {
             "METALLIC_MIGRATE_ON_START",
             get("METALLIC_MIGRATE_ON_START"),
             if dev { "true" } else { "false" },
+            parse_bool,
+        )?;
+
+        let ticket_bind_ip = parse(
+            "METALLIC_TICKET_BIND_IP",
+            get("METALLIC_TICKET_BIND_IP"),
+            "false",
             parse_bool,
         )?;
 
@@ -316,6 +350,18 @@ impl Config {
                 13,
                 16,
             )? as i32,
+            game_chat_enabled: parse(
+                "METALLIC_GAME_CHAT_ENABLED",
+                get("METALLIC_GAME_CHAT_ENABLED"),
+                "false",
+                parse_bool,
+            )?,
+            game_voice_enabled: parse(
+                "METALLIC_GAME_VOICE_ENABLED",
+                get("METALLIC_GAME_VOICE_ENABLED"),
+                "false",
+                parse_bool,
+            )?,
         };
 
         Ok(Self {
@@ -335,6 +381,7 @@ impl Config {
             worker_id,
             run_jobs,
             migrate_on_start,
+            ticket_bind_ip,
             policy,
         })
     }
@@ -351,7 +398,7 @@ impl Config {
     pub fn require_secrets(&self) -> Result<&Secrets, ConfigError> {
         self.secrets.as_ref().ok_or(ConfigError {
             variable: "METALLIC_HMAC_KEY",
-            message: "METALLIC_HMAC_KEY, METALLIC_DATA_KEY and METALLIC_SERVER_SECRET must be set \
+            message: "METALLIC_HMAC_KEY and METALLIC_DATA_KEY must be set \
                       (run `metallic-platform keygen` for fresh values)"
                 .to_owned(),
         })
@@ -399,6 +446,52 @@ fn parse_bool(v: &str) -> Result<bool, String> {
     }
 }
 
+/// The ticket keyring: a JSON keyset from a file or a base64 variable (never both); a random key only in dev.
+fn ticket_keys(
+    inline: Option<String>,
+    file: Option<String>,
+    dev: bool,
+) -> Result<Keyring, ConfigError> {
+    let now = time::OffsetDateTime::now_utc();
+    let (variable, json) = match (inline, file) {
+        (Some(_), Some(_)) => {
+            return Err(ConfigError {
+                variable: "METALLIC_TICKET_KEYS",
+                message: "set METALLIC_TICKET_KEYS or METALLIC_TICKET_KEYS_FILE, not both"
+                    .to_owned(),
+            });
+        }
+        (Some(b64), None) => {
+            let v = b64.trim();
+            let json = base64::engine::general_purpose::STANDARD
+                .decode(v)
+                .or_else(|_| base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(v))
+                .map_err(|_| ConfigError {
+                    variable: "METALLIC_TICKET_KEYS",
+                    message: "must be base64 of the keyset JSON".to_owned(),
+                })?;
+            ("METALLIC_TICKET_KEYS", json)
+        }
+        (None, Some(path)) => {
+            // The path is the operator's own; the error names only the variable, not the path or the content.
+            let json = std::fs::read(path.trim()).map_err(|_| ConfigError {
+                variable: "METALLIC_TICKET_KEYS_FILE",
+                message: "cannot read the keyset file".to_owned(),
+            })?;
+            ("METALLIC_TICKET_KEYS_FILE", json)
+        }
+        (None, None) if dev => return Ok(Keyring::ephemeral()),
+        (None, None) => {
+            return Err(ConfigError {
+                variable: "METALLIC_TICKET_KEYS_FILE",
+                message: "a ticket keyset is required outside dev (see docs/m2-join-tickets.md)"
+                    .to_owned(),
+            });
+        }
+    };
+    Keyring::from_json(&json, now).map_err(|message| ConfigError { variable, message })
+}
+
 fn key_bytes(
     variable: &'static str,
     value: Option<String>,
@@ -427,6 +520,13 @@ mod tests {
     use std::collections::HashMap;
 
     const KEY: &str = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
+
+    /// base64 of `{"keys":[{"kid":"test","status":"active","d":<test seed 00..1f>}]}`. Test-only key.
+    fn keyset() -> String {
+        base64::engine::general_purpose::STANDARD.encode(
+            br#"{"keys":[{"kid":"test","status":"active","d":"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"}]}"#,
+        )
+    }
 
     fn config(vars: &[(&str, &str)]) -> Result<Config, ConfigError> {
         let map: HashMap<String, String> = vars
@@ -462,6 +562,7 @@ mod tests {
             ("METALLIC_HMAC_KEY", KEY),
             ("METALLIC_DATA_KEY", KEY),
             ("METALLIC_SERVER_SECRET", "0123456789abcdef0123456789abcdef"),
+            ("METALLIC_TICKET_KEYS", &keyset()),
             (
                 "METALLIC_CORS_ORIGINS",
                 "https://a.example, https://b.example/",
@@ -482,7 +583,69 @@ mod tests {
         assert_eq!(c.policy.verify_window_days, 45);
         assert_eq!(c.policy.max_accounts_per_email, 3);
         assert!(!c.run_jobs, "jobs stay off in the api role outside dev");
-        assert_eq!(format!("{:?}", c.secrets.unwrap()), "Secrets { .. }");
+        assert!(!c.ticket_bind_ip);
+        let secrets = c.secrets.unwrap();
+        assert!(
+            secrets.server_secret.is_none(),
+            "legacy shared secret is off by default"
+        );
+        assert_eq!(secrets.ticket_keys.active_kid(), "test");
+        assert!(!secrets.ticket_keys.is_ephemeral());
+        assert_eq!(format!("{secrets:?}"), "Secrets { .. }");
+    }
+
+    #[test]
+    fn ticket_keys_and_legacy_secret() {
+        let dev = config(&[("METALLIC_HMAC_KEY", KEY), ("METALLIC_DATA_KEY", KEY)]).unwrap();
+        let secrets = dev.secrets.unwrap();
+        assert!(
+            secrets.ticket_keys.is_ephemeral(),
+            "dev without keys gets a random key"
+        );
+        assert!(secrets.server_secret.is_none());
+        let prod = |extra: &[(&str, &str)]| {
+            let mut vars = vec![
+                ("METALLIC_ENV", "prod"),
+                ("METALLIC_HMAC_KEY", KEY),
+                ("METALLIC_DATA_KEY", KEY),
+            ];
+            vars.extend_from_slice(extra);
+            config(&vars)
+        };
+        assert_eq!(prod(&[]).unwrap_err().variable, "METALLIC_TICKET_KEYS_FILE");
+        let keys = keyset();
+        assert_eq!(
+            prod(&[
+                ("METALLIC_TICKET_KEYS", &keys),
+                ("METALLIC_TICKET_KEYS_FILE", "x")
+            ])
+            .unwrap_err()
+            .variable,
+            "METALLIC_TICKET_KEYS"
+        );
+        assert_eq!(
+            prod(&[("METALLIC_TICKET_KEYS", "bm90IGpzb24=")])
+                .unwrap_err()
+                .variable,
+            "METALLIC_TICKET_KEYS"
+        );
+        assert_eq!(
+            prod(&[
+                ("METALLIC_TICKET_KEYS", &keys),
+                ("METALLIC_LEGACY_SERVER_SECRET", "true")
+            ])
+            .unwrap_err()
+            .variable,
+            "METALLIC_SERVER_SECRET"
+        );
+        let legacy = prod(&[
+            ("METALLIC_TICKET_KEYS", &keys),
+            ("METALLIC_LEGACY_SERVER_SECRET", "true"),
+            ("METALLIC_SERVER_SECRET", "0123456789abcdef0123456789abcdef"),
+        ])
+        .unwrap();
+        assert!(legacy.secrets.unwrap().server_secret.is_some());
+        assert!(!legacy.policy.game_chat_enabled && !legacy.policy.game_voice_enabled);
     }
 
     #[test]

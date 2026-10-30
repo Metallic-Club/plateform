@@ -204,6 +204,8 @@ pub fn test_config() -> Config {
         ("METALLIC_HMAC_KEY", hmac),
         ("METALLIC_DATA_KEY", data),
         ("METALLIC_SERVER_SECRET", SERVER_SECRET.to_owned()),
+        // The deprecated shared secret stays testable; host-token tests use `Auth::Bearer`.
+        ("METALLIC_LEGACY_SERVER_SECRET", "true".to_owned()),
         ("METALLIC_PUBLIC_WEB_URL", WEB.to_owned()),
         ("METALLIC_CLIENT_IP_HEADER", "x-test-ip".to_owned()),
         ("METALLIC_RUN_JOBS", "false".to_owned()),
@@ -215,13 +217,17 @@ pub fn test_config() -> Config {
 
 impl TestApp {
     pub async fn new() -> Self {
+        Self::with_config(test_config()).await
+    }
+
+    /// Like `new` with an adjusted configuration (for example a longer request timeout for lock-wait tests).
+    pub async fn with_config(config: Config) -> Self {
         let (url, db_name) = create_database().await;
         let db = PgPoolOptions::new()
             .max_connections(5)
             .connect(&url)
             .await
             .expect("test db");
-        let config = test_config();
         let secrets = config.require_secrets().expect("secrets").clone();
         let mailer = Arc::new(MemoryMailer::default());
         let state = AppState::new(

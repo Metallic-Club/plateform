@@ -436,13 +436,10 @@ async fn privileged_redemption_uses_existing_minor_band_without_changing_private
     assert_eq!(response.status, StatusCode::OK);
     assert_eq!(response.body["ageBand"], "under_13");
     assert_eq!(response.body.get("partyId"), Some(&Value::Null));
-    for field in [
-        "birthDate",
-        "email",
-        "voiceAllowed",
-        "chatAllowed",
-        "isPlaceEditor",
-    ] {
+    // M2 (spec 8): chat and voice are explicit and stay off for under-13 accounts.
+    assert_eq!(response.body["chatAllowed"], false);
+    assert_eq!(response.body["voiceAllowed"], false);
+    for field in ["birthDate", "email", "isPlaceEditor"] {
         assert!(response.body.get(field).is_none());
     }
     let after = child.op("getMe", &[], Value::Null).await;
@@ -500,7 +497,7 @@ async fn unbound_resolution_requires_live_joinable_capacity_and_exact_game_place
 
 #[tokio::test]
 async fn lock_waiting_cannot_revive_an_expired_ticket_or_extend_its_lifetime() {
-    let app = seeded().await;
+    let app = seeded_for_lock_waits().await;
     let server = Client::server(&app);
     let owner = app.user("expiry_waiter", "1990-01-01").await;
     let token = native_token(&app, &owner, "profile play").await;
@@ -508,47 +505,16 @@ async fn lock_waiting_cannot_revive_an_expired_ticket_or_extend_its_lifetime() {
     let issued = ticket(&native, None).await;
     register(&server, registration()).await;
     let hash = token_hash(&issued);
-    let expires: time::OffsetDateTime = sqlx::query_scalar("UPDATE matchmaker.join_tickets SET expires_at = clock_timestamp() + interval '2 seconds' WHERE ticket_hash = $1 RETURNING expires_at")
-        .bind(&hash).fetch_one(&app.db).await.expect("short expiry");
-    let mut blocker = app.db.begin().await.expect("blocker transaction");
-    sqlx::query(
+    let expires: time::OffsetDateTime = sqlx::query_scalar("UPDATE matchmaker.join_tickets SET expires_at = clock_timestamp() + make_interval(secs => $2::float8) WHERE ticket_hash = $1 RETURNING expires_at")
+        .bind(&hash).bind(LOCK_WINDOW_SECS).fetch_one(&app.db).await.expect("short expiry");
+    let (blocker, pid) = hold_row(
+        &app,
         "SELECT ticket_hash FROM matchmaker.join_tickets WHERE ticket_hash = $1 FOR UPDATE",
+        hash.clone(),
     )
-    .bind(&hash)
-    .fetch_one(&mut *blocker)
-    .await
-    .expect("hold ticket lock");
+    .await;
     let release_after_expiry = async {
-        tokio::time::timeout(std::time::Duration::from_secs(5), async {
-            loop {
-                let waiting: bool = sqlx::query_scalar(
-                    "SELECT EXISTS (SELECT 1 FROM pg_stat_activity \
-                    WHERE datname = current_database() AND wait_event_type = 'Lock' \
-                    AND query LIKE '%matchmaker.join_tickets%' AND xact_start < $1)",
-                )
-                .bind(expires)
-                .fetch_one(&app.db)
-                .await
-                .expect("observe a transaction that began before expiry");
-                if waiting {
-                    break;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-            }
-            loop {
-                let expired: bool = sqlx::query_scalar("SELECT clock_timestamp() >= $1")
-                    .bind(expires)
-                    .fetch_one(&app.db)
-                    .await
-                    .expect("database wall clock");
-                if expired {
-                    break;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-            }
-        })
-        .await
-        .expect("bounded lock/expiry observation");
+        wait_for_blocked_transaction_then_wall_clock(&app, pid, expires).await;
         blocker.commit().await.expect("release expired ticket");
     };
     let (response, ()) = tokio::join!(
@@ -563,27 +529,68 @@ async fn lock_waiting_cannot_revive_an_expired_ticket_or_extend_its_lifetime() {
     app.finish().await;
 }
 
+/// How long a request has, from the moment a test sets a time boundary, to start its transaction and reach the held
+/// row lock. Generous on purpose: under a parallel `cargo test` a request can take seconds to get there.
+const LOCK_WINDOW_SECS: f64 = 20.0;
+
+/// A seeded app whose request timeout outlasts a full lock window (the request may wait that long on the lock).
+async fn seeded_for_lock_waits() -> TestApp {
+    let mut config = crate::support::test_config();
+    config.request_timeout = std::time::Duration::from_secs_f64(LOCK_WINDOW_SECS * 3.0);
+    let app = TestApp::with_config(config).await;
+    seed::run(&app.state, PASSWORD).await.expect("seed");
+    app
+}
+
+/// Starts a transaction holding `lock_sql` (a `SELECT ... FOR UPDATE` on one unchanged row) and returns it with its
+/// backend pid, so the waiter can be found exactly with `pg_blocking_pids`.
+async fn hold_row<'a, T>(
+    app: &'a TestApp,
+    lock_sql: &'static str,
+    key: T,
+) -> (sqlx::Transaction<'a, sqlx::Postgres>, i32)
+where
+    T: for<'q> sqlx::Encode<'q, sqlx::Postgres> + sqlx::Type<sqlx::Postgres> + Send + 'a,
+{
+    let mut blocker = app.db.begin().await.expect("blocker transaction");
+    let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *blocker)
+        .await
+        .expect("blocker pid");
+    sqlx::query(lock_sql)
+        .bind(key)
+        .execute(&mut *blocker)
+        .await
+        .expect("hold unchanged row");
+    (blocker, pid)
+}
+
+/// Waits (on real conditions, no fixed sleep) until a request is blocked behind `blocker_pid` in a transaction that
+/// began before `boundary`, then until the database clock has passed `boundary`.
 async fn wait_for_blocked_transaction_then_wall_clock(
     app: &TestApp,
-    table: &str,
+    blocker_pid: i32,
     boundary: time::OffsetDateTime,
 ) {
-    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+    let deadline = std::time::Duration::from_secs_f64(LOCK_WINDOW_SECS * 2.0);
+    tokio::time::timeout(deadline, async {
         loop {
-            let waiting: bool = sqlx::query_scalar(
-                "SELECT EXISTS (SELECT 1 FROM pg_stat_activity \
-                WHERE datname = current_database() AND wait_event_type = 'Lock' \
-                AND query LIKE $2 AND xact_start < $1)",
+            let waiter: Option<bool> = sqlx::query_scalar(
+                "SELECT xact_start < $2 FROM pg_stat_activity WHERE datname = current_database() \
+                 AND wait_event_type = 'Lock' AND $1 = ANY(pg_blocking_pids(pid)) ORDER BY pid LIMIT 1",
             )
+            .bind(blocker_pid)
             .bind(boundary)
-            .bind(format!("%{table}%"))
-            .fetch_one(&app.db)
+            .fetch_optional(&app.db)
             .await
-            .expect("waiting pre-expiry transaction");
-            if waiting {
-                break;
+            .expect("inspect only this test database's waiters");
+            match waiter {
+                Some(true) => break,
+                Some(false) => panic!(
+                    "the request reached the lock after the boundary; it needs more than {LOCK_WINDOW_SECS} s"
+                ),
+                None => tokio::time::sleep(std::time::Duration::from_millis(10)).await,
             }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
         loop {
             let crossed: bool = sqlx::query_scalar("SELECT clock_timestamp() >= $1")
@@ -598,12 +605,12 @@ async fn wait_for_blocked_transaction_then_wall_clock(
         }
     })
     .await
-    .expect("bounded lock and wall-clock observation");
+    .expect("the request must reach the held lock, and the clock pass the boundary, within the window");
 }
 
 #[tokio::test]
 async fn server_lock_wait_rechecks_heartbeat_freshness_before_binding() {
-    let app = seeded().await;
+    let app = seeded_for_lock_waits().await;
     let server = Client::server(&app);
     let owner = app.user("server_waiter", "1990-01-01").await;
     let token = native_token(&app, &owner, "profile play").await;
@@ -611,16 +618,17 @@ async fn server_lock_wait_rechecks_heartbeat_freshness_before_binding() {
     let issued = ticket(&native, None).await;
     let id = register(&server, registration()).await;
     let id: i64 = id.parse().expect("server id");
-    let stale_at: time::OffsetDateTime = sqlx::query_scalar("UPDATE matchmaker.servers SET last_heartbeat_at = clock_timestamp() - interval '28 seconds' WHERE id = $1 RETURNING last_heartbeat_at + interval '30 seconds'")
-        .bind(id).fetch_one(&app.db).await.expect("near-stale heartbeat");
-    let mut blocker = app.db.begin().await.expect("block server");
-    sqlx::query("SELECT id FROM matchmaker.servers WHERE id = $1 FOR UPDATE")
-        .bind(id)
-        .fetch_one(&mut *blocker)
-        .await
-        .expect("hold unchanged server row");
+    // Fresh for LOCK_WINDOW_SECS more (servers are live for 30 s after a heartbeat).
+    let stale_at: time::OffsetDateTime = sqlx::query_scalar("UPDATE matchmaker.servers SET last_heartbeat_at = clock_timestamp() - make_interval(secs => 30 - $2::float8) WHERE id = $1 RETURNING last_heartbeat_at + interval '30 seconds'")
+        .bind(id).bind(LOCK_WINDOW_SECS).fetch_one(&app.db).await.expect("near-stale heartbeat");
+    let (blocker, pid) = hold_row(
+        &app,
+        "SELECT id FROM matchmaker.servers WHERE id = $1 FOR UPDATE",
+        id,
+    )
+    .await;
     let release = async {
-        wait_for_blocked_transaction_then_wall_clock(&app, "matchmaker.servers", stale_at).await;
+        wait_for_blocked_transaction_then_wall_clock(&app, pid, stale_at).await;
         blocker.commit().await.expect("release stale server");
     };
     let (response, ()) = tokio::join!(
@@ -637,25 +645,22 @@ async fn server_lock_wait_rechecks_heartbeat_freshness_before_binding() {
 
 #[tokio::test]
 async fn redeem_lock_wait_cannot_consume_a_ticket_that_expired_while_blocked() {
-    let app = seeded().await;
+    let app = seeded_for_lock_waits().await;
     let server = Client::server(&app);
     let owner = app.user("redeem_waiter", "1990-01-01").await;
     let id = register(&server, registration()).await;
     let issued = ticket(&owner, Some(&id)).await;
     let hash = token_hash(&issued);
-    let expires: time::OffsetDateTime = sqlx::query_scalar("UPDATE matchmaker.join_tickets SET expires_at = clock_timestamp() + interval '2 seconds' WHERE ticket_hash = $1 RETURNING expires_at")
-        .bind(&hash).fetch_one(&app.db).await.expect("near ticket expiry");
-    let mut blocker = app.db.begin().await.expect("block redemption");
-    sqlx::query(
+    let expires: time::OffsetDateTime = sqlx::query_scalar("UPDATE matchmaker.join_tickets SET expires_at = clock_timestamp() + make_interval(secs => $2::float8) WHERE ticket_hash = $1 RETURNING expires_at")
+        .bind(&hash).bind(LOCK_WINDOW_SECS).fetch_one(&app.db).await.expect("near ticket expiry");
+    let (blocker, pid) = hold_row(
+        &app,
         "SELECT ticket_hash FROM matchmaker.join_tickets WHERE ticket_hash = $1 FOR UPDATE",
+        hash.clone(),
     )
-    .bind(&hash)
-    .fetch_one(&mut *blocker)
-    .await
-    .expect("hold unchanged ticket row");
+    .await;
     let release = async {
-        wait_for_blocked_transaction_then_wall_clock(&app, "matchmaker.join_tickets", expires)
-            .await;
+        wait_for_blocked_transaction_then_wall_clock(&app, pid, expires).await;
         blocker.commit().await.expect("release expired ticket");
     };
     let (response, ()) = tokio::join!(
