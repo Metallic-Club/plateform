@@ -269,6 +269,6 @@ mod tests {
     #[test]
     fn timestamps_are_utc_seconds() {
         let at = OffsetDateTime::from_unix_timestamp_nanos(1_790_000_000_123_456_789).unwrap_or(OffsetDateTime::UNIX_EPOCH);
-        assert_eq!(rfc3339(at), "2026-09-21T13:33:20Z");
+        assert_eq!(rfc3339(at), "2026-09-21T14:13:20Z");
     }
 }

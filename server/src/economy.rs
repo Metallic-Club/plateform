@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
-use sqlx::PgConnection;
+use sqlx::{Connection, PgConnection};
 use time::OffsetDateTime;
 
 use crate::{
@@ -101,8 +101,23 @@ async fn account_id(conn: &mut PgConnection, ids: &crate::ids::IdGenerator, owne
     .await
 }
 
-/// Records a balanced transaction inside the caller's database transaction.
+/// Records a balanced transaction. Runs in its own database transaction (a savepoint when the caller already has
+/// one), so the deferred zero-sum check always sees the whole transaction, and a refusal leaves nothing behind.
 pub async fn post(
+    conn: &mut PgConnection,
+    ids: &crate::ids::IdGenerator,
+    tx: &NewTransaction<'_>,
+    postings: &[Posting],
+) -> Result<Result<Posted, PostError>, sqlx::Error> {
+    let mut db_tx = conn.begin().await?;
+    let result = post_in(&mut db_tx, ids, tx, postings).await?;
+    if result.is_ok() {
+        db_tx.commit().await?;
+    }
+    Ok(result)
+}
+
+async fn post_in(
     conn: &mut PgConnection,
     ids: &crate::ids::IdGenerator,
     tx: &NewTransaction<'_>,
@@ -200,6 +215,20 @@ pub async fn grant_credits(
 /// Gives a user one copy of a catalog item, recorded in the ledger with an idempotency key (no credits move).
 /// Returns the inventory id (the existing one on replay).
 pub async fn grant_item(
+    conn: &mut PgConnection,
+    ids: &crate::ids::IdGenerator,
+    user: i64,
+    item: i64,
+    source: &'static str,
+    idempotency_key: &str,
+) -> Result<i64, sqlx::Error> {
+    let mut db_tx = conn.begin().await?;
+    let id = grant_item_in(&mut db_tx, ids, user, item, source, idempotency_key).await?;
+    db_tx.commit().await?;
+    Ok(id)
+}
+
+async fn grant_item_in(
     conn: &mut PgConnection,
     ids: &crate::ids::IdGenerator,
     user: i64,
