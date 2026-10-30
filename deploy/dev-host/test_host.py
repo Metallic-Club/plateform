@@ -193,6 +193,31 @@ class PreparationTests(unittest.TestCase):
             self.assertEqual(execute.call_count, 2)
             probe.assert_not_called()
 
+    def test_readiness_retries_while_the_api_resets_or_drops_connections(self):
+        import http.client
+
+        class Ready:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        attempts = [ConnectionRefusedError(), ConnectionResetError(), http.client.RemoteDisconnected("closed"), Ready()]
+
+        def urlopen(*args, **kwargs):
+            outcome = attempts.pop(0)
+            if isinstance(outcome, BaseException):
+                raise outcome
+            return outcome
+
+        with patch.object(host, "compose"), patch.object(host.urllib.request, "urlopen", side_effect=urlopen), patch.object(host.time, "sleep") as sleep:
+            host.probe(self.state, 18080)
+        self.assertEqual(attempts, [])
+        self.assertEqual(sleep.call_count, 3)
+
     def test_launch_orders_build_database_migration_start_then_readiness(self):
         host.prepare(self.state)
         observed = []

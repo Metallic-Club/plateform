@@ -4,6 +4,7 @@ import argparse
 import base64
 from datetime import datetime, timezone
 import hashlib
+import http.client
 import os
 from pathlib import Path
 import re
@@ -241,7 +242,9 @@ def probe(state, port):
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/v1/readyz", timeout=3) as response:
                 if response.status == 200:
                     return
-        except (urllib.error.URLError, TimeoutError):
+        # While the API starts, the socket can be refused, reset or closed mid-response
+        # (RemoteDisconnected); all of those mean "not ready yet", not a host failure.
+        except (OSError, http.client.HTTPException):
             pass
         time.sleep(1)
     raise HostError("API readiness did not succeed within 60 seconds.")
