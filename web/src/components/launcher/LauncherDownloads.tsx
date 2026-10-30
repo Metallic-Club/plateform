@@ -12,7 +12,7 @@ import styles from "./launcher.module.css";
 
 /*
  * Launcher-only Downloads (plateform #7, section 3): Metallic Studio (Get or
- * Open), the Player, and the app's own update state including
+ * Open) and the app's own update state including
  * "Restart to update". Everything comes from the bridge; nothing here is
  * rendered on the server, because only the Launcher knows it.
  */
@@ -72,7 +72,6 @@ export function LauncherDownloads() {
   }
 
   const studioPct = progress.studio ?? (status.studio.state === "installing" ? status.studio.percent : undefined);
-  const playerPct = progress.player ?? (status.player.state === "installing" ? status.player.percent : undefined);
   const restart =
     status.launcher.state === "readyToRestart"
       ? { version: status.launcher.version ?? update?.version, required: status.launcher.required || !!update?.required }
@@ -112,20 +111,6 @@ export function LauncherDownloads() {
             {studioError}
           </p>
         ) : null}
-      </section>
-
-      <section className={styles.card} aria-labelledby="player-title">
-        <div className={styles.cardHead}>
-          <Icon name="play" size={24} />
-          <div>
-            <h2 id="player-title" className={styles.cardTitle}>
-              Metallic Player
-            </h2>
-            <p className={styles.cardMeta}>{productLine(status.player, playerPct)}</p>
-          </div>
-        </div>
-        <p className={styles.cardText}>Runs the games. It opens in its own window when you press Play.</p>
-        {playerPct !== undefined ? <Progress label="Installing the Player" percent={playerPct} /> : null}
       </section>
 
       <section className={styles.card} aria-labelledby="app-title">

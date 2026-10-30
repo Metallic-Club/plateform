@@ -8,7 +8,7 @@ import { getShell } from "@/lib/prefs.server";
 export const metadata: Metadata = { title: "Downloads" };
 
 /*
- * Downloads: Studio (Get / Open), the Player and the app's own updates, read
+ * Downloads: Studio (Get / Open) and the app's own updates, read
  * from the Launcher bridge. In a browser it points to the app instead.
  */
 export default async function DownloadsPage() {
