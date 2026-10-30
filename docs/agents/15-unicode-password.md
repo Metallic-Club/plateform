@@ -57,8 +57,8 @@ Logs in `%TEMP%`: `metallic-platform15-red.log`, `metallic-platform15-red-contra
 
 The prior [integration issue 14](https://github.com/Metallic-Club/plateform/issues/14) remains historical evidence
 for exact old base `7b0f69b`, PR 11 `11d402c` and PR 13 `3637db2`; it is not acceptance of the updated canonical base.
-Do not rewrite that evidence or update the earlier published branches in this task. Lead integration needs a fresh
-composition audit against the new base. No production edit or acceptance is claimed here yet.
+Do not rewrite that evidence. This password PR leaves earlier published branches unchanged; subsequent base
+refreshes need a separate composition audit against the new base. No repository acceptance is claimed.
 
 ## Handoff
 
