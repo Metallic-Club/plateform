@@ -33,7 +33,7 @@ export function LauncherSettings() {
   }, [hasBridge]);
 
   if (!hasBridge) {
-    return <p className={styles.cardText}>The Metallic app is not connected, so its settings cannot be read here.</p>;
+    return <p className={styles.cardText}>Metallic Play is not connected, so its settings cannot be read here.</p>;
   }
 
   async function change(next: boolean) {

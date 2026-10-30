@@ -26,14 +26,14 @@ export function LauncherDownloads() {
   if (!hasBridge) {
     return (
       <StateMessage
-        title="The Metallic app is not connected"
+        title="Metallic Play is not connected"
         actions={
           <Link href="/explore" className={button("secondary")}>
             Find a game
           </Link>
         }
       >
-        <p>This page shows installs and updates when the Metallic app opens it. Here it has nothing to read from.</p>
+        <p>This page shows installs and updates when Metallic Play opens it. Here it has nothing to read from.</p>
       </StateMessage>
     );
   }
@@ -133,7 +133,7 @@ export function LauncherDownloads() {
           <Icon name="device" size={24} />
           <div>
             <h2 id="app-title" className={styles.cardTitle}>
-              Metallic app
+              Metallic Play
             </h2>
             <p className={styles.cardMeta}>
               {info ? (
@@ -152,7 +152,7 @@ export function LauncherDownloads() {
             <p className={styles.notice} data-tone={restart.required ? "warning" : "update"} role="status">
               <strong>{restart.required ? "Update required." : "Restart to update."}</strong>{" "}
               {restart.version ? `Version ${restart.version} is ready. ` : "An update is ready. "}
-              {restart.required ? "Restart Metallic to keep playing." : "Restart Metallic to finish."}
+              {restart.required ? "Restart Metallic Play to keep playing." : "Restart Metallic Play to finish."}
             </p>
             <div className={styles.actions}>
               <button type="button" className={button("primary")} onClick={restartNow} disabled={busy}>

@@ -20,7 +20,7 @@ const SORT_LABEL: Record<ServerSort, string> = {
  * Server browser for GET /v1/games/{id}/servers. Filters live in the URL and
  * the server applies them, as the spec does; with JavaScript they apply on
  * change, without it the Apply button submits the form.
- * Ping is not shown: the Metallic app measures it from your computer.
+ * Ping is not shown: Metallic Play measures it from your computer.
  */
 export function ServerBrowser({
   game,

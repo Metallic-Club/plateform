@@ -22,10 +22,10 @@ export default async function DownloadsPage() {
         <LauncherDownloads />
       ) : (
         <StateMessage
-          title="Downloads live in the Metallic app"
+          title="Downloads live in Metallic Play"
           actions={
             <Link href="/download" className={button("primary")}>
-              Get Metallic
+              Get Metallic Play
             </Link>
           }
         >

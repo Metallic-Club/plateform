@@ -2154,7 +2154,7 @@ export interface operations {
                      *       "title": "This sign-in link has expired",
                      *       "status": 400,
                      *       "code": "invalid_code",
-                     *       "detail": "Sign in again from the Metallic app."
+                     *       "detail": "Sign in again from Metallic Play."
                      *     }
                      */
                     "application/problem+json": components["schemas"]["Problem"];

@@ -14,7 +14,7 @@ export function SiteFooter({ shell }: { shell: Shell }) {
         <ul role="list" className={styles.footerLinks}>
           <li>
             {/* Inside the app there is nothing to download it from. */}
-            {shell === "launcher" ? <Link href="/downloads">Downloads</Link> : <Link href="/download">Get Metallic</Link>}
+            {shell === "launcher" ? <Link href="/downloads">Downloads</Link> : <Link href="/download">Get Metallic Play</Link>}
           </li>
           <li>
             <Link href="/create">Create with Studio</Link>

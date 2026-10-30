@@ -6,7 +6,7 @@ import { LauncherPlayButton } from "./LauncherPlayButton";
 
 /**
  * Play or Join. Inside the Launcher it calls the bridge's `play` (falling back
- * to the /play redirect); in a browser it opens the "Get Metallic" flow first.
+ * to the /play redirect); in a browser it opens the "Get Metallic Play" flow first.
  */
 export function PlayButton({
   game,

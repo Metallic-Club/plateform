@@ -30,7 +30,7 @@ export default async function SettingsPage() {
         {viewer ? <a href="#account">Account and privacy</a> : null}
         <a href="#appearance">Appearance</a>
         <a href="#display">Display</a>
-        {prefs.shell === "launcher" ? <a href="#launcher">Metallic app</a> : null}
+        {prefs.shell === "launcher" ? <a href="#launcher">Metallic Play</a> : null}
         {usingMock ? <a href="#preview">Preview tools</a> : null}
       </nav>
 
@@ -99,7 +99,7 @@ export default async function SettingsPage() {
       {prefs.shell === "launcher" ? (
         <section id="launcher" className={styles.section} aria-labelledby="launcher-title">
           <h2 id="launcher-title" className={styles.h2}>
-            Metallic app
+            Metallic Play
           </h2>
           <LauncherSettings />
         </section>
@@ -131,10 +131,10 @@ export default async function SettingsPage() {
             legend="Host"
             current={prefs.shell}
             options={[
-              { value: "browser", label: "Web browser", note: "Play opens the Get Metallic flow." },
+              { value: "browser", label: "Web browser", note: "Play opens the Get Metallic Play flow." },
               {
                 value: "launcher",
-                label: "Metallic app",
+                label: "Metallic Play",
                 note: "The layout the app shows. The app itself is detected from its user agent; this only previews it.",
               },
             ]}

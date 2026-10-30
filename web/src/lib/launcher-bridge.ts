@@ -241,13 +241,13 @@ export function on<E extends BridgeEvent>(eventName: E, handler: (payload: Bridg
 export function describeBridgeError(code: BridgeErrorCode): string {
   switch (code) {
     case "notAvailable":
-      return "This needs the Metallic app.";
+      return "This needs Metallic Play.";
     case "notInstalled":
       return "That is not installed yet.";
     case "busy":
       return "The app is busy with another task. Try again in a moment.";
     case "updateRequired":
-      return "The app needs an update first. Restart Metallic to update.";
+      return "The app needs an update first. Restart Metallic Play to update.";
     case "badLink":
       return "That link cannot be opened.";
     case "notAllowed":

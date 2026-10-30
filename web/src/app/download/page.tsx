@@ -6,7 +6,7 @@ import { button } from "@/components/ui/button";
 import { getShell } from "@/lib/prefs.server";
 import styles from "./download.module.css";
 
-export const metadata: Metadata = { title: "Get Metallic" };
+export const metadata: Metadata = { title: "Get Metallic Play" };
 
 /*
  * Download page. No public builds exist yet, so the page says so instead of
@@ -24,10 +24,10 @@ export default async function DownloadPage() {
         </div>
         <div className={styles.text}>
           <h1 id="app-title" className={`wide ${styles.title}`}>
-            Get Metallic
+            Get Metallic Play
           </h1>
           <p className={styles.lede}>
-            The Metallic app plays every game on this site. It also keeps your games up to date and opens them straight
+            Metallic Play plays every game on this site. It also keeps your games up to date and opens them straight
             from the Play buttons here.
           </p>
           <p className={styles.status} role="note">

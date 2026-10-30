@@ -80,7 +80,7 @@ export function LauncherSignIn() {
     return (
       <div className={styles.form}>
         <p className={styles.banner} data-tone="warning">
-          This page is showing the app layout, but the Metallic app is not connected, so it cannot sign you in here.
+          This page is showing the app layout, but Metallic Play is not connected, so it cannot sign you in here.
         </p>
         <a href="/signin?shell=browser" className={styles.textLink}>
           Use the browser sign-in instead

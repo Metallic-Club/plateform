@@ -33,9 +33,9 @@ export function GetMetallicButton({
         <Icon name="play" size={size === "large" ? 20 : 16} />
         {label}
       </button>
-      <Dialog open={open} onClose={() => setOpen(false)} title={`Play ${gameName} in the Metallic app`}>
+      <Dialog open={open} onClose={() => setOpen(false)} title={`Play ${gameName} in Metallic Play`}>
         <p className={styles.dialogText}>
-          Games run in the Metallic app on your computer. If it is installed, open it from here and {gameName} starts
+          Games run in Metallic Play on your computer. If it is installed, open it from here and {gameName} starts
           straight away.
         </p>
         <div className={styles.dialogActions}>
@@ -44,7 +44,7 @@ export function GetMetallicButton({
           </a>
           <Link href="/download" className={button("secondary")}>
             <Icon name="download" size={18} />
-            Get Metallic
+            Get Metallic Play
           </Link>
         </div>
         <p className={styles.dialogNote}>Your browser may ask before it opens the app the first time.</p>
