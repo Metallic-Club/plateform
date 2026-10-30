@@ -72,5 +72,8 @@ redemption identity metadata. Branch `platform/4-game-server-contract` from the 
 
 ## Next / open questions
 
-Implementation and all local gates are complete. Push/open a PR into `platform/p1-backend` with Closes #4/#8/#9/#10;
-request explicit lead review of privileged age-band output. Do not create or push main, merge, publish or deploy.
+Implementation and all local gates are complete. [PR 11](https://github.com/Metallic-Club/plateform/pull/11) is open
+against `platform/p1-backend`, closing #4 and the tracked #8/#9/#10 prerequisites when merged. Repository review
+remains required, including explicit lead review of privileged age-band output. Coordinator approval of the
+implementation approach is not repository lead acceptance. No main branch was created; no merge, publish or
+deployment was performed. The existing local PostgreSQL cluster remains running for other development sessions.
