@@ -1,49 +1,77 @@
 import type {
-  AvatarLook,
+  Avatar,
   CatalogItem,
+  CatalogItemSummary,
   CatalogQuery,
+  Favorite,
+  Friend,
   FriendRequest,
   GameDetail,
-  GameQuery,
-  GameServer,
+  GameListQuery,
+  GameSearchQuery,
   GameSummary,
+  Genre,
   HomeFeed,
   Id,
+  InventoryItem,
+  ItemCategory,
+  JoinRequest,
+  JoinTicket,
+  LiveCount,
   Page,
+  PlayHistoryEntry,
   Presence,
+  Rating,
+  Region,
+  Server,
+  ServerQuery,
   StudioTemplate,
   UserProfile,
   UserSummary,
+  UsernameCheck,
   Viewer,
 } from "./types";
 
 /**
  * Everything the website reads from the platform. Pages depend on this
- * interface only, never on a concrete implementation.
+ * interface only. Method names follow the spec's operationIds; each one is a
+ * single endpoint, except getViewer, which combines getMe and getWallet.
+ * Lookups that 404 resolve to null; other failures throw ApiError.
  */
 export interface MetallicApi {
   /** The signed-in account, or null when signed out. */
   getViewer(): Promise<Viewer | null>;
+  checkUsername(username: string): Promise<UsernameCheck>;
 
-  getHomeFeed(): Promise<HomeFeed>;
-  searchGames(query: GameQuery): Promise<Page<GameSummary>>;
-  getGame(id: Id): Promise<GameDetail | null>;
-  getSimilarGames(id: Id): Promise<GameSummary[]>;
-  listServers(gameId: Id): Promise<GameServer[]>;
-  getPresence(gameId: Id): Promise<Presence>;
+  getHome(): Promise<HomeFeed>;
+  listGenres(): Promise<Genre[]>;
+  listGames(query: GameListQuery): Promise<Page<GameSummary>>;
+  searchGames(query: GameSearchQuery): Promise<Page<GameSummary>>;
+  getGame(gameId: Id): Promise<GameDetail | null>;
+  listSimilarGames(gameId: Id, limit?: number): Promise<Page<GameSummary>>;
+  getRating(gameId: Id): Promise<Rating>;
+  getLiveCounts(gameIds: Id[]): Promise<LiveCount[]>;
 
-  getUser(username: string): Promise<UserProfile | null>;
-  listFriends(userId: Id): Promise<UserSummary[]>;
-  listFriendRequests(): Promise<FriendRequest[]>;
-  searchUsers(q: string): Promise<UserSummary[]>;
-  listFavourites(userId: Id): Promise<GameSummary[]>;
-  isUsernameAvailable(username: string): Promise<boolean>;
+  listRegions(): Promise<Region[]>;
+  listServers(gameId: Id, query?: ServerQuery): Promise<Page<Server>>;
+  createJoinTicket(gameId: Id, request?: JoinRequest): Promise<JoinTicket>;
 
-  searchCatalog(query: CatalogQuery): Promise<Page<CatalogItem>>;
-  getCatalogItem(id: Id): Promise<CatalogItem | null>;
-  listInventory(): Promise<CatalogItem[]>;
-  getAvatar(): Promise<AvatarLook>;
+  getUserByUsername(username: string): Promise<UserProfile | null>;
+  searchUsers(q: string): Promise<Page<UserSummary>>;
+  listFriends(userId: Id): Promise<Page<Friend>>;
+  listFriendRequests(direction?: "incoming" | "outgoing"): Promise<Page<FriendRequest>>;
+  getPresence(userIds: Id[]): Promise<Presence[]>;
 
+  listFavorites(): Promise<Page<Favorite>>;
+  listPlayHistory(): Promise<Page<PlayHistoryEntry>>;
+
+  listCatalogItems(query: CatalogQuery): Promise<Page<CatalogItemSummary>>;
+  getCatalogItem(itemId: Id): Promise<CatalogItem | null>;
+  listInventory(category?: ItemCategory): Promise<Page<InventoryItem>>;
+  getMyAvatar(): Promise<Avatar>;
+  getUserAvatar(userId: Id): Promise<Avatar>;
+
+  /** Not in the P1 spec. Served from fixtures until Studio has an endpoint. */
   listStudioTemplates(): Promise<StudioTemplate[]>;
 }
 
@@ -51,6 +79,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** The spec's stable Problem `code`. */
     readonly code: string,
   ) {
     super(message);

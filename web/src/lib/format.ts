@@ -1,3 +1,5 @@
+import type { Presence } from "@/lib/api/types";
+
 const full = new Intl.NumberFormat("en-US");
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
@@ -7,11 +9,6 @@ export function formatCount(n: number) {
 
 export function formatCompact(n: number) {
   return compact.format(n);
-}
-
-export function ratingPercent(r: { up: number; down: number }) {
-  const total = r.up + r.down;
-  return total === 0 ? null : Math.round((r.up / total) * 100);
 }
 
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -32,7 +29,7 @@ export function formatDate(iso: string) {
   return dateFmt.format(new Date(iso));
 }
 
-export const GENRE_LABEL = {
+const GENRE_NAMES: Record<string, string> = {
   adventure: "Adventure",
   action: "Action",
   horror: "Horror",
@@ -47,28 +44,36 @@ export const GENRE_LABEL = {
   sports: "Sports",
   tycoon: "Tycoon",
   party: "Party",
-} as const;
+};
 
-export const REGION_LABEL = {
-  "us-east": "US East",
-  "us-central": "US Central",
-  "us-west": "US West",
-  "eu-west": "Europe West",
-  "eu-central": "Europe Central",
-  "asia-east": "Asia East",
-  oceania: "Oceania",
-  "sa-east": "South America",
-} as const;
+/** Display name for a genre id. GET /v1/genres has the full list with names. */
+export function genreName(id: string) {
+  return GENRE_NAMES[id] ?? id.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
 
-export const PARTY_LABEL = { solo: "Solo or 1v1", small: "Small groups", large: "Big servers" } as const;
-export const DEVICE_LABEL = { desktop: "Desktop", phone: "Phone", tablet: "Tablet", controller: "Controller" } as const;
-export const SESSION_LABEL = { short: "Under 15 minutes", medium: "15 to 45 minutes", long: "45 minutes or more" } as const;
-export const SLOT_LABEL = {
+export const PLATFORM_LABEL = { windows: "Windows", macos: "macOS", linux: "Linux", android: "Android", ios: "iOS" } as const;
+export const CONTENT_LABEL = {
+  everyone: "Everyone",
+  mild: "Mild",
+  moderate: "Moderate",
+  restricted: "Restricted (18+)",
+} as const;
+export const DEVICE_LABEL = { desktop: "Computer", mobile: "Phone or tablet", console: "Console" } as const;
+export const CATEGORY_LABEL = {
   hat: "Hats",
   hair: "Hair",
   face: "Faces",
-  top: "Tops",
-  bottom: "Bottoms",
+  shirt: "Tops",
+  pants: "Bottoms",
   shoes: "Shoes",
   back: "Back items",
 } as const;
+
+/** One line for where someone is: "Playing Ferrous Drift", "Last online 2 days ago". */
+export function presenceText(p: Presence | undefined) {
+  if (!p) return null;
+  if (p.status === "in_game") return `Playing ${p.game?.name ?? "a game"}`;
+  if (p.status === "in_studio") return "Building in Studio";
+  if (p.status === "online") return "Online";
+  return p.lastOnlineAt ? `Last online ${timeAgo(p.lastOnlineAt)}` : "Offline";
+}

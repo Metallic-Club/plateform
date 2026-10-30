@@ -4,39 +4,60 @@ import { GameTile } from "@/components/GameTile";
 import { StateMessage } from "@/components/StateMessage";
 import { button } from "@/components/ui/button";
 import { getApi } from "@/lib/api";
-import { DEVICES, GENRES, type Device, type GameQuery, type Genre, type PartySize } from "@/lib/api/types";
-import { DEVICE_LABEL, GENRE_LABEL, PARTY_LABEL } from "@/lib/format";
+import type { DeviceHint, GameSort, GameSummary, Page } from "@/lib/api/types";
+import { DEVICE_LABEL, genreName } from "@/lib/format";
 import styles from "./explore.module.css";
 
 export const metadata: Metadata = { title: "Explore" };
 
-const SORTS = [
-  { id: "playing", label: "Most played" },
-  { id: "rating", label: "Best rated" },
+const SORTS: { id: GameSort; label: string }[] = [
+  { id: "popular", label: "Most played" },
+  { id: "top_rated", label: "Best rated" },
+  { id: "trending", label: "Trending" },
   { id: "new", label: "Newest" },
-  { id: "updated", label: "Recently updated" },
-] as const;
-type Sort = (typeof SORTS)[number]["id"];
+  { id: "recently_updated", label: "Recently updated" },
+];
 
-const PARTIES = Object.keys(PARTY_LABEL) as PartySize[];
+/** The spec filters by the largest server a game runs (maxPlayers). */
+const SIZES = [
+  { id: "8", label: "Up to 8 players" },
+  { id: "24", label: "Up to 24 players" },
+] as const;
+const DEVICES = Object.keys(DEVICE_LABEL) as DeviceHint[];
 
 function one(v: string | string[] | undefined) {
   return Array.isArray(v) ? v[0] : v;
 }
 
+/*
+ * Explore. Browsing uses GET /v1/games (genre, size, device, first party,
+ * sort); a search uses GET /v1/games/search, which takes a query and a genre.
+ * Every filter is a link, so the page works without JavaScript.
+ */
 export default async function ExplorePage({ searchParams }: PageProps<"/explore">) {
   const sp = await searchParams;
   const q = one(sp.q)?.trim() || undefined;
-  const genre = GENRES.includes(one(sp.genre) as Genre) ? (one(sp.genre) as Genre) : undefined;
-  const party = PARTIES.includes(one(sp.party) as PartySize) ? (one(sp.party) as PartySize) : undefined;
-  const device = DEVICES.includes(one(sp.device) as Device) ? (one(sp.device) as Device) : undefined;
-  const sort: Sort = SORTS.some((s) => s.id === one(sp.sort)) ? (one(sp.sort) as Sort) : "playing";
+  const api = await getApi();
+  const genres = await api.listGenres();
+  const genre = genres.some((g) => g.id === one(sp.genre)) ? one(sp.genre) : undefined;
+  const size = SIZES.find((x) => x.id === one(sp.size))?.id;
+  const device = DEVICES.includes(one(sp.device) as DeviceHint) ? (one(sp.device) as DeviceHint) : undefined;
+  const mine = one(sp.metallic) === "1" ? "1" : undefined;
+  const sort: GameSort = SORTS.some((x) => x.id === one(sp.sort)) ? (one(sp.sort) as GameSort) : "popular";
   const limit = Math.min(96, Math.max(24, Number(one(sp.show)) || 24));
 
-  const query: GameQuery = { q, genre, party, device, sort, limit };
-  const result = await (await getApi()).searchGames(query);
+  const result: Page<GameSummary> = q
+    ? await api.searchGames({ q, genre, limit })
+    : await api.listGames({
+        genre,
+        sort,
+        limit,
+        device,
+        firstParty: mine ? true : undefined,
+        maxPlayers: size ? Number(size) : undefined,
+      });
 
-  const state = { q, genre, party, device, sort: sort === "playing" ? undefined : sort };
+  const state = { q, genre, size, device, metallic: mine, sort: sort === "popular" ? undefined : sort };
   function href(patch: Partial<Record<keyof typeof state, string | undefined>>) {
     const next = { ...state, ...patch };
     const p = new URLSearchParams();
@@ -45,8 +66,10 @@ export default async function ExplorePage({ searchParams }: PageProps<"/explore"
     return s ? `/explore?${s}` : "/explore";
   }
 
-  const activeCount = [genre, party, device].filter(Boolean).length;
-  const heading = genre ? GENRE_LABEL[genre] : q ? `Results for “${q}”` : "Explore";
+  const activeCount = [genre, ...(q ? [] : [size, device, mine])].filter(Boolean).length;
+  const genreLabel = genre ? (genres.find((g) => g.id === genre)?.name ?? genreName(genre)) : undefined;
+  const heading = q ? `Results for “${q}”` : (genreLabel ?? "Explore");
+  const more = href({});
 
   const filters = (
     <>
@@ -54,32 +77,46 @@ export default async function ExplorePage({ searchParams }: PageProps<"/explore"
         <FilterLink href={href({ genre: undefined })} active={!genre}>
           Any genre
         </FilterLink>
-        {GENRES.map((g) => (
-          <FilterLink key={g} href={href({ genre: genre === g ? undefined : g })} active={genre === g}>
-            {GENRE_LABEL[g]}
+        {genres.map((g) => (
+          <FilterLink key={g.id} href={href({ genre: genre === g.id ? undefined : g.id })} active={genre === g.id}>
+            {g.name}
           </FilterLink>
         ))}
       </FilterGroup>
-      <FilterGroup title="Who you play with">
-        <FilterLink href={href({ party: undefined })} active={!party}>
-          Anyone
-        </FilterLink>
-        {PARTIES.map((p) => (
-          <FilterLink key={p} href={href({ party: party === p ? undefined : p })} active={party === p}>
-            {PARTY_LABEL[p]}
-          </FilterLink>
-        ))}
-      </FilterGroup>
-      <FilterGroup title="Plays on">
-        <FilterLink href={href({ device: undefined })} active={!device}>
-          Any device
-        </FilterLink>
-        {DEVICES.map((d) => (
-          <FilterLink key={d} href={href({ device: device === d ? undefined : d })} active={device === d}>
-            {DEVICE_LABEL[d]}
-          </FilterLink>
-        ))}
-      </FilterGroup>
+      {q ? (
+        <p className={styles.searchNote}>Server size, device and sorting apply when browsing. Clear the search to use them.</p>
+      ) : (
+        <>
+          <FilterGroup title="Server size">
+            <FilterLink href={href({ size: undefined })} active={!size}>
+              Any size
+            </FilterLink>
+            {SIZES.map((x) => (
+              <FilterLink key={x.id} href={href({ size: size === x.id ? undefined : x.id })} active={size === x.id}>
+                {x.label}
+              </FilterLink>
+            ))}
+          </FilterGroup>
+          <FilterGroup title="Plays on">
+            <FilterLink href={href({ device: undefined })} active={!device}>
+              Any device
+            </FilterLink>
+            {DEVICES.map((d) => (
+              <FilterLink key={d} href={href({ device: device === d ? undefined : d })} active={device === d}>
+                {DEVICE_LABEL[d]}
+              </FilterLink>
+            ))}
+          </FilterGroup>
+          <FilterGroup title="Made by">
+            <FilterLink href={href({ metallic: undefined })} active={!mine}>
+              Anyone
+            </FilterLink>
+            <FilterLink href={href({ metallic: mine ? undefined : "1" })} active={Boolean(mine)}>
+              Metallic
+            </FilterLink>
+          </FilterGroup>
+        </>
+      )}
     </>
   );
 
@@ -91,10 +128,16 @@ export default async function ExplorePage({ searchParams }: PageProps<"/explore"
           <label htmlFor="explore-q" className="visually-hidden">
             Search games
           </label>
-          <input id="explore-q" name="q" type="search" defaultValue={q} placeholder="Name, creator or tag" className={styles.searchInput} />
+          <input
+            id="explore-q"
+            name="q"
+            type="search"
+            defaultValue={q}
+            maxLength={80}
+            placeholder="Name, creator or tag"
+            className={styles.searchInput}
+          />
           {genre ? <input type="hidden" name="genre" value={genre} /> : null}
-          {party ? <input type="hidden" name="party" value={party} /> : null}
-          {device ? <input type="hidden" name="device" value={device} /> : null}
           <button type="submit" className={button("secondary")}>
             Search
           </button>
@@ -104,18 +147,16 @@ export default async function ExplorePage({ searchParams }: PageProps<"/explore"
       <div className={styles.body}>
         <aside className={styles.filters} aria-label="Filters">
           <details className={styles.filterDrawer}>
-            <summary className={styles.filterSummary}>
-              Filters{activeCount ? ` (${activeCount} on)` : ""}
-            </summary>
+            <summary className={styles.filterSummary}>Filters{activeCount ? ` (${activeCount} on)` : ""}</summary>
             <div className={styles.filterInner}>{filters}</div>
           </details>
           <div className={styles.filterStatic}>{filters}</div>
         </aside>
 
-        <section className={styles.results} aria-labelledby="results-count">
+        <section className={styles.results} aria-label="Games">
           <div className={styles.resultsBar}>
-            <p id="results-count" className={styles.count} aria-live="polite">
-              {result.total} {result.total === 1 ? "game" : "games"}
+            <p className={styles.count}>
+              {q ? "Best matches first" : `Sorted by ${SORTS.find((x) => x.id === sort)!.label.toLowerCase()}`}
               {activeCount || q ? (
                 <>
                   {" "}
@@ -125,18 +166,20 @@ export default async function ExplorePage({ searchParams }: PageProps<"/explore"
                 </>
               ) : null}
             </p>
-            <nav aria-label="Sort" className={styles.sorts}>
-              {SORTS.map((s) => (
-                <Link
-                  key={s.id}
-                  href={href({ sort: s.id === "playing" ? undefined : s.id })}
-                  className={styles.sort}
-                  aria-current={sort === s.id ? "true" : undefined}
-                >
-                  {s.label}
-                </Link>
-              ))}
-            </nav>
+            {q ? null : (
+              <nav aria-label="Sort" className={styles.sorts}>
+                {SORTS.map((x) => (
+                  <Link
+                    key={x.id}
+                    href={href({ sort: x.id === "popular" ? undefined : x.id })}
+                    className={styles.sort}
+                    aria-current={sort === x.id ? "true" : undefined}
+                  >
+                    {x.label}
+                  </Link>
+                ))}
+              </nav>
+            )}
           </div>
 
           {result.items.length === 0 ? (
@@ -163,8 +206,8 @@ export default async function ExplorePage({ searchParams }: PageProps<"/explore"
                   </li>
                 ))}
               </ul>
-              {result.next ? (
-                <Link href={`${href({})}${href({}).includes("?") ? "&" : "?"}show=${limit + 24}`} className={button("secondary")} scroll={false}>
+              {result.nextCursor ? (
+                <Link href={`${more}${more.includes("?") ? "&" : "?"}show=${limit + 24}`} className={button("secondary")} scroll={false}>
                   Show more games
                 </Link>
               ) : null}

@@ -151,3 +151,8 @@
   border-radius: 2px;
   background: var(--surface-2);
 }
+
+.hint {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+}

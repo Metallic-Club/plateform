@@ -1,41 +1,36 @@
-import type { AvatarLook, FriendRequest, UserProfile } from "../../types";
+import type { AvatarLook } from "../../types";
 import { equip } from "./catalog";
+import type { FixtureUser } from "./model";
 
 /* Sample accounts for the preview build. None of these are real people. */
 
-function look(skin: string, ids: string[]): AvatarLook {
+function look(skin: string, keys: string[]): AvatarLook {
   const equipped: AvatarLook["equipped"] = {};
-  for (const id of ids) {
-    const e = equip(id);
-    equipped[e.slot] = e;
+  for (const key of keys) {
+    const e = equip(key);
+    equipped[e.category] = e;
   }
   return { skin, equipped };
 }
 
-type U = UserProfile;
+type U = FixtureUser;
 
-function user(p: Omit<U, "links" | "bio" | "friendCount" | "joinedAt"> & Partial<U>): U {
-  return {
-    bio: "",
-    links: [],
-    friendCount: 0,
-    joinedAt: "2026-09-20T00:00:00Z",
-    ...p,
-  };
+function user(p: Omit<U, "links" | "bio" | "friendCount" | "createdAt"> & Partial<U>): U {
+  return { bio: "", links: [], friendCount: 0, createdAt: "2026-09-20T00:00:00Z", ...p };
 }
 
 export const viewer: U = user({
-  id: "u-ash",
+  key: "u-ash",
   username: "ash_wren",
   displayName: "Ash Wren",
-  avatar: look("#c99a78", ["i-crop", "i-face-calm", "i-work-jacket", "i-cargo", "i-boots", "i-backpack"]),
+  look: look("#c99a78", ["i-crop", "i-face-calm", "i-work-jacket", "i-cargo", "i-boots", "i-backpack"]),
   presence: { status: "online" },
   bio: "Mostly racing and co-op climbs. Building a train game in Studio, slowly.",
-  joinedAt: "2026-09-16T00:00:00Z",
+  createdAt: "2026-09-16T00:00:00Z",
   links: [
-    { kind: "discord", handle: "ash_wren", url: "https://discord.com/" },
-    { kind: "youtube", handle: "@ashwren", url: "https://www.youtube.com/" },
-    { kind: "twitch", handle: "ashwren", url: "https://www.twitch.tv/" },
+    { platform: "discord", handle: "ash_wren" },
+    { platform: "youtube", handle: "@ashwren" },
+    { platform: "twitch", handle: "ashwren" },
   ],
   friendCount: 9,
 });
@@ -43,130 +38,129 @@ export const viewer: U = user({
 export const people: U[] = [
   viewer,
   user({
-    id: "u-lumen",
-    username: "lumen.k",
+    key: "u-lumen",
+    username: "lumen_k",
     displayName: "Lumen",
-    avatar: look("#8d5b3e", ["i-bob", "i-face-grin", "i-anodised-tee", "i-denim", "i-high-tops"]),
-    presence: { status: "in-game", gameId: "ferrous-drift", gameName: "Ferrous Drift", serverId: "ferrous-drift-s2" },
+    look: look("#8d5b3e", ["i-bob", "i-face-grin", "i-anodised-tee", "i-denim", "i-high-tops"]),
+    presence: { status: "in_game", game: "ferrous-drift", server: 2 },
     bio: "Ferrous Drift time trials. Ask me about gear ratios.",
-    links: [{ kind: "twitch", handle: "lumenk", url: "https://www.twitch.tv/" }],
+    links: [{ platform: "twitch", handle: "lumenk" }],
     friendCount: 31,
   }),
   user({
-    id: "u-pockettorch",
+    key: "u-pockettorch",
     username: "PocketTorch",
     displayName: "PocketTorch",
-    avatar: look("#e0b896", ["i-curls", "i-face-focus", "i-rain-shell", "i-shorts", "i-runners", "i-bucket"]),
-    presence: { status: "in-game", gameId: "the-long-lantern", gameName: "The Long Lantern", serverId: "the-long-lantern-s1" },
+    look: look("#e0b896", ["i-curls", "i-face-focus", "i-rain-shell", "i-shorts", "i-runners", "i-bucket"]),
+    presence: { status: "in_game", game: "the-long-lantern", server: 1 },
     friendCount: 12,
   }),
   user({
-    id: "u-orrery",
+    key: "u-orrery",
     username: "orrery",
     displayName: "orrery",
-    avatar: look("#6e4630", ["i-crop", "i-face-calm", "i-graphite-hoodie", "i-cargo", "i-runners", "i-welder"]),
-    presence: { status: "in-game", gameId: "orbit-couriers", gameName: "Orbit Couriers", serverId: null },
+    look: look("#6e4630", ["i-crop", "i-face-calm", "i-graphite-hoodie", "i-cargo", "i-runners", "i-welder"]),
+    presence: { status: "in_game", game: "orbit-couriers", server: null },
     bio: "Delivering parcels to moons. Studio tinkerer.",
-    links: [{ kind: "youtube", handle: "@orrery", url: "https://www.youtube.com/" }],
+    links: [{ platform: "youtube", handle: "@orrery" }],
     friendCount: 54,
   }),
   user({
-    id: "u-milo",
+    key: "u-milo",
     username: "milo_v",
     displayName: "Milo",
-    avatar: look("#f1cfb0", ["i-crop", "i-face-grin", "i-striped-tee", "i-denim", "i-runners", "i-cap"]),
-    presence: { status: "in-game", gameId: "brickfall-tycoon", gameName: "Brickfall Tycoon", serverId: "brickfall-tycoon-s4" },
+    look: look("#f1cfb0", ["i-crop", "i-face-grin", "i-striped-tee", "i-denim", "i-runners", "i-cap"]),
+    presence: { status: "in_game", game: "brickfall-tycoon", server: 4 },
     friendCount: 8,
   }),
   user({
-    id: "u-fjord",
+    key: "u-fjord",
     username: "quietfjord",
     displayName: "Quiet Fjord",
-    avatar: look("#d2a07e", ["i-bob", "i-face-calm", "i-fisher-vest", "i-cargo", "i-boots"]),
+    look: look("#d2a07e", ["i-bob", "i-face-calm", "i-fisher-vest", "i-cargo", "i-boots"]),
     presence: { status: "online" },
     bio: "Saltmarsh regular. Bring me your clams.",
-    links: [{ kind: "tiktok", handle: "@quietfjord", url: "https://www.tiktok.com/" }],
+    links: [{ platform: "tiktok", handle: "@quietfjord" }],
     friendCount: 19,
   }),
   user({
-    id: "u-bramble",
+    key: "u-bramble",
     username: "bramble",
     displayName: "Bramble",
-    avatar: look("#a7714c", ["i-curls", "i-face-grin", "i-graphite-hoodie", "i-pleated", "i-high-tops", "i-cape"]),
-    presence: { status: "online" },
+    look: look("#a7714c", ["i-curls", "i-face-grin", "i-graphite-hoodie", "i-pleated", "i-high-tops", "i-cape"]),
+    presence: { status: "in_studio" },
     friendCount: 23,
   }),
   user({
-    id: "u-tess",
+    key: "u-tess",
     username: "tessellate",
     displayName: "Tess",
-    avatar: look("#e7c3a3", ["i-bob", "i-face-focus", "i-anodised-tee", "i-shorts", "i-runners", "i-beanie"]),
-    presence: { status: "offline", lastSeenAt: "2026-10-29T21:40:00Z" },
+    look: look("#e7c3a3", ["i-bob", "i-face-focus", "i-anodised-tee", "i-shorts", "i-runners", "i-beanie"]),
+    presence: { status: "offline", lastOnlineAt: "2026-10-29T21:40:00Z" },
     friendCount: 40,
   }),
   user({
-    id: "u-kite",
+    key: "u-kite",
     username: "kitecat",
     displayName: "kitecat",
-    avatar: look("#7a4b33", ["i-crop", "i-face-calm", "i-work-jacket", "i-denim", "i-boots"]),
-    presence: { status: "offline", lastSeenAt: "2026-10-27T18:05:00Z" },
+    look: look("#7a4b33", ["i-crop", "i-face-calm", "i-work-jacket", "i-denim", "i-boots"]),
+    presence: { status: "offline", lastOnlineAt: "2026-10-27T18:05:00Z" },
     friendCount: 6,
   }),
   user({
-    id: "u-sable",
+    key: "u-sable",
     username: "sable",
     displayName: "Sable",
-    avatar: look("#cf9f7f", ["i-bob", "i-face-calm", "i-rain-shell", "i-cargo", "i-high-tops"]),
-    presence: { status: "offline", lastSeenAt: "2026-10-22T09:12:00Z" },
+    look: look("#cf9f7f", ["i-bob", "i-face-calm", "i-rain-shell", "i-cargo", "i-high-tops"]),
+    presence: { status: "offline", lastOnlineAt: "2026-10-22T09:12:00Z" },
     friendCount: 14,
   }),
   // Not friends with the viewer: appear in requests and search.
   user({
-    id: "u-nori",
+    key: "u-nori",
     username: "nori",
     displayName: "Nori",
-    avatar: look("#efc9a8", ["i-curls", "i-face-grin", "i-striped-tee", "i-pleated", "i-runners", "i-bucket"]),
+    look: look("#efc9a8", ["i-curls", "i-face-grin", "i-striped-tee", "i-pleated", "i-runners", "i-bucket"]),
     presence: { status: "online" },
     friendCount: 3,
   }),
   user({
-    id: "u-gantry",
+    key: "u-gantry",
     username: "gantry",
     displayName: "Gantry",
-    avatar: look("#94603f", ["i-crop", "i-face-focus", "i-graphite-hoodie", "i-cargo", "i-boots", "i-welder"]),
-    presence: { status: "in-game", gameId: "clocktower-heist", gameName: "Clocktower Heist", serverId: "clocktower-heist-s1" },
+    look: look("#94603f", ["i-crop", "i-face-focus", "i-graphite-hoodie", "i-cargo", "i-boots", "i-welder"]),
+    presence: { status: "in_game", game: "clocktower-heist", server: 1 },
     friendCount: 77,
   }),
 ];
 
-export const viewerFriendIds = [
-  "u-lumen",
-  "u-pockettorch",
-  "u-orrery",
-  "u-milo",
-  "u-fjord",
-  "u-bramble",
-  "u-tess",
-  "u-kite",
-  "u-sable",
-];
+export const viewerFriendKeys = ["u-lumen", "u-pockettorch", "u-orrery", "u-milo", "u-fjord", "u-bramble", "u-tess", "u-kite", "u-sable"];
 
-export const personById = new Map(people.map((p) => [p.id, p]));
+export const personByKey = new Map(people.map((p) => [p.key, p]));
 export const personByUsername = new Map(people.map((p) => [p.username.toLowerCase(), p]));
+/** Spec-style 64-bit ids, as decimal strings. */
+export const userIdByKey = new Map(people.map((p, n) => [p.key, String(1050000000000001 + n)]));
+export const userKeyById = new Map([...userIdByKey].map(([k, id]) => [id, k]));
 
-export const friendRequests: FriendRequest[] = [
-  { id: "fr-1", from: personById.get("u-nori")!, sentAt: "2026-10-29T16:20:00Z" },
-  { id: "fr-2", from: personById.get("u-gantry")!, sentAt: "2026-10-28T11:02:00Z" },
+export const friendRequests = [
+  { key: "u-nori", createdAt: "2026-10-29T16:20:00Z", mutualFriends: 2 },
+  { key: "u-gantry", createdAt: "2026-10-28T11:02:00Z", mutualFriends: 0 },
 ];
 
-export const viewerFavouriteIds = ["ferrous-drift", "hollow-peak", "snowline-express", "signal-lost", "glasshouse-garden"];
+export const viewerFavoriteKeys = ["ferrous-drift", "hollow-peak", "snowline-express", "signal-lost", "glasshouse-garden"];
 
-export const viewerRecent: { gameId: string; lastPlayedAt: string }[] = [
-  { gameId: "ferrous-drift", lastPlayedAt: "2026-10-29T22:10:00Z" },
-  { gameId: "hollow-peak", lastPlayedAt: "2026-10-29T19:45:00Z" },
-  { gameId: "snowline-express", lastPlayedAt: "2026-10-27T20:30:00Z" },
-  { gameId: "foundry", lastPlayedAt: "2026-10-25T17:00:00Z" },
+export const viewerRecent = [
+  { game: "ferrous-drift", lastPlayedAt: "2026-10-29T22:10:00Z", minutesPlayed: 1840 },
+  { game: "hollow-peak", lastPlayedAt: "2026-10-29T19:45:00Z", minutesPlayed: 410 },
+  { game: "snowline-express", lastPlayedAt: "2026-10-27T20:30:00Z", minutesPlayed: 265 },
+  { game: "foundry", lastPlayedAt: "2026-10-25T17:00:00Z", minutesPlayed: 95 },
 ];
 
-/** Usernames that cannot be registered (taken or reserved). */
-export const reservedUsernames = new Set(["metallic", "admin", "support", "moderator", ...people.map((p) => p.username.toLowerCase())]);
+/** Names that cannot be registered, with the spec's reason. */
+export const unavailableUsernames = new Map<string, "taken" | "reserved" | "released_recently">([
+  ...people.map((p) => [p.username.toLowerCase(), "taken"] as const),
+  ["metallic", "reserved"],
+  ["admin", "reserved"],
+  ["support", "reserved"],
+  ["chrome", "released_recently"],
+]);

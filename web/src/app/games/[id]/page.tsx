@@ -5,8 +5,8 @@ import { GameTile } from "@/components/GameTile";
 import { PlayButton } from "@/components/play/PlayButton";
 import { Shelf } from "@/components/Shelf";
 import { getApi } from "@/lib/api";
-import type { UserSummary } from "@/lib/api/types";
-import { DEVICE_LABEL, formatCompact, formatDate, GENRE_LABEL, SESSION_LABEL } from "@/lib/format";
+import type { RegionCode, ServerSort } from "@/lib/api/types";
+import { CONTENT_LABEL, formatCompact, formatDate, genreName, PLATFORM_LABEL } from "@/lib/format";
 import { getShell } from "@/lib/prefs.server";
 import { Gallery } from "./Gallery";
 import { LivePlayers } from "./LivePlayers";
@@ -18,33 +18,46 @@ export async function generateMetadata({ params }: PageProps<"/games/[id]">): Pr
   const { id } = await params;
   try {
     const game = await (await getApi()).getGame(id);
-    return game ? { title: game.name, description: game.tagline } : { title: "Game not found" };
+    return game ? { title: game.name, description: game.tagline ?? game.description.slice(0, 160) } : { title: "Game not found" };
   } catch {
     return { title: "Game" };
   }
 }
 
-export default async function GamePage({ params }: PageProps<"/games/[id]">) {
-  const { id } = await params;
+const SERVER_SORTS: ServerSort[] = ["most_players", "fewest_players", "newest"];
+
+function one(v: string | string[] | undefined) {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+export default async function GamePage({ params, searchParams }: PageProps<"/games/[id]">) {
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
   const api = await getApi();
   const game = await api.getGame(id);
   if (!game) notFound();
 
-  const [servers, presence, similar, viewer, shell] = await Promise.all([
-    api.listServers(id),
-    api.getPresence(id),
-    api.getSimilarGames(id),
-    api.getViewer(),
+  const regions = await api.listRegions();
+  const region = regions.some((r) => r.code === one(sp.region)) ? (one(sp.region) as RegionCode) : undefined;
+  const sort = SERVER_SORTS.includes(one(sp.sort) as ServerSort) ? (one(sp.sort) as ServerSort) : "most_players";
+  const hideFull = one(sp.full) !== "show";
+
+  const [servers, live, similar, rating, shell] = await Promise.all([
+    api.listServers(id, { region, sort, hideFull, limit: 12 }),
+    api.getLiveCounts([id]),
+    api.listSimilarGames(id, 6),
+    api.getRating(id),
     getShell(),
   ]);
-  const friendList = viewer ? await api.listFriends(viewer.user.id) : [];
-  const friends: Record<string, UserSummary> = Object.fromEntries(friendList.map((f) => [f.id, f]));
-  const friendsHere = friendList.filter((f) => f.presence.status === "in-game" && f.presence.gameId === id);
+  const count = live[0] ?? { gameId: id, playing: game.playing, servers: 0, updatedAt: new Date().toISOString() };
+  const join = one(sp.join);
+  const pictures = game.gallery?.length
+    ? game.gallery.map((art) => ({ art }))
+    : game.screenshots.map((src) => ({ src }));
 
   return (
     <div className={`page ${styles.game}`}>
       <div className={styles.top}>
-        <Gallery name={game.name} images={game.gallery} />
+        <Gallery name={game.name} items={pictures.length ? pictures : [{ src: game.thumbnailUrl }]} />
 
         <section className={styles.info} aria-labelledby="game-title">
           <h1 id="game-title" className={`wide ${styles.title}`}>
@@ -54,19 +67,26 @@ export default async function GamePage({ params }: PageProps<"/games/[id]">) {
             by <span className={styles.creator}>{game.creator.name}</span>
           </p>
 
-          <LivePlayers initial={presence} />
+          <LivePlayers initial={count} />
 
           <div className={styles.playRow}>
             <PlayButton game={game} shell={shell} size="large" block />
-            {friendsHere.length ? (
+            {join ? (
+              <p className={styles.joinError} role="alert">
+                {join === "full"
+                  ? "That server filled up before you got in. Pick another, or press Play to be placed in one."
+                  : "Metallic could not get you into a server just now. Try again in a moment."}
+              </p>
+            ) : null}
+            {game.friendsPlaying.length ? (
               <p className={styles.friendsHere}>
-                {friendsHere.map((f) => f.displayName).join(" and ")} {friendsHere.length === 1 ? "is" : "are"} playing.
-                See their server below.
+                {game.friendsPlaying.map((f) => f.displayName).join(" and ")}{" "}
+                {game.friendsPlaying.length === 1 ? "is" : "are"} playing. See their server below.
               </p>
             ) : null}
           </div>
 
-          <Reactions gameId={game.id} rating={game.rating} favourites={game.favourites} />
+          <Reactions gameId={game.id} rating={rating} favorites={game.favorites} viewer={game.viewer} />
         </section>
       </div>
 
@@ -76,50 +96,48 @@ export default async function GamePage({ params }: PageProps<"/games/[id]">) {
             About {game.name}
           </h2>
           <div className={styles.prose}>
-            {game.description.map((p) => (
-              <p key={p.slice(0, 24)}>{p}</p>
+            {game.description.split(/\n{2,}/).map((p) => (
+              <p key={p.slice(0, 32)}>{p}</p>
             ))}
           </div>
-          <ul role="list" className={styles.tags} aria-label="Tags">
-            {game.tags.map((t) => (
-              <li key={t}>
-                <Link href={`/explore?q=${encodeURIComponent(t)}`}>{t}</Link>
-              </li>
-            ))}
-          </ul>
         </div>
-          <dl className={styles.facts}>
-            <div>
-              <dt>Genre</dt>
-              <dd>
-                <Link href={`/explore?genre=${game.genre}`}>{GENRE_LABEL[game.genre]}</Link>
-              </dd>
-            </div>
-            <div>
-              <dt>Server size</dt>
-              <dd>Up to {game.maxPlayersPerServer} players</dd>
-            </div>
-            <div>
-              <dt>A session</dt>
-              <dd>{SESSION_LABEL[game.sessionLength]}</dd>
-            </div>
-            <div>
-              <dt>Plays on</dt>
-              <dd>{game.devices.map((d) => DEVICE_LABEL[d]).join(", ")}</dd>
-            </div>
-            <div>
-              <dt>Visits</dt>
-              <dd>{formatCompact(game.visits)}</dd>
-            </div>
-            <div>
-              <dt>Updated</dt>
-              <dd>{formatDate(game.updatedAt)}</dd>
-            </div>
-            <div>
-              <dt>Released</dt>
-              <dd>{formatDate(game.createdAt)}</dd>
-            </div>
-          </dl>
+        <dl className={styles.facts}>
+          <div>
+            <dt>{game.genres.length > 1 ? "Genres" : "Genre"}</dt>
+            <dd>
+              {game.genres.map((g, i) => (
+                <span key={g}>
+                  {i ? ", " : null}
+                  <Link href={`/explore?genre=${g}`}>{genreName(g)}</Link>
+                </span>
+              ))}
+            </dd>
+          </div>
+          <div>
+            <dt>Server size</dt>
+            <dd>Up to {game.maxPlayersPerServer} players</dd>
+          </div>
+          <div>
+            <dt>Plays on</dt>
+            <dd>{game.platforms.map((p) => PLATFORM_LABEL[p]).join(", ")}</dd>
+          </div>
+          <div>
+            <dt>Content</dt>
+            <dd>{CONTENT_LABEL[game.contentLabel]}</dd>
+          </div>
+          <div>
+            <dt>Visits</dt>
+            <dd>{formatCompact(game.visits)}</dd>
+          </div>
+          <div>
+            <dt>Updated</dt>
+            <dd>{formatDate(game.updatedAt)}</dd>
+          </div>
+          <div>
+            <dt>Released</dt>
+            <dd>{formatDate(game.createdAt)}</dd>
+          </div>
+        </dl>
       </section>
 
       <section className={styles.servers} aria-labelledby="servers-title" id="servers">
@@ -127,13 +145,21 @@ export default async function GamePage({ params }: PageProps<"/games/[id]">) {
           Servers
         </h2>
         <p className={styles.sub}>Pick a server to join a region or a friend. Play on its own puts you in the best one.</p>
-        <ServerBrowser game={{ id: game.id, name: game.name }} servers={servers} total={presence.servers} friends={friends} shell={shell} />
+        <ServerBrowser
+          game={{ id: game.id, name: game.name }}
+          servers={servers.items}
+          more={Boolean(servers.nextCursor)}
+          running={count.servers}
+          regions={regions}
+          filters={{ region, sort, hideFull }}
+          shell={shell}
+        />
       </section>
 
-      {similar.length ? (
+      {similar.items.length ? (
         <div id="similar">
-          <Shelf id="similar-title" title={`More like ${game.name}`} description="Same genre or the same kind of session.">
-            {similar.map((g) => (
+          <Shelf id="similar-title" title={`More like ${game.name}`} description="Played by the same people, or in the same genre.">
+            {similar.items.map((g) => (
               <li key={g.id}>
                 <GameTile game={g} />
               </li>

@@ -1,28 +1,40 @@
-import type { UserSummary } from "@/lib/api/types";
+import type { AvatarLook, PresenceStatus } from "@/lib/api/types";
 import { AvatarFigure } from "./AvatarFigure";
 import styles from "./Avatar.module.css";
 
-/** A person's head and shoulders in a circle. People are round; games and items are milled. */
+const PRESENCE_LABEL: Record<PresenceStatus, string> = {
+  online: "Online",
+  in_game: "In a game",
+  in_studio: "In Studio",
+  offline: "Offline",
+};
+
+/**
+ * A person's head and shoulders in a circle. People are round; games and items are milled.
+ * Draws the procedural look when there is one, else the spec's headshot, else a blank figure.
+ */
 export function Avatar({
   user,
   size = 40,
-  showPresence = false,
+  presence,
 }: {
-  user: Pick<UserSummary, "avatar" | "displayName" | "presence">;
+  user: { displayName: string; avatarHeadshotUrl: string | null; look?: AvatarLook };
   size?: number;
-  showPresence?: boolean;
+  /** Shows a dot for online, in a game or in Studio. */
+  presence?: PresenceStatus;
 }) {
-  const status = user.presence.status;
   return (
     <span className={styles.wrap} style={{ width: size, height: size }}>
-      <AvatarFigure look={user.avatar} crop="bust" className={styles.figure} />
-      {showPresence && status !== "offline" ? (
-        <span
-          className={styles.dot}
-          data-status={status}
-          role="img"
-          aria-label={status === "in-game" ? "In a game" : "Online"}
-        />
+      {user.look ? (
+        <AvatarFigure look={user.look} crop="bust" className={styles.figure} />
+      ) : user.avatarHeadshotUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- CDN headshots
+        <img src={user.avatarHeadshotUrl} alt="" className={styles.figure} width={size} height={size} />
+      ) : (
+        <AvatarFigure look={{ skin: "#9a9ca5", equipped: {} }} crop="bust" className={styles.figure} />
+      )}
+      {presence && presence !== "offline" ? (
+        <span className={styles.dot} data-status={presence} role="img" aria-label={PRESENCE_LABEL[presence]} />
       ) : null}
     </span>
   );

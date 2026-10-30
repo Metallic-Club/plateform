@@ -93,6 +93,15 @@
   margin-top: calc(-1 * var(--s-2));
 }
 
+.team {
+  margin-left: var(--s-3);
+  padding: 2px var(--s-2);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--t-meta);
+  font-weight: 600;
+}
+
 .presence {
   display: inline-flex;
   align-items: center;
@@ -112,8 +121,12 @@
   background: var(--online);
 }
 
-.presence[data-status="in-game"]::before {
+.presence[data-status="in_game"]::before {
   background: var(--accent-fill);
+}
+
+.presence[data-status="in_studio"]::before {
+  background: var(--ink-2);
 }
 
 .presence[data-status="offline"] {

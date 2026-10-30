@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { ThemePicker } from "@/components/ThemePicker";
 import { getApi, getMockScenario } from "@/lib/api";
 import { getPrefs } from "@/lib/prefs.server";
+import { formatDate } from "@/lib/format";
 import { PreferenceRadios } from "./PreferenceRadios";
+import { PrivacyForm } from "./PrivacyForm";
 import { ProfileForm } from "./ProfileForm";
 import styles from "./settings.module.css";
 
@@ -24,6 +26,7 @@ export default async function SettingsPage() {
 
       <nav aria-label="Settings sections" className={styles.toc}>
         <a href="#profile">Profile</a>
+        {viewer ? <a href="#account">Account and privacy</a> : null}
         <a href="#appearance">Appearance</a>
         <a href="#display">Display</a>
         {usingMock ? <a href="#preview">Preview tools</a> : null}
@@ -34,11 +37,36 @@ export default async function SettingsPage() {
           Profile
         </h2>
         {viewer ? (
-          <ProfileForm bio={viewer.user.bio} links={viewer.user.links} />
+          <ProfileForm bio={viewer.user.bio ?? ""} links={viewer.user.socialLinks} />
         ) : (
           <p className={styles.note}>Sign in to edit your bio and linked accounts.</p>
         )}
       </section>
+
+      {viewer ? (
+        <section id="account" className={styles.section} aria-labelledby="account-title">
+          <h2 id="account-title" className={styles.h2}>
+            Account and privacy
+          </h2>
+          <dl className={styles.facts}>
+            <div>
+              <dt>Email</dt>
+              <dd>{viewer.user.emailMasked}</dd>
+            </div>
+            <div>
+              <dt>Email verified</dt>
+              <dd>
+                {viewer.user.verification.status === "verified"
+                  ? "Yes"
+                  : viewer.user.verification.deleteAfter
+                    ? `Not yet. Verify by ${formatDate(viewer.user.verification.deleteAfter)} or the account is deleted.`
+                    : "Not yet."}
+              </dd>
+            </div>
+          </dl>
+          <PrivacyForm initial={viewer.user.settings.privacy} />
+        </section>
+      ) : null}
 
       <section id="appearance" className={styles.section} aria-labelledby="appearance-title">
         <h2 id="appearance-title" className="visually-hidden">

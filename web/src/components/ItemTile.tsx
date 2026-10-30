@@ -1,21 +1,28 @@
 import Link from "next/link";
-import type { CatalogItem } from "@/lib/api/types";
+import type { CatalogItemSummary, Price } from "@/lib/api/types";
 import { ItemArtView } from "./AvatarFigure";
 import styles from "./ItemTile.module.css";
 
-export function formatPrice(price: number) {
-  return price === 0 ? "Free" : `${price.toLocaleString("en-US")} credits`;
+export function formatPrice(price: Price | null) {
+  if (!price) return "Not for sale";
+  return price.amount === 0 ? "Free" : `${price.amount.toLocaleString("en-US")} credits`;
 }
 
-export function ItemTile({ item }: { item: CatalogItem }) {
+/** One item. `owned` comes from the viewer's inventory; the catalog list does not carry it. */
+export function ItemTile({ item, owned = false }: { item: CatalogItemSummary; owned?: boolean }) {
   return (
     <Link href={`/marketplace/${item.id}`} className={styles.tile}>
       <span className={`milled ${styles.art}`}>
-        <ItemArtView art={item.art} />
+        {item.art ? (
+          <ItemArtView art={item.art} />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- CDN thumbnails
+          <img src={item.thumbnailUrl} alt="" loading="lazy" />
+        )}
       </span>
       <span className={styles.name}>{item.name}</span>
       <span className={styles.creator}>by {item.creator.name}</span>
-      <span className={styles.price}>{item.owned ? "Owned" : formatPrice(item.price)}</span>
+      <span className={styles.price}>{owned ? "Owned" : formatPrice(item.price)}</span>
     </Link>
   );
 }

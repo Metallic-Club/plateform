@@ -6,7 +6,7 @@ import styles from "../../auth.module.css";
 
 /*
  * Device pairing code entry. UI only.
- * TODO(auth): POST the code to the device authorisation endpoint.
+ * TODO(auth): POST /v1/oauth/device/approve with { userCode, approve: true }.
  */
 export function CodeForm() {
   const [error, setError] = useState("");
@@ -17,8 +17,9 @@ export function CodeForm() {
     const code = String(new FormData(e.currentTarget).get("code") ?? "")
       .replace(/[\s-]/g, "")
       .toUpperCase();
-    if (!/^[A-Z0-9]{6}$/.test(code)) {
-      setError("Codes are 6 letters and numbers, like K7Q 2MX.");
+    // The spec's user_code: 8 consonants, shown as two groups of four.
+    if (!/^[BCDFGHJKLMNPQRSTVWXZ]{8}$/.test(code)) {
+      setError("Codes are 8 letters in two groups of four, like BDFG-KLMN.");
       setDone(false);
       return;
     }
@@ -36,7 +37,7 @@ export function CodeForm() {
           id="pair-code"
           name="code"
           className={styles.codeInput}
-          placeholder="K7Q 2MX"
+          placeholder="BDFG-KLMN"
           autoComplete="one-time-code"
           autoCapitalize="characters"
           spellCheck={false}

@@ -1,49 +1,106 @@
 import { ApiError, type MetallicApi } from "./client";
+import type { Me, Problem, StudioTemplate, Wallet } from "./types";
 
 /**
- * HTTP implementation, used when METALLIC_API_URL is set.
- * Paths are provisional until api/openapi.yaml is final; each method maps to
- * one endpoint so realigning is a one-line change per call.
+ * HTTP implementation of the spec, used when METALLIC_API_URL is set.
+ * Runs on the server; `cookie` forwards the visitor's metallic_session.
+ * TODO(auth): forward the session cookie from the incoming request.
  */
-export function createHttpApi(baseUrl: string, token?: string): MetallicApi {
-  async function get<T>(path: string, params?: object): Promise<T> {
-    const url = new URL(path.replace(/^\//, ""), baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
+export function createHttpApi(baseUrl: string, cookie?: string): MetallicApi {
+  const root = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+
+  async function call<T>(method: string, path: string, params?: object, body?: unknown): Promise<T> {
+    const url = new URL(path.replace(/^\//, ""), root);
     for (const [k, v] of Object.entries(params ?? {})) {
-      if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
+      if (v === undefined || v === "") continue;
+      url.searchParams.set(k, Array.isArray(v) ? v.join(",") : String(v));
     }
     const res = await fetch(url, {
-      headers: { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      method,
+      headers: {
+        accept: "application/json",
+        ...(body !== undefined ? { "content-type": "application/json" } : {}),
+        ...(cookie ? { cookie } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
     });
-    if (res.status === 404) return null as T;
     if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { message?: string; code?: string };
-      throw new ApiError(body.message ?? `Request failed (${res.status})`, res.status, body.code ?? "http_error");
+      const p = (await res.json().catch(() => null)) as Partial<Problem> | null;
+      throw new ApiError(p?.detail ?? p?.title ?? `Request failed (${res.status})`, res.status, p?.code ?? "http_error");
     }
-    return (await res.json()) as T;
+    return (res.status === 204 ? null : await res.json()) as T;
+  }
+
+  const get = <T>(path: string, params?: object) => call<T>("GET", path, params);
+
+  /** 404 becomes null, for detail lookups. */
+  async function find<T>(path: string): Promise<T | null> {
+    try {
+      return await get<T>(path);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  /** 401 becomes null, for "who is signed in". */
+  async function optionalAuth<T>(fn: () => Promise<T>): Promise<T | null> {
+    try {
+      return await fn();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return null;
+      throw e;
+    }
   }
 
   const enc = encodeURIComponent;
+  const items = async <T>(path: string, params?: object) => (await get<{ items: T[] }>(path, params)).items;
 
   return {
-    getViewer: () => get("/v1/me"),
-    getHomeFeed: () => get("/v1/home"),
-    searchGames: (q) => get("/v1/games", q),
-    getGame: (id) => get(`/v1/games/${enc(id)}`),
-    getSimilarGames: (id) => get(`/v1/games/${enc(id)}/similar`),
-    listServers: (id) => get(`/v1/games/${enc(id)}/servers`),
-    getPresence: (id) => get(`/v1/games/${enc(id)}/presence`),
-    getUser: (username) => get(`/v1/users/${enc(username)}`),
+    getViewer: () =>
+      optionalAuth(async () => {
+        const [user, wallet] = await Promise.all([
+          get<Me>("/v1/users/me"),
+          get<Wallet>("/v1/me/wallet"),
+        ]);
+        return { user, credits: wallet.balances.find((b) => b.currency === "credits")?.available ?? 0 };
+      }),
+    checkUsername: (username) => get("/v1/auth/username-check", { username }),
+
+    getHome: () => get("/v1/home"),
+    listGenres: () => items("/v1/genres"),
+    listGames: (q) => get("/v1/games", q),
+    searchGames: (q) => get("/v1/games/search", q),
+    getGame: (id) => find(`/v1/games/${enc(id)}`),
+    listSimilarGames: (id, limit) => get(`/v1/games/${enc(id)}/similar`, { limit }),
+    getRating: (id) => get(`/v1/games/${enc(id)}/rating`),
+    getLiveCounts: (gameIds) => items("/v1/games/live", { gameIds }),
+
+    listRegions: () => items("/v1/regions"),
+    listServers: (id, q) => get(`/v1/games/${enc(id)}/servers`, q),
+    createJoinTicket: (id, req) => call("POST", `/v1/games/${enc(id)}/join`, undefined, req ?? {}),
+
+    getUserByUsername: (username) => find(`/v1/usernames/${enc(username)}`),
+    searchUsers: (q) => get("/v1/users/search", { q }),
     listFriends: (userId) => get(`/v1/users/${enc(userId)}/friends`),
-    listFriendRequests: () => get("/v1/me/friend-requests"),
-    searchUsers: (q) => get("/v1/users", { q }),
-    listFavourites: (userId) => get(`/v1/users/${enc(userId)}/favourites`),
-    isUsernameAvailable: async (username) =>
-      (await get<{ available: boolean }>("/v1/usernames/availability", { username })).available,
-    searchCatalog: (q) => get("/v1/catalog", q),
-    getCatalogItem: (id) => get(`/v1/catalog/${enc(id)}`),
-    listInventory: () => get("/v1/me/inventory"),
-    getAvatar: () => get("/v1/me/avatar"),
-    listStudioTemplates: () => get("/v1/studio/templates"),
+    listFriendRequests: (direction = "incoming") => get("/v1/friends/requests", { direction }),
+    getPresence: (userIds) => items("/v1/presence", { userIds }),
+
+    listFavorites: () => get("/v1/me/favorites"),
+    listPlayHistory: () => get("/v1/me/play-history"),
+
+    listCatalogItems: (q) => get("/v1/catalog/items", q),
+    getCatalogItem: (id) => find(`/v1/catalog/items/${enc(id)}`),
+    listInventory: (category) => get("/v1/me/inventory", { category }),
+    getMyAvatar: () => get("/v1/me/avatar"),
+    getUserAvatar: (userId) => get(`/v1/users/${enc(userId)}/avatar`),
+
+    // Not in the P1 spec: Studio templates stay on fixtures until there is an endpoint.
+    listStudioTemplates: async () => {
+      const { templates } = await import("./mock/fixtures/templates");
+      return templates satisfies StudioTemplate[];
+    },
   };
 }
+

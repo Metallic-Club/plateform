@@ -234,3 +234,9 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+.searchNote {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+  max-width: 32ch;
+}

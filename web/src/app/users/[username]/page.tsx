@@ -9,78 +9,97 @@ import { PlayButton } from "@/components/play/PlayButton";
 import { Shelf } from "@/components/Shelf";
 import { button } from "@/components/ui/button";
 import { getApi } from "@/lib/api";
-import type { SocialKind, UserPresence } from "@/lib/api/types";
-import { formatDate, timeAgo } from "@/lib/format";
+import type { SocialPlatform } from "@/lib/api/types";
+import { formatDate, presenceText } from "@/lib/format";
 import { getShell } from "@/lib/prefs.server";
 import { AddFriendButton } from "./AddFriendButton";
 import styles from "./profile.module.css";
 
-const SOCIAL_LABEL: Record<SocialKind, string> = {
+const SOCIAL_LABEL: Record<SocialPlatform, string> = {
   discord: "Discord",
   youtube: "YouTube",
   twitch: "Twitch",
   tiktok: "TikTok",
-  website: "Website",
+  x: "X",
+  bluesky: "Bluesky",
+  instagram: "Instagram",
+  github: "GitHub",
 };
 
 export async function generateMetadata({ params }: PageProps<"/users/[username]">): Promise<Metadata> {
   const { username } = await params;
   try {
-    const user = await (await getApi()).getUser(username);
+    const user = await (await getApi()).getUserByUsername(decodeURIComponent(username));
     return { title: user ? `${user.displayName} (@${user.username})` : "Player not found" };
   } catch {
     return { title: "Profile" };
   }
 }
 
-function presenceText(p: UserPresence) {
-  if (p.status === "in-game") return `Playing ${p.gameName}`;
-  if (p.status === "online") return "Online";
-  return `Last online ${timeAgo(p.lastSeenAt)}`;
-}
-
 export default async function ProfilePage({ params }: PageProps<"/users/[username]">) {
   const { username } = await params;
   const api = await getApi();
-  const user = await api.getUser(decodeURIComponent(username));
+  const user = await api.getUserByUsername(decodeURIComponent(username));
   if (!user) notFound();
-  const [viewer, friends, favourites, shell] = await Promise.all([
-    api.getViewer(),
-    api.listFriends(user.id),
-    api.listFavourites(user.id),
+  const isMe = user.relationship === "self";
+  const [avatar, friends, favorites, shell] = await Promise.all([
+    api.getUserAvatar(user.id).catch(() => null),
+    api.listFriends(user.id).catch(() => null),
+    // The spec only lists the signed-in player's own favourites.
+    isMe ? api.listFavorites() : Promise.resolve(null),
     getShell(),
   ]);
-  const isMe = viewer?.user.id === user.id;
-  const viewerFriends = viewer && !isMe ? await api.listFriends(viewer.user.id) : [];
-  const isFriend = viewerFriends.some((f) => f.id === user.id);
+  const look = user.look;
   const p = user.presence;
+  const canJoin = !isMe && p?.status === "in_game" && p.joinable && p.game;
 
   return (
     <div className={`page ${styles.profile}`}>
       <section className={styles.head} aria-labelledby="profile-name">
         <div className={`milled ${styles.stage}`}>
-          <AvatarFigure look={user.avatar} className={styles.figure} label={`${user.displayName}'s avatar`} />
+          {look ? (
+            <AvatarFigure look={look} className={styles.figure} label={`${user.displayName}'s avatar`} />
+          ) : avatar?.fullBodyUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- CDN render
+            <img src={avatar.fullBodyUrl} alt={`${user.displayName}'s avatar`} className={styles.figure} />
+          ) : null}
         </div>
         <div className={styles.identity}>
           <h1 id="profile-name" className={`wide ${styles.name}`}>
             {user.displayName}
           </h1>
-          <p className={styles.handle}>@{user.username}</p>
-          <p className={styles.presence} data-status={p.status}>
-            {presenceText(p)}
+          <p className={styles.handle}>
+            @{user.username}
+            {user.isFirstParty ? <span className={styles.team}>Metallic team</span> : null}
           </p>
-          {user.bio ? <p className={styles.bio}>{user.bio}</p> : isMe ? <p className={styles.quiet}>You have not written a bio yet.</p> : null}
+          {p ? (
+            <p className={styles.presence} data-status={p.status}>
+              {presenceText(p)}
+            </p>
+          ) : null}
+          {user.bio ? (
+            <p className={styles.bio}>{user.bio}</p>
+          ) : isMe ? (
+            <p className={styles.quiet}>You have not written a bio yet.</p>
+          ) : null}
 
-          {user.links.length ? (
+          {user.socialLinks.length ? (
             <ul role="list" className={styles.links} aria-label="Linked accounts">
-              {user.links.map((l) => (
-                <li key={l.kind}>
-                  <a href={l.url} rel="me noopener noreferrer" target="_blank" className={styles.link}>
-                    <span className={styles.linkKind}>{SOCIAL_LABEL[l.kind]}</span>
-                    <span className={styles.linkHandle}>{l.handle}</span>
-                    <Icon name="external" size={16} />
-                    <span className="visually-hidden">(opens in a new tab)</span>
-                  </a>
+              {user.socialLinks.map((l) => (
+                <li key={l.platform}>
+                  {l.url ? (
+                    <a href={l.url} rel="me noopener noreferrer" target="_blank" className={styles.link}>
+                      <span className={styles.linkKind}>{SOCIAL_LABEL[l.platform]}</span>
+                      <span className={styles.linkHandle}>{l.handle}</span>
+                      <Icon name="external" size={16} />
+                      <span className="visually-hidden">(opens in a new tab)</span>
+                    </a>
+                  ) : (
+                    <span className={styles.link}>
+                      <span className={styles.linkKind}>{SOCIAL_LABEL[l.platform]}</span>
+                      <span className={styles.linkHandle}>{l.handle}</span>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -91,15 +110,15 @@ export default async function ProfilePage({ params }: PageProps<"/users/[usernam
               <Link href="/settings#profile" className={button("secondary")}>
                 Edit profile
               </Link>
-            ) : viewer ? (
-              <AddFriendButton isFriend={isFriend} name={user.displayName} />
+            ) : user.relationship ? (
+              <AddFriendButton relationship={user.relationship} name={user.displayName} />
             ) : null}
-            {p.status === "in-game" && !isMe ? (
+            {canJoin ? (
               <PlayButton
-                game={{ id: p.gameId, name: p.gameName }}
+                game={{ id: p.game!.id, name: p.game!.name }}
                 shell={shell}
-                serverId={p.serverId ?? undefined}
-                label={`Join in ${p.gameName}`}
+                followUserId={user.id}
+                label={`Join in ${p.game!.name}`}
               />
             ) : null}
           </div>
@@ -109,13 +128,15 @@ export default async function ProfilePage({ params }: PageProps<"/users/[usernam
               <dt>Friends</dt>
               <dd>{user.friendCount}</dd>
             </div>
-            <div>
-              <dt>Favourites</dt>
-              <dd>{favourites.length}</dd>
-            </div>
+            {favorites ? (
+              <div>
+                <dt>Favourites</dt>
+                <dd>{favorites.items.length}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>Joined</dt>
-              <dd>{formatDate(user.joinedAt)}</dd>
+              <dd>{formatDate(user.createdAt)}</dd>
             </div>
           </dl>
         </div>
@@ -132,13 +153,15 @@ export default async function ProfilePage({ params }: PageProps<"/users/[usernam
             </Link>
           ) : null}
         </div>
-        {friends.length ? (
+        {!friends ? (
+          <p className={styles.quiet}>{user.displayName} keeps their friends list private.</p>
+        ) : friends.items.length ? (
           <ul role="list" className={styles.friendGrid}>
-            {friends.slice(0, 12).map((f) => (
-              <li key={f.id}>
-                <Link href={`/users/${f.username}`} className={styles.friend}>
-                  <Avatar user={f} size={64} showPresence />
-                  <span className={styles.friendName}>{f.displayName}</span>
+            {friends.items.slice(0, 12).map((f) => (
+              <li key={f.user.id}>
+                <Link href={`/users/${f.user.username}`} className={styles.friend}>
+                  <Avatar user={f.user} size={64} presence={f.presence?.status} />
+                  <span className={styles.friendName}>{f.user.displayName}</span>
                 </Link>
               </li>
             ))}
@@ -150,26 +173,26 @@ export default async function ProfilePage({ params }: PageProps<"/users/[usernam
         )}
       </section>
 
-      <div id="favourites">
-        {favourites.length ? (
-          <Shelf id="fav-title" title="Favourite games" columns={5}>
-            {favourites.map((g) => (
-              <li key={g.id}>
-                <GameTile game={g} />
-              </li>
-            ))}
-          </Shelf>
-        ) : (
-          <section aria-labelledby="fav-empty" className={styles.friends}>
-            <h2 id="fav-empty" className={styles.h2}>
-              Favourite games
-            </h2>
-            <p className={styles.quiet}>
-              {isMe ? "Games you favourite appear here and on your profile." : "No favourites yet."}
-            </p>
-          </section>
-        )}
-      </div>
+      {favorites ? (
+        <div id="favourites">
+          {favorites.items.length ? (
+            <Shelf id="fav-title" title="Your favourite games" columns={5}>
+              {favorites.items.map((f) => (
+                <li key={f.game.id}>
+                  <GameTile game={f.game} />
+                </li>
+              ))}
+            </Shelf>
+          ) : (
+            <section aria-labelledby="fav-empty" className={styles.friends}>
+              <h2 id="fav-empty" className={styles.h2}>
+                Your favourite games
+              </h2>
+              <p className={styles.quiet}>Games you favourite appear here. Only you can see this list.</p>
+            </section>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,0 +1,2297 @@
+openapi: 3.1.0
+info:
+  title: Metallic Platform API
+  version: 0.1.1
+  summary: Public HTTP API for the Metallic website, Launcher, Player and Studio (milestone P1).
+  description: |
+    The platform API behind the Metallic website, the desktop Launcher, the Metallic player and Metallic Studio.
+    Design: `docs/superpowers/specs/2026-10-30-platform-design.md`. This file is the source of truth: the server
+    implements it and the web app generates its types from it.
+
+    Conventions
+    - All paths start with `/v1`. Breaking changes get `/v2`; additive changes keep `/v1`.
+    - IDs are 64-bit integers sent as decimal strings (JavaScript cannot hold them as numbers).
+    - Times are RFC 3339 in UTC.
+    - Lists use cursor pagination: `?limit=&cursor=`; the response has `items` and `nextCursor` (null at the end).
+    - Errors use RFC 9457 problem details (`application/problem+json`) with a stable `code`.
+    - Browser clients use the `metallic_session` cookie and must send `X-CSRF-Token` on POST, PUT, PATCH and DELETE.
+      Native clients (Launcher, Player, Studio) use a bearer access token from the device or PKCE flow and send no
+      cookie. Native clients never see a password.
+    - Rate limits are reported with `RateLimit-Policy` and `RateLimit` headers; a 429 carries `Retry-After`.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Metallic-Proprietary
+servers:
+  - url: /
+    description: Same origin as the website. Deployed hosts are configured per environment, never in this file.
+tags:
+  - name: ops
+    description: Health checks for load balancers.
+  - name: auth
+    description: Sign-up, sign-in, sessions, and the device and PKCE flows for native apps.
+  - name: users
+    description: Profiles, settings and social links.
+  - name: friends
+    description: Friends, friend requests, blocks and presence.
+  - name: games
+    description: Game list, detail, search, home feed, ratings and live counts.
+  - name: servers
+    description: Running servers of a game and join tickets for the Player.
+  - name: library
+    description: The signed-in user's favourites and play history.
+  - name: catalog
+    description: Avatar items, inventory and the worn avatar (read in P1, plus equip).
+  - name: economy
+    description: Currency balance and transaction history (read only in P1).
+
+security:
+  - sessionCookie: []
+  - bearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      tags: [ops]
+      operationId: getHealth
+      summary: Liveness and readiness
+      security: []
+      responses:
+        '200':
+          description: The service is up. `checks` lists dependencies and their state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+              example:
+                status: ok
+                version: 0.1.0
+                checks: { database: ok, cache: ok }
+        '503':
+          description: A required dependency is down.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+              example:
+                status: degraded
+                version: 0.1.0
+                checks: { database: down, cache: ok }
+
+  # ---------------------------------------------------------------- auth
+  /v1/auth/signup:
+    post:
+      tags: [auth]
+      operationId: signUp
+      summary: Create an account
+      description: |
+        Creates an account and a browser session. The account starts `unverified`; the user must verify the email
+        address within 30 days or the account is deleted (see `Me.verification`). Under-13 sign-ups need
+        `parentEmail`; the account stays limited until a parent confirms.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignUpRequest' }
+            example:
+              username: ferro_kit
+              password: correct-horse-battery-staple
+              email: kit@example.com
+              birthDate: '2010-04-17'
+              acceptTerms: true
+              captchaToken: 03AFcWeA...
+      responses:
+        '201':
+          description: Account created and signed in. Sets the `metallic_session` cookie.
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/SetSessionCookie' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: Username or email not available.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                type: https://docs.metallic.example/errors/username-unavailable
+                title: Username not available
+                status: 409
+                code: username_unavailable
+                detail: That name is reserved.
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/auth/username-check:
+    get:
+      tags: [auth]
+      operationId: checkUsername
+      summary: Check whether a username can be taken
+      security: []
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/Username' }
+      responses:
+        '200':
+          description: Availability and, when unavailable, why.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsernameCheck' }
+              examples:
+                available:
+                  value: { username: ferro_kit, available: true, reason: null }
+                cooldown:
+                  value: { username: chrome, available: false, reason: released_recently }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: logIn
+      summary: Sign in on the website
+      description: Browser-only. Returns `mfa_required` when the account has a second factor.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example: { login: ferro_kit, password: correct-horse-battery-staple }
+      responses:
+        '200':
+          description: Signed in. Sets the `metallic_session` cookie.
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/SetSessionCookie' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '401':
+          description: Wrong login or password. The response never says which.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                type: https://docs.metallic.example/errors/invalid-credentials
+                title: Sign-in failed
+                status: 401
+                code: invalid_credentials
+        '403':
+          description: Second factor needed, or the account is banned.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                mfa:
+                  value:
+                    type: https://docs.metallic.example/errors/mfa-required
+                    title: Second step needed
+                    status: 403
+                    code: mfa_required
+                banned:
+                  value:
+                    type: https://docs.metallic.example/errors/account-banned
+                    title: Account banned
+                    status: 403
+                    code: account_banned
+                    detail: See the moderation notice for the reason and how to appeal.
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logOut
+      summary: End the current session
+      responses:
+        '204': { description: Signed out; the cookie is cleared. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/auth/session:
+    get:
+      tags: [auth]
+      operationId: getSession
+      summary: Current session
+      responses:
+        '200':
+          description: The signed-in user and a fresh CSRF token.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/auth/email/verify:
+    post:
+      tags: [auth]
+      operationId: verifyEmail
+      summary: Confirm an email address with the code from the email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, minLength: 16, maxLength: 128 }
+            example: { token: 7hQm2c9RkPz0vXwY4bLs }
+      responses:
+        '204': { description: Email verified. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '410':
+          description: The link expired or was already used.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /v1/auth/email/resend:
+    post:
+      tags: [auth]
+      operationId: resendVerificationEmail
+      summary: Send the verification email again
+      responses:
+        '204': { description: 'Sent, or skipped if already verified.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/oauth/device/code:
+    post:
+      tags: [auth]
+      operationId: startDeviceAuthorization
+      summary: Start device sign-in (RFC 8628) from the Launcher, Player or Studio
+      description: |
+        The app shows `user_code` and opens `verification_uri_complete` in the browser. The user signs in on the
+        website and approves. The app polls `/v1/oauth/token` every `interval` seconds.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { $ref: '#/components/schemas/DeviceCodeRequest' }
+            example: { client_id: metallic-studio, scope: 'profile play publish' }
+      responses:
+        '200':
+          description: Codes issued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeviceCodeResponse' }
+              example:
+                device_code: GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS
+                user_code: WDJB-MJHT
+                verification_uri: https://metallic.example/activate
+                verification_uri_complete: https://metallic.example/activate?code=WDJB-MJHT
+                expires_in: 600
+                interval: 5
+        '400': { $ref: '#/components/responses/OAuthBadRequest' }
+
+  /v1/oauth/device/approve:
+    post:
+      tags: [auth]
+      operationId: approveDeviceAuthorization
+      summary: Approve or deny a device sign-in (website, signed in)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeviceApproval' }
+            example: { userCode: WDJB-MJHT, approve: true }
+      responses:
+        '200':
+          description: Which app asked and what it was granted, for the confirmation screen.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeviceApprovalResult' }
+              example:
+                clientId: metallic-studio
+                clientName: Metallic Studio
+                scopes: [profile, play, publish]
+                approved: true
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/oauth/token:
+    post:
+      tags: [auth]
+      operationId: exchangeToken
+      summary: Token endpoint for native apps
+      description: |
+        Grants: `urn:ietf:params:oauth:grant-type:device_code` (RFC 8628), `authorization_code` with PKCE
+        (RFC 7636, loopback redirect per RFC 8252) and `refresh_token`. Refresh tokens rotate on every use; reusing an
+        old one revokes the whole chain.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { $ref: '#/components/schemas/TokenRequest' }
+            examples:
+              device:
+                value:
+                  grant_type: urn:ietf:params:oauth:grant-type:device_code
+                  device_code: GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS
+                  client_id: metallic-studio
+              refresh:
+                value:
+                  grant_type: refresh_token
+                  refresh_token: mrt_8xLq0aPz
+                  client_id: metallic-launcher
+      responses:
+        '200':
+          description: Tokens issued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+              example:
+                access_token: mat_eyJraWQiOiJ0ZXN0In0
+                token_type: Bearer
+                expires_in: 900
+                refresh_token: mrt_9yMr1bQa
+                scope: profile play publish
+        '400': { $ref: '#/components/responses/OAuthBadRequest' }
+
+  /v1/oauth/revoke:
+    post:
+      tags: [auth]
+      operationId: revokeToken
+      summary: Revoke a refresh or access token (RFC 7009)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [token, client_id]
+              properties:
+                token: { type: string }
+                token_type_hint: { type: string, enum: [access_token, refresh_token] }
+                client_id: { $ref: '#/components/schemas/ClientId' }
+      responses:
+        '200': { description: 'Revoked, or the token was already invalid.' }
+        '400': { $ref: '#/components/responses/OAuthBadRequest' }
+
+  # ---------------------------------------------------------------- users
+  /v1/users/me:
+    get:
+      tags: [users]
+      operationId: getMe
+      summary: The signed-in user's own account
+      responses:
+        '200':
+          description: Own profile plus private fields.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+              example:
+                id: '1050000000000001'
+                username: ferro_kit
+                displayName: Kit
+                bio: I build obbies.
+                avatarHeadshotUrl: https://cdn.metallic.example/h/4f1a9c.webp
+                createdAt: '2026-10-01T18:22:04Z'
+                socialLinks: []
+                friendCount: 12
+                isFirstParty: false
+                emailMasked: k***@example.com
+                verification: { status: unverified, deleteAfter: '2026-10-31T18:22:04Z' }
+                ageBand: '13_15'
+                accountStatus: active
+                settings:
+                  theme: graphite
+                  language: en
+                  privacy:
+                    presenceVisibility: friends
+                    joinPolicy: friends
+                    friendRequests: everyone
+                    socialLinksVisibility: friends
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [users]
+      operationId: updateMe
+      summary: Edit display name and bio
+      description: Text passes the chat filter. Display names can change once every 7 days.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdate' }
+            example: { bio: Parkour maps and speedruns. }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/users/me/settings:
+    get:
+      tags: [users]
+      operationId: getSettings
+      summary: Theme, language and privacy settings
+      responses:
+        '200':
+          description: Current settings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [users]
+      operationId: updateSettings
+      summary: Change settings
+      description: For under-13 accounts the server caps privacy fields at the parent-set level.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SettingsUpdate' }
+            example: { theme: titanium, privacy: { joinPolicy: nobody } }
+      responses:
+        '200':
+          description: Settings after the change (capped values show what was applied).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/users/me/social-links:
+    put:
+      tags: [users]
+      operationId: replaceSocialLinks
+      summary: Set the profile's social links
+      description: |
+        Plain handles in P1; the server builds the URL. Discord links made through Discord account linking show
+        `verified: true` (P2). Accounts under 16 get 403 `age_restricted`; from P2 links show to others only after
+        the owner passes age assurance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [links]
+              properties:
+                links:
+                  type: array
+                  maxItems: 8
+                  items: { $ref: '#/components/schemas/SocialLinkInput' }
+            example:
+              links:
+                - { platform: youtube, handle: '@ferrokit' }
+                - { platform: twitch, handle: ferrokit }
+      responses:
+        '200':
+          description: Links as stored.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SocialLink' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/users/{userId}:
+    get:
+      tags: [users]
+      operationId: getUser
+      summary: Public profile
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Profile as the viewer may see it (fields hidden by privacy are absent).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+              example:
+                id: '1050000000000002'
+                username: argent
+                displayName: Argent
+                bio: Racing games.
+                avatarHeadshotUrl: https://cdn.metallic.example/h/88b20e.webp
+                createdAt: '2026-09-12T09:00:00Z'
+                friendCount: 40
+                isFirstParty: false
+                socialLinks:
+                  - { platform: discord, handle: argent, url: null, verified: true }
+                relationship: friend
+                presence: { userId: '1050000000000002', status: in_game, game: { id: '2050000000000010', name: Parkour }, joinable: true, lastOnlineAt: null }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/usernames/{username}:
+    get:
+      tags: [users]
+      operationId: getUserByUsername
+      summary: Look up a user by username
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Username' }
+      responses:
+        '200':
+          description: Same as `getUser`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/users/search:
+    get:
+      tags: [users]
+      operationId: searchUsers
+      summary: Find people by username or display name
+      description: Under-13 accounts do not appear in search for users they are not friends with.
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 3, maxLength: 32 }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Matches, best first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserSummaryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ---------------------------------------------------------------- friends
+  /v1/users/{userId}/friends:
+    get:
+      tags: [friends]
+      operationId: listFriends
+      summary: A user's friends
+      description: Own list always; another user's list only if their privacy allows the viewer.
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Friends, most recently active first for the owner, alphabetical for others.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FriendPage' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/friends/requests:
+    get:
+      tags: [friends]
+      operationId: listFriendRequests
+      summary: Incoming or outgoing friend requests
+      parameters:
+        - name: direction
+          in: query
+          required: false
+          schema: { type: string, enum: [incoming, outgoing], default: incoming }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Pending requests, newest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FriendRequestPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [friends]
+      operationId: sendFriendRequest
+      summary: Ask someone to be friends
+      description: |
+        Fails with `friend_limit_reached` at 500 friends, `requests_not_allowed` when the target's privacy forbids it,
+        and silently succeeds (but sends nothing) when the target has blocked the sender. If the target already sent
+        a request to the caller, both become friends at once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { $ref: '#/components/schemas/Id' }
+            example: { userId: '1050000000000002' }
+      responses:
+        '201':
+          description: Request sent, or friendship made (see `status`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FriendRequestResult' }
+              example: { status: pending, requestId: '3050000000000044' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/friends/requests/{requestId}/accept:
+    post:
+      tags: [friends]
+      operationId: acceptFriendRequest
+      summary: Accept an incoming request
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Now friends.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Friend' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/friends/requests/{requestId}:
+    delete:
+      tags: [friends]
+      operationId: deleteFriendRequest
+      summary: Decline an incoming request or cancel an outgoing one
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '204': { description: Removed. The sender is not told it was declined. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/friends/{userId}:
+    delete:
+      tags: [friends]
+      operationId: removeFriend
+      summary: Unfriend
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204': { description: No longer friends. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/blocks:
+    get:
+      tags: [friends]
+      operationId: listBlocks
+      summary: People the user has blocked
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Blocked users.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserSummaryPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/blocks/{userId}:
+    put:
+      tags: [friends]
+      operationId: blockUser
+      summary: Block someone
+      description: Removes any friendship and pending requests; hides each from the other in search, presence and servers.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204': { description: Blocked. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [friends]
+      operationId: unblockUser
+      summary: Unblock someone
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204': { description: Unblocked. Friendship is not restored. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/presence:
+    get:
+      tags: [friends]
+      operationId: getPresence
+      summary: Online status for up to 100 users
+      description: Each entry respects that user's `presenceVisibility`; hidden users read as `offline`.
+      parameters:
+        - name: userIds
+          in: query
+          required: true
+          style: form
+          explode: false
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 100
+            items: { $ref: '#/components/schemas/Id' }
+      responses:
+        '200':
+          description: One entry per requested id, in request order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Presence' }
+              example:
+                items:
+                  - { userId: '1050000000000002', status: in_game, game: { id: '2050000000000010', name: Parkour }, joinable: true, lastOnlineAt: null }
+                  - { userId: '1050000000000003', status: offline, game: null, joinable: false, lastOnlineAt: '2026-10-29T22:10:00Z' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------------------------------------------------------- games
+  /v1/home:
+    get:
+      tags: [games]
+      operationId: getHome
+      summary: Home page sections
+      description: |
+        Ordered rows for the Home tab. Signed-out visitors get featured, first-party and popular rows only.
+        Every row says why it is shown (`reason`) so the UI can label it.
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Device'
+      responses:
+        '200':
+          description: Rows in display order.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeFeed' }
+              example:
+                generatedAt: '2026-10-30T06:00:00Z'
+                sections:
+                  - id: featured
+                    kind: featured
+                    title: Featured
+                    reason: Picked by the Metallic team
+                    items:
+                      - id: '2050000000000010'
+                        name: Parkour
+                        creator: { type: user, id: '1', name: Metallic, isFirstParty: true }
+                        iconUrl: https://cdn.metallic.example/i/parkour.webp
+                        thumbnailUrl: https://cdn.metallic.example/t/parkour.webp
+                        genres: [obby, platformer]
+                        playing: 1840
+                        rating: { upPercent: 92, votes: 5120 }
+                        contentLabel: everyone
+                        isFirstParty: true
+                  - id: continue
+                    kind: continue
+                    title: Continue playing
+                    reason: You played these recently
+                    items: []
+
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /v1/genres:
+    get:
+      tags: [games]
+      operationId: listGenres
+      summary: Categories for the Explore tab
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      responses:
+        '200':
+          description: Genres with a short line each, in display order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Genre' }
+              example:
+                items:
+                  - { id: obby, name: Obby & Parkour, description: 'Jump, climb, beat the course.', gameCount: 412 }
+                  - { id: shooter, name: Shooter, description: First and third person combat., gameCount: 96 }
+
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /v1/games:
+    get:
+      tags: [games]
+      operationId: listGames
+      summary: Browse games (Explore)
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: genre
+          in: query
+          schema: { $ref: '#/components/schemas/GenreId' }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [popular, top_rated, trending, new, recently_updated], default: popular }
+        - name: firstParty
+          in: query
+          description: Only Metallic's own games.
+          schema: { type: boolean }
+        - name: maxPlayers
+          in: query
+          description: Only games whose servers hold at most this many players.
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - $ref: '#/components/parameters/Device'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of games.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameSummaryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /v1/games/search:
+    get:
+      tags: [games]
+      operationId: searchGames
+      summary: Search games by name, creator and tags
+      description: Typo-tolerant. Results already exclude games the viewer's age band cannot see.
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 80 }
+        - name: genre
+          in: query
+          schema: { $ref: '#/components/schemas/GenreId' }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Matches, best first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameSummaryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /v1/games/{gameId}:
+    get:
+      tags: [games]
+      operationId: getGame
+      summary: Game detail page
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      responses:
+        '200':
+          description: Full detail. `viewer` is present only when signed in.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameDetail' }
+              example:
+                id: '2050000000000010'
+                name: Parkour
+                creator: { type: user, id: '1', name: Metallic, isFirstParty: true }
+                iconUrl: https://cdn.metallic.example/i/parkour.webp
+                thumbnailUrl: https://cdn.metallic.example/t/parkour.webp
+                genres: [obby, platformer]
+                playing: 1840
+                rating: { upPercent: 92, votes: 5120 }
+                contentLabel: everyone
+                isFirstParty: true
+                description: Run, jump and climb through twelve stages.
+                screenshots: [https://cdn.metallic.example/s/parkour-1.webp]
+                startPlaceId: '2150000000000010'
+                maxPlayersPerServer: 24
+                platforms: [windows]
+                visits: 220431
+                favorites: 18022
+                createdAt: '2026-10-20T12:00:00Z'
+                updatedAt: '2026-10-29T16:40:00Z'
+                friendsPlaying:
+                  - { id: '1050000000000002', username: argent, displayName: Argent, avatarHeadshotUrl: https://cdn.metallic.example/h/88b20e.webp }
+                viewer: { isFavorite: true, vote: up, canVote: true, lastPlayedAt: '2026-10-29T21:15:00Z' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/games/{gameId}/similar:
+    get:
+      tags: [games]
+      operationId: listSimilarGames
+      summary: Games people who play this one also play
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Up to `limit` games.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameSummaryPage' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/games/{gameId}/rating:
+    get:
+      tags: [games]
+      operationId: getRating
+      summary: Rating totals and the viewer's vote
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      responses:
+        '200':
+          description: Totals; `myVote` and `canVote` only when signed in.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rating' }
+              example: { gameId: '2050000000000010', up: 4710, down: 410, upPercent: 92, myVote: null, canVote: false, cannotVoteReason: play_longer }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [games]
+      operationId: setRating
+      summary: Vote up or down
+      description: Allowed after 10 minutes of total play in this game on an email-verified account at least 3 days old.
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vote]
+              properties:
+                vote: { type: string, enum: [up, down] }
+            example: { vote: up }
+      responses:
+        '200':
+          description: Totals after the vote (eventually consistent; may lag a few seconds).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rating' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [games]
+      operationId: clearRating
+      summary: Remove the viewer's vote
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      responses:
+        '204': { description: Vote removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/games/live:
+    get:
+      tags: [games]
+      operationId: getLiveCounts
+      summary: Live player and server counts for up to 100 games
+      description: Counts come from server heartbeats and are at most 30 seconds old. Cache for 15 seconds.
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: gameIds
+          in: query
+          required: true
+          style: form
+          explode: false
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 100
+            items: { $ref: '#/components/schemas/Id' }
+      responses:
+        '200':
+          description: One entry per id.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+              example: public, max-age=15
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/LiveCount' }
+              example:
+                items:
+                  - { gameId: '2050000000000010', playing: 1840, servers: 82, updatedAt: '2026-10-30T06:00:12Z' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /v1/stats/live:
+    get:
+      tags: [games]
+      operationId: getPlatformLive
+      summary: Platform-wide players online and servers running
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      responses:
+        '200':
+          description: Totals.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformLive' }
+              example: { playing: 5210, online: 7988, servers: 301, updatedAt: '2026-10-30T06:00:12Z' }
+
+  # ---------------------------------------------------------------- servers
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /v1/regions:
+    get:
+      tags: [servers]
+      operationId: listRegions
+      summary: Server regions and their latency probe endpoints
+      description: The Player pings each `probeUrl` (HTTPS, tiny response) to pick a region and show ping.
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      responses:
+        '200':
+          description: Regions with capacity.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Region' }
+              example:
+                items:
+                  - { code: us-east, name: US East, probeUrl: https://probe-us-east.metallic.example/ping }
+                  - { code: eu-central, name: Europe, probeUrl: https://probe-eu-central.metallic.example/ping }
+
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /v1/games/{gameId}/servers:
+    get:
+      tags: [servers]
+      operationId: listServers
+      summary: Public servers of a game (server browser)
+      description: |
+        Servers with friends of the viewer come first, then by the chosen sort. Private and reserved servers are not
+        listed. Never exposes server addresses: joining goes through a ticket.
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+        - name: region
+          in: query
+          schema: { $ref: '#/components/schemas/RegionCode' }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [most_players, fewest_players, newest], default: most_players }
+        - name: hideFull
+          in: query
+          schema: { type: boolean, default: true }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of servers.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServerPage' }
+              example:
+                items:
+                  - id: '4050000000000301'
+                    gameId: '2050000000000010'
+                    placeId: '2150000000000010'
+                    region: us-east
+                    playing: 18
+                    maxPlayers: 24
+                    friends:
+                      - { id: '1050000000000002', username: argent, displayName: Argent, avatarHeadshotUrl: https://cdn.metallic.example/h/88b20e.webp }
+                    startedAt: '2026-10-30T05:12:00Z'
+                    joinable: true
+                nextCursor: eyJvIjoyMH0
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/games/{gameId}/join:
+    post:
+      tags: [servers]
+      operationId: createJoinTicket
+      summary: Get a join ticket and the `metallic://` link that starts the Player
+      description: |
+        With no body fields the matchmaker picks a server (best region, friends, fill). `serverId` joins a listed
+        server; `followUserId` joins a friend if their `joinPolicy` allows it. The ticket is single-use and lives 60
+        seconds. Inside the Launcher the web app opens `launchUri` directly; in a browser it opens the same link,
+        which the installed Launcher handles.
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JoinRequest' }
+            examples:
+              quick: { value: {} }
+              friend: { value: { followUserId: '1050000000000002' } }
+      responses:
+        '201':
+          description: Ticket issued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JoinTicket' }
+              example:
+                ticket: jt_q3Vn0w9LkS2c
+                launchUri: metallic://play?place=2150000000000010&ticket=jt_q3Vn0w9LkS2c
+                placeId: '2150000000000010'
+                expiresAt: '2026-10-30T06:01:12Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The chosen server is full or closing.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                type: https://docs.metallic.example/errors/server-full
+                title: Server full
+                status: 409
+                code: server_full
+
+  # ---------------------------------------------------------------- library
+  /v1/me/favorites:
+    get:
+      tags: [library]
+      operationId: listFavorites
+      summary: Favourite games
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Most recently favourited first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FavoritePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/me/favorites/{gameId}:
+    put:
+      tags: [library]
+      operationId: addFavorite
+      summary: Favourite a game
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      responses:
+        '204': { description: Favourited (idempotent). }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Limit of 1,000 favourites reached.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    delete:
+      tags: [library]
+      operationId: removeFavorite
+      summary: Unfavourite a game
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      responses:
+        '204': { description: Removed (idempotent). }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/me/play-history:
+    get:
+      tags: [library]
+      operationId: listPlayHistory
+      summary: Recently played games
+      description: Game servers record sessions; this is read and delete only. Kept for 2 years.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Most recently played first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlayHistoryPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/me/play-history/{gameId}:
+    delete:
+      tags: [library]
+      operationId: removePlayHistoryEntry
+      summary: Hide a game from play history
+      description: Also stops it from shaping the user's recommendations.
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      responses:
+        '204': { description: Removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------------------------------------------------------- catalog
+  /v1/catalog/items:
+    get:
+      tags: [catalog]
+      operationId: listCatalogItems
+      summary: Browse avatar items (Marketplace)
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: category
+          in: query
+          schema: { $ref: '#/components/schemas/ItemCategory' }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [relevance, newest, best_selling, price_low, price_high], default: relevance }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 80 }
+        - name: creatorId
+          in: query
+          schema: { $ref: '#/components/schemas/Id' }
+        - name: free
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of items.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogItemPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /v1/catalog/items/{itemId}:
+    get:
+      tags: [catalog]
+      operationId: getCatalogItem
+      summary: Item detail
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ItemId'
+      responses:
+        '200':
+          description: Item. `owned` only when signed in.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogItem' }
+              example:
+                id: '6050000000000007'
+                name: Titanium Visor
+                category: face_accessory
+                creator: { type: user, id: '1', name: Metallic, isFirstParty: true }
+                thumbnailUrl: https://cdn.metallic.example/c/visor.webp
+                price: { currency: credits, amount: 150 }
+                onSale: true
+                limited: null
+                description: Brushed titanium visor.
+                createdAt: '2026-10-25T10:00:00Z'
+                owned: false
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/me/inventory:
+    get:
+      tags: [catalog]
+      operationId: listInventory
+      summary: Items the user owns (Wardrobe)
+      parameters:
+        - name: category
+          in: query
+          schema: { $ref: '#/components/schemas/ItemCategory' }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Owned items, newest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InventoryPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/me/avatar:
+    get:
+      tags: [catalog]
+      operationId: getMyAvatar
+      summary: What the user is wearing
+      responses:
+        '200':
+          description: Current avatar.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Avatar' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [catalog]
+      operationId: setMyAvatar
+      summary: Wear a set of owned items
+      description: Every item must be owned. At most one item per slot, except up to 5 accessories in total.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AvatarUpdate' }
+            example:
+              bodyColors: { head: '#C9CBD1', torso: '#3A3D44', arms: '#C9CBD1', legs: '#2B2D33' }
+              equippedItemIds: ['6050000000000007']
+      responses:
+        '200':
+          description: Avatar as saved. Headshot and full-body renders update within a minute.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Avatar' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/users/{userId}/avatar:
+    get:
+      tags: [catalog]
+      operationId: getUserAvatar
+      summary: What another user is wearing
+      security: [{}, { sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Current avatar.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Avatar' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------- economy
+  /v1/me/wallet:
+    get:
+      tags: [economy]
+      operationId: getWallet
+      summary: Currency balance
+      description: |
+        `available` can be spent now. `giftable` is the part of `available` that can also be gifted (purchased credits
+        become giftable 72 hours after purchase). `pending` is creator earnings in escrow (7 days for game sales,
+        30 days for marketplace sales). A chargeback on spent credits can make `available` negative; spending then
+        pauses until it is positive again.
+      responses:
+        '200':
+          description: Balances.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Wallet' }
+              example:
+                balances:
+                  - { currency: credits, available: 420, giftable: 300, pending: 80 }
+                updatedAt: '2026-10-30T05:59:58Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/me/wallet/transactions:
+    get:
+      tags: [economy]
+      operationId: listWalletTransactions
+      summary: Currency history
+      parameters:
+        - name: type
+          in: query
+          schema: { $ref: '#/components/schemas/TransactionType' }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Newest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransactionPage' }
+              example:
+                items:
+                  - id: '7050000000000120'
+                    type: item_purchase
+                    currency: credits
+                    amount: -150
+                    status: settled
+                    description: Titanium Visor
+                    itemId: '6050000000000007'
+                    counterparty: null
+                    createdAt: '2026-10-29T20:00:00Z'
+                  - id: '7050000000000119'
+                    type: reward
+                    currency: credits
+                    amount: 25
+                    status: settled
+                    description: Daily play reward
+                    itemId: null
+                    counterparty: null
+                    createdAt: '2026-10-29T19:00:00Z'
+                nextCursor: null
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: metallic_session
+      description: Website session. HttpOnly, Secure, SameSite=Lax. Unsafe methods also need `X-CSRF-Token`.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Access token from `/v1/oauth/token` (15 minutes). Native apps only.
+
+  headers:
+    SetSessionCookie:
+      description: '`metallic_session=<opaque>; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`'
+      schema: { type: string }
+
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    GameId:
+      name: gameId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 24 }
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque value from a previous `nextCursor`.
+      schema: { type: string, maxLength: 512 }
+    Device:
+      name: device
+      in: query
+      description: Layout hint so rows hold games that run on the viewer's device.
+      schema: { type: string, enum: [desktop, mobile, console], default: desktop }
+
+  responses:
+    BadRequest:
+      description: The request is malformed or a field failed validation. `errors` lists the fields.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: https://docs.metallic.example/errors/validation
+            title: Some fields are not valid
+            status: 400
+            code: validation_failed
+            errors:
+              - { field: username, code: too_short, message: Use 3 to 20 characters. }
+    Unauthorized:
+      description: Not signed in, or the token expired.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: https://docs.metallic.example/errors/unauthorized
+            title: Sign in needed
+            status: 401
+            code: unauthorized
+    Forbidden:
+      description: Signed in but not allowed (privacy, age band, account state).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: https://docs.metallic.example/errors/forbidden
+            title: Not allowed
+            status: 403
+            code: privacy_restricted
+    NotFound:
+      description: No such resource, or the viewer may not know it exists.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: https://docs.metallic.example/errors/not-found
+            title: Not found
+            status: 404
+            code: not_found
+    TooManyRequests:
+      description: Rate limited. Wait `Retry-After` seconds.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: https://docs.metallic.example/errors/rate-limited
+            title: Slow down
+            status: 429
+            code: rate_limited
+    OAuthBadRequest:
+      description: OAuth error (RFC 6749 section 5.2, RFC 8628 section 3.5).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OAuthError' }
+          examples:
+            pending: { value: { error: authorization_pending } }
+            slowDown: { value: { error: slow_down } }
+            denied: { value: { error: access_denied } }
+            expired: { value: { error: expired_token } }
+
+  schemas:
+    Id:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+      description: 64-bit id as a decimal string.
+      examples: ['1050000000000001']
+    Username:
+      type: string
+      pattern: '^[A-Za-z0-9](?:[A-Za-z0-9_]{1,18}[A-Za-z0-9])$'
+      minLength: 3
+      maxLength: 20
+      description: 3 to 20 characters; letters, digits and one underscore at a time, not at either end. Case-insensitive unique.
+      examples: [ferro_kit]
+    DisplayName:
+      type: string
+      minLength: 1
+      maxLength: 32
+    ClientId:
+      type: string
+      enum: [metallic-launcher, metallic-player, metallic-studio]
+    GenreId:
+      type: string
+      pattern: '^[a-z][a-z0-9_]{1,31}$'
+      examples: [obby]
+    RegionCode:
+      type: string
+      pattern: '^[a-z]{2,8}-[a-z]{2,12}$'
+      examples: [us-east]
+    Timestamp:
+      type: string
+      format: date-time
+    NextCursor:
+      type: [string, 'null']
+      description: Pass as `cursor` to get the next page; null when there are no more.
+
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        code:
+          type: string
+          description: Stable machine-readable code; clients switch on this, never on `title`.
+        detail: { type: string }
+        instance: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, code]
+            properties:
+              field: { type: string }
+              code: { type: string }
+              message: { type: string }
+    OAuthError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum: [invalid_request, invalid_client, invalid_grant, unauthorized_client, unsupported_grant_type, invalid_scope, authorization_pending, slow_down, access_denied, expired_token]
+        error_description: { type: string }
+    Health:
+      type: object
+      required: [status, version, checks]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        version: { type: string }
+        checks:
+          type: object
+          additionalProperties: { type: string, enum: [ok, down, skipped] }
+
+    # ---- auth
+    SignUpRequest:
+      type: object
+      required: [username, password, email, birthDate, acceptTerms]
+      properties:
+        username: { $ref: '#/components/schemas/Username' }
+        password:
+          type: string
+          minLength: 10
+          maxLength: 128
+          description: Checked against a breached-password list. No other composition rules.
+        email: { type: string, format: email, maxLength: 254 }
+        birthDate:
+          type: string
+          format: date
+          description: Used only to set `ageBand`; never shown to anyone.
+        parentEmail:
+          type: string
+          format: email
+          description: Required when the birth date makes the user younger than the digital-consent age where they live.
+        acceptTerms: { type: boolean, const: true }
+        captchaToken: { type: string }
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login: { type: string, description: Username or email., maxLength: 254 }
+        password: { type: string, maxLength: 128 }
+        totpCode: { type: string, pattern: '^[0-9]{6}$' }
+        captchaToken: { type: string }
+    Session:
+      type: object
+      required: [user, csrfToken, expiresAt]
+      properties:
+        user: { $ref: '#/components/schemas/UserSummary' }
+        csrfToken: { type: string }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+      examples:
+        - user: { id: '1050000000000001', username: ferro_kit, displayName: Kit, avatarHeadshotUrl: https://cdn.metallic.example/h/4f1a9c.webp }
+          csrfToken: c5r_Zp0q81
+          expiresAt: '2026-11-29T06:00:00Z'
+    UsernameCheck:
+      type: object
+      required: [username, available, reason]
+      properties:
+        username: { type: string }
+        available: { type: boolean }
+        reason:
+          type: [string, 'null']
+          enum: [taken, reserved, released_recently, not_allowed, invalid, null]
+          description: |
+            `reserved`: held for a known creator, brand or Metallic. `released_recently`: freed by a rename or
+            deletion and held for 90 days. `not_allowed`: fails the name filter.
+    DeviceCodeRequest:
+      type: object
+      required: [client_id]
+      properties:
+        client_id: { $ref: '#/components/schemas/ClientId' }
+        scope:
+          type: string
+          description: Space-separated scopes from `profile`, `play`, `publish`.
+    DeviceCodeResponse:
+      type: object
+      required: [device_code, user_code, verification_uri, expires_in, interval]
+      properties:
+        device_code: { type: string }
+        user_code: { type: string, pattern: '^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$' }
+        verification_uri: { type: string, format: uri }
+        verification_uri_complete: { type: string, format: uri }
+        expires_in: { type: integer }
+        interval: { type: integer }
+    DeviceApproval:
+      type: object
+      required: [userCode, approve]
+      properties:
+        userCode: { type: string }
+        approve: { type: boolean }
+    DeviceApprovalResult:
+      type: object
+      required: [clientId, clientName, scopes, approved]
+      properties:
+        clientId: { $ref: '#/components/schemas/ClientId' }
+        clientName: { type: string }
+        scopes:
+          type: array
+          items: { type: string }
+        approved: { type: boolean }
+    TokenRequest:
+      type: object
+      required: [grant_type, client_id]
+      properties:
+        grant_type:
+          type: string
+          enum: ['urn:ietf:params:oauth:grant-type:device_code', authorization_code, refresh_token]
+        client_id: { $ref: '#/components/schemas/ClientId' }
+        device_code: { type: string }
+        code: { type: string }
+        code_verifier: { type: string, minLength: 43, maxLength: 128 }
+        redirect_uri:
+          type: string
+          description: Loopback only, `http://127.0.0.1:<port>/callback`.
+        refresh_token: { type: string }
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer }
+        refresh_token: { type: string }
+        scope: { type: string }
+
+    # ---- users
+    UserSummary:
+      type: object
+      required: [id, username, displayName, avatarHeadshotUrl]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        username: { $ref: '#/components/schemas/Username' }
+        displayName: { $ref: '#/components/schemas/DisplayName' }
+        avatarHeadshotUrl: { type: [string, 'null'], format: uri }
+    UserSummaryPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/UserSummary' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }
+    SocialPlatform:
+      type: string
+      enum: [discord, youtube, twitch, tiktok, x, bluesky, instagram, github]
+    SocialLinkInput:
+      type: object
+      required: [platform, handle]
+      properties:
+        platform: { $ref: '#/components/schemas/SocialPlatform' }
+        handle: { type: string, minLength: 1, maxLength: 64 }
+    SocialLink:
+      type: object
+      required: [platform, handle, url, verified]
+      properties:
+        platform: { $ref: '#/components/schemas/SocialPlatform' }
+        handle: { type: string }
+        url:
+          type: [string, 'null']
+          format: uri
+          description: Built by the server from the handle; null where the platform has no public profile URL (Discord).
+        verified:
+          type: boolean
+          description: True when linked through that platform's sign-in, not typed in.
+    Relationship:
+      type: string
+      enum: [self, friend, request_sent, request_received, blocked, none]
+    UserProfile:
+      type: object
+      required: [id, username, displayName, avatarHeadshotUrl, createdAt, friendCount, isFirstParty, socialLinks]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        username: { $ref: '#/components/schemas/Username' }
+        displayName: { $ref: '#/components/schemas/DisplayName' }
+        bio: { type: string, maxLength: 1000 }
+        avatarHeadshotUrl: { type: [string, 'null'], format: uri }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        friendCount: { type: integer, minimum: 0 }
+        isFirstParty:
+          type: boolean
+          description: Account belongs to the Metallic team.
+        socialLinks:
+          type: array
+          items: { $ref: '#/components/schemas/SocialLink' }
+        relationship: { $ref: '#/components/schemas/Relationship' }
+        presence: { $ref: '#/components/schemas/Presence' }
+    AgeBand:
+      type: string
+      enum: [under_13, '13_15', '16_17', adult, unknown]
+      description: |
+        From the self-declared birth date until age assurance runs; `unknown` for accounts created before age bands.
+        Visible only to the account itself.
+    Me:
+      allOf:
+        - $ref: '#/components/schemas/UserProfile'
+        - type: object
+          required: [emailMasked, verification, ageBand, accountStatus, settings]
+          properties:
+            emailMasked: { type: string }
+            verification:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [unverified, verified] }
+                deleteAfter:
+                  type: [string, 'null']
+                  format: date-time
+                  description: When an unverified account will be deleted. Null once verified.
+            ageBand: { $ref: '#/components/schemas/AgeBand' }
+            accountStatus:
+              type: string
+              enum: [active, limited, suspended]
+              description: '`limited`: under-13 account awaiting parental consent.'
+            settings: { $ref: '#/components/schemas/Settings' }
+    ProfileUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        displayName: { $ref: '#/components/schemas/DisplayName' }
+        bio: { type: string, maxLength: 1000 }
+    Audience:
+      type: string
+      enum: [everyone, friends, nobody]
+    Theme:
+      type: string
+      enum: [system, graphite, titanium, light]
+      description: '`graphite` is the default dark theme, `titanium` a lighter dark, `light` the light theme.'
+    Settings:
+      type: object
+      required: [theme, language, privacy]
+      properties:
+        theme: { $ref: '#/components/schemas/Theme' }
+        language: { type: string, pattern: '^[a-z]{2}(-[A-Z]{2})?$', examples: [en] }
+        privacy:
+          type: object
+          required: [presenceVisibility, joinPolicy, friendRequests, socialLinksVisibility]
+          properties:
+            presenceVisibility: { $ref: '#/components/schemas/Audience' }
+            joinPolicy: { $ref: '#/components/schemas/Audience' }
+            friendRequests:
+              type: string
+              enum: [everyone, friends_of_friends, nobody]
+            socialLinksVisibility: { $ref: '#/components/schemas/Audience' }
+    SettingsUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        theme: { $ref: '#/components/schemas/Theme' }
+        language: { type: string, pattern: '^[a-z]{2}(-[A-Z]{2})?$' }
+        privacy:
+          type: object
+          minProperties: 1
+          properties:
+            presenceVisibility: { $ref: '#/components/schemas/Audience' }
+            joinPolicy: { $ref: '#/components/schemas/Audience' }
+            friendRequests:
+              type: string
+              enum: [everyone, friends_of_friends, nobody]
+            socialLinksVisibility: { $ref: '#/components/schemas/Audience' }
+
+    # ---- friends
+    Presence:
+      type: object
+      required: [userId, status, game, joinable, lastOnlineAt]
+      properties:
+        userId: { $ref: '#/components/schemas/Id' }
+        status: { type: string, enum: [offline, online, in_game, in_studio] }
+        game:
+          type: [object, 'null']
+          required: [id, name]
+          properties:
+            id: { $ref: '#/components/schemas/Id' }
+            name: { type: string }
+        joinable:
+          type: boolean
+          description: The viewer may follow this user into their server.
+        lastOnlineAt:
+          type: [string, 'null']
+          format: date-time
+    Friend:
+      type: object
+      required: [user, since]
+      properties:
+        user: { $ref: '#/components/schemas/UserSummary' }
+        since: { $ref: '#/components/schemas/Timestamp' }
+        presence: { $ref: '#/components/schemas/Presence' }
+    FriendPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Friend' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }
+    FriendRequest:
+      type: object
+      required: [id, user, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        user:
+          $ref: '#/components/schemas/UserSummary'
+          description: The other person (sender for incoming, recipient for outgoing).
+        mutualFriends: { type: integer, minimum: 0 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+    FriendRequestPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/FriendRequest' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }
+    FriendRequestResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [pending, friends] }
+        requestId: { $ref: '#/components/schemas/Id' }
+
+    # ---- games
+    CreatorRef:
+      type: object
+      required: [type, id, name, isFirstParty]
+      properties:
+        type: { type: string, enum: [user, group] }
+        id: { $ref: '#/components/schemas/Id' }
+        name: { type: string }
+        isFirstParty: { type: boolean }
+    ContentLabel:
+      type: string
+      enum: [everyone, mild, moderate, restricted]
+      description: |
+        Set by the creator's content questionnaire and checked by moderation. `restricted` is 18+ and age-assured
+        only (not in P1).
+    RatingSummary:
+      type: object
+      required: [upPercent, votes]
+      properties:
+        upPercent: { type: [integer, 'null'], minimum: 0, maximum: 100, description: Null under 20 votes. }
+        votes: { type: integer, minimum: 0 }
+    GameSummary:
+      type: object
+      required: [id, name, creator, iconUrl, thumbnailUrl, genres, playing, rating, contentLabel, isFirstParty]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        name: { type: string, maxLength: 50 }
+        creator: { $ref: '#/components/schemas/CreatorRef' }
+        iconUrl: { type: string, format: uri }
+        thumbnailUrl: { type: string, format: uri }
+        genres:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/GenreId' }
+        playing: { type: integer, minimum: 0 }
+        rating: { $ref: '#/components/schemas/RatingSummary' }
+        contentLabel: { $ref: '#/components/schemas/ContentLabel' }
+        isFirstParty: { type: boolean }
+    GameSummaryPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/GameSummary' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }
+    GameDetail:
+      allOf:
+        - $ref: '#/components/schemas/GameSummary'
+        - type: object
+          required: [description, screenshots, startPlaceId, maxPlayersPerServer, platforms, visits, favorites, createdAt, updatedAt, friendsPlaying]
+          properties:
+            description: { type: string, maxLength: 4000 }
+            screenshots:
+              type: array
+              maxItems: 10
+              items: { type: string, format: uri }
+            startPlaceId: { $ref: '#/components/schemas/Id' }
+            maxPlayersPerServer: { type: integer, minimum: 1, maximum: 200 }
+            platforms:
+              type: array
+              items: { type: string, enum: [windows, macos, linux, android, ios] }
+            visits: { type: integer, minimum: 0 }
+            favorites: { type: integer, minimum: 0 }
+            createdAt: { $ref: '#/components/schemas/Timestamp' }
+            updatedAt: { $ref: '#/components/schemas/Timestamp' }
+            friendsPlaying:
+              type: array
+              maxItems: 10
+              items: { $ref: '#/components/schemas/UserSummary' }
+            viewer:
+              type: object
+              required: [isFavorite, vote, canVote, lastPlayedAt]
+              properties:
+                isFavorite: { type: boolean }
+                vote: { type: [string, 'null'], enum: [up, down, null] }
+                canVote: { type: boolean }
+                lastPlayedAt: { type: [string, 'null'], format: date-time }
+    Genre:
+      type: object
+      required: [id, name, description, gameCount]
+      properties:
+        id: { $ref: '#/components/schemas/GenreId' }
+        name: { type: string }
+        description: { type: string }
+        gameCount: { type: integer, minimum: 0 }
+    HomeSection:
+      type: object
+      required: [id, kind, title, reason, items]
+      properties:
+        id: { type: string }
+        kind:
+          type: string
+          enum: [featured, continue, friends_playing, recommended, because_you_played, first_party, popular, trending, new_and_rising]
+        title: { type: string }
+        reason:
+          type: string
+          description: One line shown under the row title, e.g. "Because you played Parkour".
+        items:
+          type: array
+          maxItems: 30
+          items: { $ref: '#/components/schemas/GameSummary' }
+    HomeFeed:
+      type: object
+      required: [generatedAt, sections]
+      properties:
+        generatedAt: { $ref: '#/components/schemas/Timestamp' }
+        sections:
+          type: array
+          items: { $ref: '#/components/schemas/HomeSection' }
+    Rating:
+      type: object
+      required: [gameId, up, down, upPercent]
+      properties:
+        gameId: { $ref: '#/components/schemas/Id' }
+        up: { type: integer, minimum: 0 }
+        down: { type: integer, minimum: 0 }
+        upPercent: { type: [integer, 'null'], minimum: 0, maximum: 100 }
+        myVote: { type: [string, 'null'], enum: [up, down, null] }
+        canVote: { type: boolean }
+        cannotVoteReason:
+          type: [string, 'null']
+          enum: [play_longer, verify_email, account_too_new, restricted, null]
+    LiveCount:
+      type: object
+      required: [gameId, playing, servers, updatedAt]
+      properties:
+        gameId: { $ref: '#/components/schemas/Id' }
+        playing: { type: integer, minimum: 0 }
+        servers: { type: integer, minimum: 0 }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    PlatformLive:
+      type: object
+      required: [playing, online, servers, updatedAt]
+      properties:
+        playing: { type: integer, minimum: 0, description: Users in a game server. }
+        online: { type: integer, minimum: 0, description: Users with any client open. }
+        servers: { type: integer, minimum: 0 }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+
+    # ---- servers
+    Region:
+      type: object
+      required: [code, name, probeUrl]
+      properties:
+        code: { $ref: '#/components/schemas/RegionCode' }
+        name: { type: string }
+        probeUrl: { type: string, format: uri }
+    Server:
+      type: object
+      required: [id, gameId, placeId, region, playing, maxPlayers, friends, startedAt, joinable]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        gameId: { $ref: '#/components/schemas/Id' }
+        placeId: { $ref: '#/components/schemas/Id' }
+        region: { $ref: '#/components/schemas/RegionCode' }
+        playing: { type: integer, minimum: 0 }
+        maxPlayers: { type: integer, minimum: 1 }
+        friends:
+          type: array
+          description: Viewer's friends in this server whose presence is visible to the viewer.
+          items: { $ref: '#/components/schemas/UserSummary' }
+        startedAt: { $ref: '#/components/schemas/Timestamp' }
+        joinable: { type: boolean, description: False when full or draining. }
+    ServerPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Server' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }
+    JoinRequest:
+      type: object
+      properties:
+        serverId: { $ref: '#/components/schemas/Id' }
+        followUserId: { $ref: '#/components/schemas/Id' }
+        region: { $ref: '#/components/schemas/RegionCode' }
+      not:
+        required: [serverId, followUserId]
+    JoinTicket:
+      type: object
+      required: [ticket, launchUri, placeId, expiresAt]
+      properties:
+        ticket: { type: string }
+        launchUri:
+          type: string
+          pattern: '^metallic://play\?'
+        placeId: { $ref: '#/components/schemas/Id' }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+
+    # ---- library
+    Favorite:
+      type: object
+      required: [game, favoritedAt]
+      properties:
+        game: { $ref: '#/components/schemas/GameSummary' }
+        favoritedAt: { $ref: '#/components/schemas/Timestamp' }
+    FavoritePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Favorite' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }
+    PlayHistoryEntry:
+      type: object
+      required: [game, lastPlayedAt, minutesPlayed]
+      properties:
+        game: { $ref: '#/components/schemas/GameSummary' }
+        lastPlayedAt: { $ref: '#/components/schemas/Timestamp' }
+        minutesPlayed:
+          type: integer
+          minimum: 0
+          description: Total over all sessions, rounded down.
+    PlayHistoryPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PlayHistoryEntry' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }
+
+    # ---- catalog
+    ItemCategory:
+      type: string
+      enum: [hat, hair, face, face_accessory, neck, shoulder, back, waist, shirt, pants, shoes, body, emote, bundle]
+    Price:
+      type: object
+      required: [currency, amount]
+      properties:
+        currency: { $ref: '#/components/schemas/Currency' }
+        amount: { type: integer, minimum: 0 }
+    CatalogItemSummary:
+      type: object
+      required: [id, name, category, creator, thumbnailUrl, price, onSale, limited]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        name: { type: string, maxLength: 50 }
+        category: { $ref: '#/components/schemas/ItemCategory' }
+        creator: { $ref: '#/components/schemas/CreatorRef' }
+        thumbnailUrl: { type: string, format: uri }
+        price:
+          oneOf:
+            - $ref: '#/components/schemas/Price'
+            - type: 'null'
+          description: Null when not for sale.
+        onSale: { type: boolean }
+        limited:
+          type: [object, 'null']
+          description: Present for limited-quantity items (resale arrives with trading, not in P1).
+          required: [totalSupply, remaining]
+          properties:
+            totalSupply: { type: integer, minimum: 1 }
+            remaining: { type: integer, minimum: 0 }
+    CatalogItem:
+      allOf:
+        - $ref: '#/components/schemas/CatalogItemSummary'
+        - type: object
+          required: [description, createdAt]
+          properties:
+            description: { type: string, maxLength: 1000 }
+            createdAt: { $ref: '#/components/schemas/Timestamp' }
+            owned: { type: boolean }
+    CatalogItemPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CatalogItemSummary' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }
+    InventoryItem:
+      type: object
+      required: [item, acquiredAt, source]
+      properties:
+        item: { $ref: '#/components/schemas/CatalogItemSummary' }
+        acquiredAt: { $ref: '#/components/schemas/Timestamp' }
+        source: { type: string, enum: [starter, purchase, gift, reward, promotion] }
+        serial:
+          type: [integer, 'null']
+          description: Copy number for limited items.
+    InventoryPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/InventoryItem' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }
+    HexColor:
+      type: string
+      pattern: '^#[0-9A-Fa-f]{6}$'
+    BodyColors:
+      type: object
+      required: [head, torso, arms, legs]
+      properties:
+        head: { $ref: '#/components/schemas/HexColor' }
+        torso: { $ref: '#/components/schemas/HexColor' }
+        arms: { $ref: '#/components/schemas/HexColor' }
+        legs: { $ref: '#/components/schemas/HexColor' }
+    Avatar:
+      type: object
+      required: [userId, bodyColors, equipped, headshotUrl, fullBodyUrl, updatedAt]
+      properties:
+        userId: { $ref: '#/components/schemas/Id' }
+        bodyColors: { $ref: '#/components/schemas/BodyColors' }
+        equipped:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/CatalogItemSummary' }
+        headshotUrl: { type: [string, 'null'], format: uri }
+        fullBodyUrl: { type: [string, 'null'], format: uri }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    AvatarUpdate:
+      type: object
+      required: [bodyColors, equippedItemIds]
+      properties:
+        bodyColors: { $ref: '#/components/schemas/BodyColors' }
+        equippedItemIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Id' }
+
+    # ---- economy
+    Currency:
+      type: string
+      enum: [credits]
+      description: The one platform currency. "credits" is a working name until the owner picks one.
+    Balance:
+      type: object
+      required: [currency, available, giftable, pending]
+      properties:
+        currency: { $ref: '#/components/schemas/Currency' }
+        available:
+          type: integer
+          description: Spendable now. Negative only after a chargeback on credits already spent.
+        giftable: { type: integer, minimum: 0 }
+        pending: { type: integer, minimum: 0 }
+    Wallet:
+      type: object
+      required: [balances, updatedAt]
+      properties:
+        balances:
+          type: array
+          items: { $ref: '#/components/schemas/Balance' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    TransactionType:
+      type: string
+      enum: [purchase, reward, item_purchase, item_sale, gift_sent, gift_received, game_purchase, game_earning, refund, reversal, adjustment]
+    Transaction:
+      type: object
+      required: [id, type, currency, amount, status, description, itemId, counterparty, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        type: { $ref: '#/components/schemas/TransactionType' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        amount:
+          type: integer
+          description: Signed change to the user's balance.
+        status: { type: string, enum: [pending, settled, reversed] }
+        description: { type: string }
+        itemId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        counterparty:
+          oneOf:
+            - $ref: '#/components/schemas/UserSummary'
+            - type: 'null'
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+    TransactionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Transaction' }
+        nextCursor: { $ref: '#/components/schemas/NextCursor' }

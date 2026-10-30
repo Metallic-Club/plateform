@@ -5,7 +5,8 @@ import { AvatarFigure, ItemArtView } from "@/components/AvatarFigure";
 import { formatPrice } from "@/components/ItemTile";
 import { button } from "@/components/ui/button";
 import { getApi } from "@/lib/api";
-import { formatDate, SLOT_LABEL } from "@/lib/format";
+import { isWardrobeCategory, lookFromAvatar } from "@/lib/api/avatar";
+import { CATEGORY_LABEL, formatDate } from "@/lib/format";
 import { BuyButton } from "./BuyButton";
 import styles from "./item.module.css";
 
@@ -25,18 +26,26 @@ export default async function ItemPage({ params }: PageProps<"/marketplace/[id]"
   const item = await api.getCatalogItem(id);
   if (!item) notFound();
   const viewer = await api.getViewer();
-  const avatar = viewer ? await api.getAvatar() : null;
-  const tryOn = avatar ? { ...avatar, equipped: { ...avatar.equipped, [item.art.slot]: { ...item.art, itemId: item.id } } } : null;
+  const avatar = viewer ? await api.getMyAvatar().catch(() => null) : null;
+  const look = avatar ? lookFromAvatar(avatar) : null;
+  const art = item.art;
+  const tryOn = look && art ? { ...look, equipped: { ...look.equipped, [art.category]: { ...art, itemId: item.id } } } : null;
+  const typeLabel = isWardrobeCategory(item.category) ? CATEGORY_LABEL[item.category] : item.category.replace(/_/g, " ");
 
   return (
     <div className={`page ${styles.item}`}>
-      <Link href={`/marketplace?slot=${item.art.slot}`} className={styles.back}>
-        All {SLOT_LABEL[item.art.slot].toLowerCase()}
+      <Link href={isWardrobeCategory(item.category) ? `/marketplace?category=${item.category}` : "/marketplace"} className={styles.back}>
+        All {typeLabel.toLowerCase()}
       </Link>
       <div className={styles.layout}>
         <div className={styles.pictures}>
           <div className={`milled ${styles.art}`}>
-            <ItemArtView art={item.art} label={item.name} />
+            {art ? (
+              <ItemArtView art={art} label={item.name} />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- CDN thumbnail
+              <img src={item.thumbnailUrl} alt={item.name} />
+            )}
           </div>
           {tryOn ? (
             <figure className={`milled ${styles.tryOn}`}>
@@ -60,10 +69,12 @@ export default async function ItemPage({ params }: PageProps<"/marketplace/[id]"
                 Wear it in Wardrobe
               </Link>
             </div>
+          ) : !item.price || !item.onSale ? (
+            <p className={styles.owned}>Not for sale right now.</p>
           ) : viewer ? (
-            <BuyButton name={item.name} price={item.price} balance={viewer.credits} />
+            <BuyButton name={item.name} price={item.price.amount} balance={viewer.credits} />
           ) : (
-            <Link href="/signin" className={button("primary")}>
+            <Link href={`/signin?next=/marketplace/${item.id}`} className={button("primary")}>
               Sign in to buy
             </Link>
           )}
@@ -71,7 +82,7 @@ export default async function ItemPage({ params }: PageProps<"/marketplace/[id]"
           <dl className={styles.facts}>
             <div>
               <dt>Type</dt>
-              <dd>{SLOT_LABEL[item.art.slot]}</dd>
+              <dd>{typeLabel}</dd>
             </div>
             <div>
               <dt>On sale since</dt>

@@ -210,3 +210,8 @@
     width: 64px;
   }
 }
+
+.uptime {
+  color: var(--ink-2);
+  white-space: nowrap;
+}

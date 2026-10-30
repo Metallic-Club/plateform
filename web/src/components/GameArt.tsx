@@ -401,3 +401,19 @@ export function GameArt({ art, className, label }: { art: Art; className?: strin
     </svg>
   );
 }
+
+/**
+ * A game's picture: the procedural art while fixtures have no uploads,
+ * otherwise the spec's thumbnailUrl.
+ */
+export function GamePicture({
+  game,
+  className,
+}: {
+  game: { art?: Art; thumbnailUrl: string };
+  className?: string;
+}) {
+  if (game.art) return <GameArt art={game.art} className={className} />;
+  // eslint-disable-next-line @next/next/no-img-element -- CDN images; sizes come from the tile.
+  return <img src={game.thumbnailUrl} alt="" className={className} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
+}

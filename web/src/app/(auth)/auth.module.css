@@ -147,3 +147,20 @@
   color: var(--ink-3);
   letter-spacing: 0.12em;
 }
+
+.checkRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  min-height: 44px;
+  padding-top: var(--s-2);
+  cursor: pointer;
+}
+
+.checkRow input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  flex: none;
+  accent-color: var(--accent-fill);
+}

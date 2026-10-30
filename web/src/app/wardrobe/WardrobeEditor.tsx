@@ -4,33 +4,38 @@ import Link from "next/link";
 import { useRef, useState, type KeyboardEvent } from "react";
 import { AvatarFigure, ItemArtView } from "@/components/AvatarFigure";
 import { button } from "@/components/ui/button";
-import { ITEM_SLOTS, type AvatarLook, type CatalogItem, type ItemSlot } from "@/lib/api/types";
-import { SLOT_LABEL } from "@/lib/format";
+import { avatarUpdate } from "@/lib/api/avatar";
+import { WARDROBE_CATEGORIES, type AvatarLook, type CatalogItemSummary, type ItemArt, type WardrobeCategory } from "@/lib/api/types";
+import { CATEGORY_LABEL } from "@/lib/format";
 import styles from "./wardrobe.module.css";
 
 const SKINS = ["#f1cfb0", "#e0b896", "#c99a78", "#a7714c", "#8d5b3e", "#6e4630"];
 
 /*
- * Wardrobe editor. Equipping is instant; Save keeps the outfit in this
- * browser for the preview.
- * TODO(api): PUT /v1/me/avatar on save.
+ * Wardrobe editor. Equipping is instant; Save keeps the outfit for this
+ * visit only in the preview.
+ * TODO(api): send avatarUpdate(look) to PUT /v1/me/avatar on save.
  */
-export function WardrobeEditor({ initial, inventory, name }: { initial: AvatarLook; inventory: CatalogItem[]; name: string }) {
+export function WardrobeEditor({ initial, inventory, name }: {
+  initial: AvatarLook;
+  inventory: (CatalogItemSummary & { art: ItemArt })[];
+  name: string;
+}) {
   const [look, setLook] = useState<AvatarLook>(initial);
   const [saved, setSaved] = useState<AvatarLook>(initial);
-  const [slot, setSlot] = useState<ItemSlot>("top");
+  const [slot, setSlot] = useState<WardrobeCategory>("shirt");
   const [notice, setNotice] = useState("");
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const dirty = JSON.stringify(look) !== JSON.stringify(saved);
-  const items = inventory.filter((i) => i.art.slot === slot);
+  const items = inventory.filter((i) => i.art.category === slot);
 
-  function toggle(item: CatalogItem) {
+  function toggle(item: CatalogItemSummary & { art: ItemArt }) {
     setNotice("");
     setLook((prev) => {
       const equipped = { ...prev.equipped };
-      if (equipped[item.art.slot]?.itemId === item.id) delete equipped[item.art.slot];
-      else equipped[item.art.slot] = { ...item.art, itemId: item.id };
+      if (equipped[item.art.category]?.itemId === item.id) delete equipped[item.art.category];
+      else equipped[item.art.category] = { ...item.art, itemId: item.id };
       return { ...prev, equipped };
     });
   }
@@ -39,8 +44,8 @@ export function WardrobeEditor({ initial, inventory, name }: { initial: AvatarLo
     const dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
-    const next = (i + dir + ITEM_SLOTS.length) % ITEM_SLOTS.length;
-    setSlot(ITEM_SLOTS[next]);
+    const next = (i + dir + WARDROBE_CATEGORIES.length) % WARDROBE_CATEGORIES.length;
+    setSlot(WARDROBE_CATEGORIES[next]);
     tabs.current[next]?.focus();
   }
 
@@ -77,7 +82,8 @@ export function WardrobeEditor({ initial, inventory, name }: { initial: AvatarLo
             disabled={!dirty}
             onClick={() => {
               setSaved(look);
-              setNotice("Saved for this visit. Saving to your account arrives with sign-in.");
+              void avatarUpdate(look);
+              setNotice("Saved for this visit. Saving to your account is not connected in this preview.");
             }}
           >
             Save outfit
@@ -93,7 +99,7 @@ export function WardrobeEditor({ initial, inventory, name }: { initial: AvatarLo
 
       <section className={styles.closet} aria-label="Your items">
         <div role="tablist" aria-label="Item type" className={styles.tabs}>
-          {ITEM_SLOTS.map((s, i) => (
+          {WARDROBE_CATEGORIES.map((s, i) => (
             <button
               key={s}
               ref={(el) => {
@@ -109,20 +115,20 @@ export function WardrobeEditor({ initial, inventory, name }: { initial: AvatarLo
               onClick={() => setSlot(s)}
               onKeyDown={(e) => onTabKey(e, i)}
             >
-              {SLOT_LABEL[s]}
+              {CATEGORY_LABEL[s]}
             </button>
           ))}
         </div>
         <div id="closet-panel" role="tabpanel" aria-labelledby={`tab-${slot}`} className={styles.panel}>
           {items.length === 0 ? (
             <p className={styles.empty}>
-              You do not own any {SLOT_LABEL[slot].toLowerCase()} yet.{" "}
-              <Link href={`/marketplace?slot=${slot}`}>Browse {SLOT_LABEL[slot].toLowerCase()} in the Marketplace</Link>
+              You do not own any {CATEGORY_LABEL[slot].toLowerCase()} yet.{" "}
+              <Link href={`/marketplace?category=${slot}`}>Browse {CATEGORY_LABEL[slot].toLowerCase()} in the Marketplace</Link>
             </p>
           ) : (
             <ul role="list" className={styles.items}>
               {items.map((item) => {
-                const on = look.equipped[item.art.slot]?.itemId === item.id;
+                const on = look.equipped[item.art.category]?.itemId === item.id;
                 return (
                   <li key={item.id}>
                     <button type="button" className={styles.item} aria-pressed={on} onClick={() => toggle(item)}>
@@ -137,8 +143,8 @@ export function WardrobeEditor({ initial, inventory, name }: { initial: AvatarLo
               })}
             </ul>
           )}
-          <Link href={`/marketplace?slot=${slot}`} className={styles.more}>
-            Find more {SLOT_LABEL[slot].toLowerCase()} in the Marketplace
+          <Link href={`/marketplace?category=${slot}`} className={styles.more}>
+            Find more {CATEGORY_LABEL[slot].toLowerCase()} in the Marketplace
           </Link>
         </div>
       </section>

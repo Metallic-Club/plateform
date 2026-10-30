@@ -1,120 +1,125 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useTransition } from "react";
 import { Avatar } from "@/components/Avatar";
-import { GetMetallicButton } from "@/components/play/GetMetallicButton";
-import { Icon } from "@/components/Icon";
+import { PlayButton } from "@/components/play/PlayButton";
 import { button } from "@/components/ui/button";
-import type { GameServer, Region, UserSummary } from "@/lib/api/types";
-import { REGION_LABEL } from "@/lib/format";
-import { playHref } from "@/lib/links";
+import type { Region, RegionCode, Server, ServerSort } from "@/lib/api/types";
+import { timeAgo } from "@/lib/format";
 import type { Shell } from "@/lib/prefs";
 import styles from "./servers.module.css";
 
-type Sort = "ping" | "most" | "fewest";
+const SORT_LABEL: Record<ServerSort, string> = {
+  most_players: "Most players",
+  fewest_players: "Fewest players",
+  newest: "Newest",
+};
 
-function pingWord(ms: number) {
-  if (ms < 60) return "Good";
-  if (ms < 130) return "Fair";
-  return "Slow";
-}
-
+/*
+ * Server browser for GET /v1/games/{id}/servers. Filters live in the URL and
+ * the server applies them, as the spec does; with JavaScript they apply on
+ * change, without it the Apply button submits the form.
+ * Ping is not shown: the Metallic app measures it from your computer.
+ */
 export function ServerBrowser({
   game,
   servers,
-  total,
-  friends,
+  more,
+  running,
+  regions,
+  filters,
   shell,
 }: {
   game: { id: string; name: string };
-  servers: GameServer[];
-  total: number;
-  friends: Record<string, UserSummary>;
+  servers: Server[];
+  more: boolean;
+  running: number;
+  regions: Region[];
+  filters: { region?: RegionCode; sort: ServerSort; hideFull: boolean };
   shell: Shell;
 }) {
   const router = useRouter();
-  const [refreshing, startRefresh] = useTransition();
-  const [region, setRegion] = useState<Region | "all">("all");
-  const [hideFull, setHideFull] = useState(true);
-  const [sort, setSort] = useState<Sort>("ping");
+  const pathname = usePathname();
+  const [pending, start] = useTransition();
+  const regionName = new Map(regions.map((r) => [r.code, r.name]));
 
-  const regions = useMemo(() => [...new Set(servers.map((s) => s.region))], [servers]);
-  const list = useMemo(() => {
-    let l = servers.filter((s) => (region === "all" || s.region === region) && (!hideFull || s.players < s.capacity));
-    l = [...l].sort((a, b) => {
-      const friendDiff = b.friendIds.length - a.friendIds.length;
-      if (friendDiff) return friendDiff;
-      if (sort === "most") return b.players - a.players;
-      if (sort === "fewest") return a.players - b.players;
-      return a.pingMs - b.pingMs;
-    });
-    return l;
-  }, [servers, region, hideFull, sort]);
+  function apply(form: HTMLFormElement) {
+    const data = new FormData(form);
+    const q = new URLSearchParams();
+    const region = String(data.get("region") ?? "");
+    const sort = String(data.get("sort") ?? "");
+    if (region) q.set("region", region);
+    if (sort && sort !== "most_players") q.set("sort", sort);
+    if (!data.get("full")) q.set("full", "show");
+    const s = q.toString();
+    start(() => router.replace(`${pathname}${s ? `?${s}` : ""}#servers`, { scroll: false }));
+  }
 
-  const fullCount = servers.filter((s) => s.players >= s.capacity).length;
+  const filtered = Boolean(filters.region) || !filters.hideFull;
 
   return (
-    <div className={styles.browser}>
-      <div className={styles.controls}>
+    <div className={styles.browser} aria-busy={pending}>
+      <form
+        className={styles.controls}
+        action={`${pathname}#servers`}
+        onChange={(e) => apply(e.currentTarget)}
+        onSubmit={(e) => {
+          e.preventDefault();
+          apply(e.currentTarget);
+        }}
+      >
         <label className={styles.field}>
           <span>Region</span>
-          <select value={region} onChange={(e) => setRegion(e.target.value as Region | "all")}>
-            <option value="all">All regions</option>
+          <select name="region" defaultValue={filters.region ?? ""}>
+            <option value="">All regions</option>
             {regions.map((r) => (
-              <option key={r} value={r}>
-                {REGION_LABEL[r]}
+              <option key={r.code} value={r.code}>
+                {r.name}
               </option>
             ))}
           </select>
         </label>
         <label className={styles.field}>
           <span>Sort by</span>
-          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
-            <option value="ping">Lowest ping</option>
-            <option value="most">Most players</option>
-            <option value="fewest">Fewest players</option>
+          <select name="sort" defaultValue={filters.sort}>
+            {(Object.keys(SORT_LABEL) as ServerSort[]).map((s) => (
+              <option key={s} value={s}>
+                {SORT_LABEL[s]}
+              </option>
+            ))}
           </select>
         </label>
         <label className={styles.check}>
-          <input type="checkbox" checked={hideFull} onChange={(e) => setHideFull(e.target.checked)} />
-          <span>Hide full servers{fullCount ? ` (${fullCount})` : ""}</span>
+          <input type="checkbox" name="full" value="hide" defaultChecked={filters.hideFull} />
+          <span>Hide full servers</span>
         </label>
+        <noscript>
+          <button type="submit" className={button("secondary", "small")}>
+            Apply
+          </button>
+        </noscript>
         <button
           type="button"
           className={button("quiet", "small")}
-          onClick={() => startRefresh(() => router.refresh())}
-          disabled={refreshing}
+          onClick={() => start(() => router.refresh())}
+          disabled={pending}
         >
-          {refreshing ? "Refreshing…" : "Refresh list"}
+          {pending ? "Updating…" : "Refresh list"}
         </button>
-        {servers.length > 0 ? (
+        {running > 0 ? (
           <p className={styles.scope}>
-            {servers.length < total
-              ? `The ${servers.length} servers nearest to you, out of ${total.toLocaleString("en-US")} running.`
-              : `All ${total} running ${total === 1 ? "server" : "servers"}.`}{" "}
-            Servers with friends come first.
+            {running.toLocaleString("en-US")} {running === 1 ? "server" : "servers"} running
+            {more || servers.length < running ? `, showing ${servers.length}` : ""}. Servers with friends come first.
           </p>
         ) : null}
-      </div>
+      </form>
 
       {servers.length === 0 ? (
         <p className={styles.empty}>
-          No servers are running. Press Play and Metallic starts a new one for you.
-        </p>
-      ) : list.length === 0 ? (
-        <p className={styles.empty}>
-          No servers match these filters.{" "}
-          <button
-            type="button"
-            className={styles.linkButton}
-            onClick={() => {
-              setRegion("all");
-              setHideFull(false);
-            }}
-          >
-            Show all {servers.length}
-          </button>
+          {filtered
+            ? "No servers match these filters. Choose All regions or show full servers."
+            : "No servers are running. Press Play and Metallic starts a new one for you."}
         </p>
       ) : (
         <table className={styles.table}>
@@ -125,7 +130,7 @@ export function ServerBrowser({
             <tr>
               <th scope="col">Server</th>
               <th scope="col">Players</th>
-              <th scope="col">Ping</th>
+              <th scope="col">Running</th>
               <th scope="col">Friends</th>
               <th scope="col">
                 <span className="visually-hidden">Join</span>
@@ -133,57 +138,46 @@ export function ServerBrowser({
             </tr>
           </thead>
           <tbody>
-            {list.map((s, i) => {
-              const isFull = s.players >= s.capacity;
-              const fill = Math.round((s.players / s.capacity) * 100);
-              const here = s.friendIds.map((id) => friends[id]).filter(Boolean);
+            {servers.map((s, i) => {
+              const fill = Math.round((s.playing / s.maxPlayers) * 100);
+              const full = s.playing >= s.maxPlayers;
               return (
                 <tr key={s.id}>
                   <th scope="row" className={styles.serverName}>
-                    {REGION_LABEL[s.region]}
+                    {regionName.get(s.region) ?? s.region}
                     <span className={styles.serverId}>Server {i + 1}</span>
                   </th>
                   <td>
                     <span className={styles.players}>
                       <span className={styles.bar} aria-hidden="true">
-                        <span style={{ width: `${fill}%` }} data-full={isFull || undefined} />
+                        <span style={{ width: `${fill}%` }} data-full={full || undefined} />
                       </span>
                       <span>
-                        {s.players} of {s.capacity}
-                        {isFull ? <span className={styles.fullTag}> full</span> : null}
+                        {s.playing} of {s.maxPlayers}
+                        {full ? <span className={styles.fullTag}> full</span> : null}
                       </span>
                     </span>
                   </td>
                   <td>
-                    <span className={styles.ping} data-quality={pingWord(s.pingMs).toLowerCase()}>
-                      <Icon name="signal" size={16} />
-                      {s.pingMs} ms <span className={styles.pingWord}>{pingWord(s.pingMs)}</span>
-                    </span>
+                    <span className={styles.uptime}>Started {timeAgo(s.startedAt)}</span>
                   </td>
                   <td>
-                    {here.length ? (
+                    {s.friends.length ? (
                       <span className={styles.friends}>
-                        {here.map((f) => (
+                        {s.friends.map((f) => (
                           <Avatar key={f.id} user={f} size={28} />
                         ))}
-                        <span className="visually-hidden">{here.map((f) => f.displayName).join(", ")}</span>
-                        <span className={styles.friendNames} aria-hidden="true">
-                          {here.map((f) => f.displayName).join(", ")}
-                        </span>
+                        <span className={styles.friendNames}>{s.friends.map((f) => f.displayName).join(", ")}</span>
                       </span>
                     ) : (
                       <span className={styles.none}>None</span>
                     )}
                   </td>
                   <td className={styles.joinCell}>
-                    {isFull ? (
-                      <span className={styles.none}>Full</span>
-                    ) : shell === "launcher" ? (
-                      <a href={playHref(game.id, s.id)} className={button("secondary", "small")}>
-                        Join
-                      </a>
+                    {s.joinable ? (
+                      <PlayButton game={game} shell={shell} serverId={s.id} label="Join" size="small" variant="secondary" />
                     ) : (
-                      <JoinFromBrowser game={game} serverId={s.id} />
+                      <span className={styles.none}>{full ? "Full" : "Closing"}</span>
                     )}
                   </td>
                 </tr>
@@ -194,8 +188,4 @@ export function ServerBrowser({
       )}
     </div>
   );
-}
-
-function JoinFromBrowser({ game, serverId }: { game: { id: string; name: string }; serverId: string }) {
-  return <GetMetallicButton gameName={game.name} href={playHref(game.id, serverId)} size="small" label="Join" variant="secondary" />;
 }

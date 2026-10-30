@@ -2,11 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { button } from "@/components/ui/button";
-import type { SocialKind, SocialLink } from "@/lib/api/types";
+import type { SocialLink, SocialPlatform } from "@/lib/api/types";
 import styles from "./settings.module.css";
 
-const BIO_MAX = 200;
-const KINDS: { kind: SocialKind; label: string; placeholder: string }[] = [
+/** The spec allows 1000; the form asks for less so profiles stay readable. */
+const BIO_MAX = 300;
+const KINDS: { kind: SocialPlatform; label: string; placeholder: string }[] = [
   { kind: "discord", label: "Discord", placeholder: "Your Discord username" },
   { kind: "youtube", label: "YouTube", placeholder: "@channel" },
   { kind: "twitch", label: "Twitch", placeholder: "Your Twitch name" },
@@ -15,7 +16,8 @@ const KINDS: { kind: SocialKind; label: string; placeholder: string }[] = [
 
 /*
  * Bio and linked accounts. Validates, then says it was not saved anywhere.
- * TODO(api): PATCH /v1/me/profile. Real linking will use each service's own sign-in.
+ * TODO(api): PATCH /v1/users/me for the bio, PUT /v1/users/me/social-links for links.
+ * Discord can also be linked through Discord sign-in later (verified links).
  */
 export function ProfileForm({ bio, links }: { bio: string; links: SocialLink[] }) {
   const [text, setText] = useState(bio);
@@ -53,14 +55,14 @@ export function ProfileForm({ bio, links }: { bio: string; links: SocialLink[] }
       </div>
       <fieldset className={styles.links}>
         <legend className={styles.label}>Linked accounts</legend>
-        <p className={styles.note}>Shown on your profile so people can find you elsewhere.</p>
+        <p className={styles.note}>Shown on your profile so people can find you elsewhere. Enter the handle only.</p>
         {KINDS.map((k) => (
           <div key={k.kind} className={styles.linkRow}>
             <label htmlFor={`link-${k.kind}`}>{k.label}</label>
             <input
               id={`link-${k.kind}`}
               name={k.kind}
-              defaultValue={links.find((l) => l.kind === k.kind)?.handle ?? ""}
+              defaultValue={links.find((l) => l.platform === k.kind)?.handle ?? ""}
               placeholder={k.placeholder}
               className={styles.input}
               autoComplete="off"

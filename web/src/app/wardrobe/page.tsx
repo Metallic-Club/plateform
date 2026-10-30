@@ -3,6 +3,7 @@ import Link from "next/link";
 import { StateMessage } from "@/components/StateMessage";
 import { button } from "@/components/ui/button";
 import { getApi } from "@/lib/api";
+import { drawable, lookFromAvatar } from "@/lib/api/avatar";
 import { WardrobeEditor } from "./WardrobeEditor";
 
 export const metadata: Metadata = { title: "Wardrobe" };
@@ -32,6 +33,12 @@ export default async function WardrobePage() {
       </div>
     );
   }
-  const [avatar, inventory] = await Promise.all([api.getAvatar(), api.listInventory()]);
-  return <WardrobeEditor initial={avatar} inventory={inventory} name={viewer.user.displayName} />;
+  const [avatar, inventory] = await Promise.all([api.getMyAvatar(), api.listInventory()]);
+  return (
+    <WardrobeEditor
+      initial={lookFromAvatar(avatar)}
+      inventory={drawable(inventory.items.map((i) => i.item))}
+      name={viewer.user.displayName}
+    />
+  );
 }

@@ -5,8 +5,8 @@ import { PlayButton } from "@/components/play/PlayButton";
 import { StateMessage } from "@/components/StateMessage";
 import { button } from "@/components/ui/button";
 import { getApi } from "@/lib/api";
-import type { UserSummary } from "@/lib/api/types";
-import { timeAgo } from "@/lib/format";
+import type { Friend, Presence, UserSummary } from "@/lib/api/types";
+import { presenceText, timeAgo } from "@/lib/format";
 import { getShell } from "@/lib/prefs.server";
 import { AddFriendButton } from "../users/[username]/AddFriendButton";
 import { RequestActions } from "./RequestActions";
@@ -50,13 +50,22 @@ export default async function FriendsPage({ searchParams }: PageProps<"/friends"
     );
   }
 
-  const [friends, requests, shell] = await Promise.all([api.listFriends(viewer.user.id), api.listFriendRequests(), getShell()]);
-  const found = tab === "find" && q ? await api.searchUsers(q) : [];
-  const friendIds = new Set(friends.map((f) => f.id));
+  const [friends, requests, shell] = await Promise.all([
+    api.listFriends(viewer.user.id),
+    api.listFriendRequests("incoming"),
+    getShell(),
+  ]);
+  const tooShort = tab === "find" && q.length > 0 && q.length < 3;
+  const found = tab === "find" && q.length >= 3 ? (await api.searchUsers(q)).items : [];
+  const friendIds = new Set(friends.items.map((f) => f.user.id));
+  const requestIds = new Set(requests.items.map((r) => r.user.id));
 
-  const inGame = friends.filter((f) => f.presence.status === "in-game");
-  const online = friends.filter((f) => f.presence.status === "online");
-  const offline = friends.filter((f) => f.presence.status === "offline");
+  const by = (status: Presence["status"][]) => friends.items.filter((f) => status.includes(f.presence?.status ?? "offline"));
+  const groups: { title: string; list: Friend[] }[] = [
+    { title: "In a game", list: by(["in_game"]) },
+    { title: "Online", list: by(["online", "in_studio"]) },
+    { title: "Offline", list: by(["offline"]) },
+  ];
 
   return (
     <div className={`page ${styles.friends}`}>
@@ -64,17 +73,24 @@ export default async function FriendsPage({ searchParams }: PageProps<"/friends"
         <h1 className={`wide ${styles.title}`}>Friends</h1>
         <nav aria-label="Friends sections" className={styles.tabs}>
           {TABS.map((t) => (
-            <Link key={t.id} href={t.id === "friends" ? "/friends" : `/friends?tab=${t.id}`} className={styles.tab} aria-current={tab === t.id ? "page" : undefined}>
+            <Link
+              key={t.id}
+              href={t.id === "friends" ? "/friends" : `/friends?tab=${t.id}`}
+              className={styles.tab}
+              aria-current={tab === t.id ? "page" : undefined}
+            >
               {t.label}
-              {t.id === "friends" ? <span className={styles.tabCount}>{friends.length}</span> : null}
-              {t.id === "requests" && requests.length ? <span className={styles.tabCount}>{requests.length}</span> : null}
+              {t.id === "friends" ? <span className={styles.tabCount}>{friends.items.length}</span> : null}
+              {t.id === "requests" && requests.items.length ? (
+                <span className={styles.tabCount}>{requests.items.length}</span>
+              ) : null}
             </Link>
           ))}
         </nav>
       </div>
 
       {tab === "friends" ? (
-        friends.length === 0 ? (
+        friends.items.length === 0 ? (
           <StateMessage
             title="No friends yet"
             actions={
@@ -87,11 +103,7 @@ export default async function FriendsPage({ searchParams }: PageProps<"/friends"
           </StateMessage>
         ) : (
           <div className={styles.groups}>
-            {[
-              { title: "In a game", list: inGame },
-              { title: "Online", list: online },
-              { title: "Offline", list: offline },
-            ]
+            {groups
               .filter((g) => g.list.length)
               .map((g) => (
                 <section key={g.title} aria-label={g.title} className={styles.group}>
@@ -100,12 +112,12 @@ export default async function FriendsPage({ searchParams }: PageProps<"/friends"
                   </h2>
                   <ul role="list" className={styles.rows}>
                     {g.list.map((f) => (
-                      <FriendRow key={f.id} user={f}>
-                        {f.presence.status === "in-game" ? (
+                      <FriendRow key={f.user.id} user={f.user} presence={f.presence}>
+                        {f.presence?.status === "in_game" && f.presence.game && f.presence.joinable ? (
                           <PlayButton
-                            game={{ id: f.presence.gameId, name: f.presence.gameName }}
+                            game={f.presence.game}
                             shell={shell}
-                            serverId={f.presence.serverId ?? undefined}
+                            followUserId={f.user.id}
                             label="Join"
                             size="small"
                             variant="secondary"
@@ -121,15 +133,19 @@ export default async function FriendsPage({ searchParams }: PageProps<"/friends"
       ) : null}
 
       {tab === "requests" ? (
-        requests.length === 0 ? (
+        requests.items.length === 0 ? (
           <StateMessage title="No friend requests">
             <p>When someone sends you a request, it waits here until you accept or decline it.</p>
           </StateMessage>
         ) : (
           <ul role="list" className={styles.rows}>
-            {requests.map((r) => (
-              <FriendRow key={r.id} user={r.from} note={`Sent ${timeAgo(r.sentAt)}`}>
-                <RequestActions name={r.from.displayName} />
+            {requests.items.map((r) => (
+              <FriendRow
+                key={r.id}
+                user={r.user}
+                note={`Sent ${timeAgo(r.createdAt)}${r.mutualFriends ? `, ${r.mutualFriends} friends in common` : ""}`}
+              >
+                <RequestActions name={r.user.displayName} />
               </FriendRow>
             ))}
           </ul>
@@ -144,24 +160,43 @@ export default async function FriendsPage({ searchParams }: PageProps<"/friends"
               Username or display name
             </label>
             <div className={styles.searchRow}>
-              <input id="find-q" name="q" type="search" defaultValue={q} autoComplete="off" />
+              <input
+                id="find-q"
+                name="q"
+                type="search"
+                defaultValue={q}
+                autoComplete="off"
+                minLength={3}
+                maxLength={32}
+                aria-describedby="find-hint"
+              />
               <button type="submit" className={button("secondary")}>
                 Search
               </button>
             </div>
+            <p id="find-hint" className={styles.hint}>
+              At least 3 characters.
+            </p>
           </form>
-          {q ? (
+          {tooShort ? (
+            <StateMessage title="Type at least 3 characters">
+              <p>Short searches match too many people, so search starts at 3 characters.</p>
+            </StateMessage>
+          ) : q && !tooShort ? (
             found.length ? (
               <ul role="list" className={styles.rows}>
                 {found.map((u) => (
                   <FriendRow key={u.id} user={u}>
-                    <AddFriendButton isFriend={friendIds.has(u.id)} name={u.displayName} />
+                    <AddFriendButton
+                      relationship={friendIds.has(u.id) ? "friend" : requestIds.has(u.id) ? "request_received" : "none"}
+                      name={u.displayName}
+                    />
                   </FriendRow>
                 ))}
               </ul>
             ) : (
               <StateMessage title={`Nobody matches “${q}”`}>
-                <p>Check the spelling. Usernames are matched from any part, so “fjord” finds quietfjord.</p>
+                <p>Check the spelling. Names match from any part, so “fjord” finds quietfjord.</p>
               </StateMessage>
             )
           ) : null}
@@ -171,22 +206,32 @@ export default async function FriendsPage({ searchParams }: PageProps<"/friends"
   );
 }
 
-function presence(u: UserSummary) {
-  const p = u.presence;
-  if (p.status === "in-game") return `Playing ${p.gameName}`;
-  if (p.status === "online") return "Online";
-  return `Last online ${timeAgo(p.lastSeenAt)}`;
-}
-
-function FriendRow({ user, note, children }: { user: UserSummary; note?: string; children?: React.ReactNode }) {
+function FriendRow({
+  user,
+  presence,
+  note,
+  children,
+}: {
+  user: UserSummary;
+  presence?: Presence;
+  note?: string;
+  children?: React.ReactNode;
+}) {
+  const line = note ?? presenceText(presence);
   return (
     <li className={styles.row}>
       <Link href={`/users/${user.username}`} className={styles.who}>
-        <Avatar user={user} size={48} showPresence />
+        <Avatar user={user} size={48} presence={presence?.status} />
         <span className={styles.whoText}>
           <span className={styles.name}>{user.displayName}</span>
           <span className={styles.sub}>
-            @{user.username} <span aria-hidden="true">/</span> {note ?? presence(user)}
+            @{user.username}
+            {line ? (
+              <>
+                {" "}
+                <span aria-hidden="true">/</span> {line}
+              </>
+            ) : null}
           </span>
         </span>
       </Link>

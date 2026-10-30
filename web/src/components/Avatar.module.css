@@ -9,6 +9,7 @@
   height: 100%;
   border-radius: 50%;
   background: var(--surface-3);
+  object-fit: cover;
 }
 
 /* Presence marks a real state: online or in a game. No glow, no pulse. */
@@ -25,6 +26,10 @@
   background: var(--online);
 }
 
-.dot[data-status="in-game"] {
+.dot[data-status="in_game"] {
   background: var(--accent-fill);
+}
+
+.dot[data-status="in_studio"] {
+  background: var(--ink-2);
 }

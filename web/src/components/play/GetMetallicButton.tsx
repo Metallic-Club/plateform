@@ -39,7 +39,7 @@ export function GetMetallicButton({
           straight away.
         </p>
         <div className={styles.dialogActions}>
-          <a href={href} className={button("primary")}>
+          <a href={href} rel="nofollow" className={button("primary")}>
             Open in Metallic
           </a>
           <Link href="/download" className={button("secondary")}>

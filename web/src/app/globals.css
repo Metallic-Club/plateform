@@ -5,7 +5,8 @@
  */
 
 :root,
-[data-theme="graphite"] {
+[data-theme="graphite"],
+[data-theme="system"] {
   color-scheme: dark;
   --ground: #18191c;
   --surface-1: #202125;
@@ -25,7 +26,8 @@
   --shadow-float: 0 18px 48px rgb(0 0 0 / 0.45);
 }
 
-[data-theme="aluminium"] {
+/* Light ("Aluminium" in the picker). The spec calls this theme `light`. */
+[data-theme="light"] {
   color-scheme: light;
   --ground: #e6e7ea;
   --surface-1: #f2f2f4;
@@ -45,24 +47,48 @@
   --shadow-float: 0 18px 48px rgb(20 22 30 / 0.22);
 }
 
-[data-theme="anodised"] {
+/* `system` follows the device: Graphite unless the device asks for light. */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    color-scheme: light;
+    --ground: #e6e7ea;
+    --surface-1: #f2f2f4;
+    --surface-2: #fafafb;
+    --surface-3: #d8d9de;
+    --ink: #131417;
+    --ink-2: #41434b;
+    --ink-3: #575a63;
+    --accent-fill: #5541d0;
+    --accent-fill-hover: #4835bf;
+    --on-accent: #ffffff;
+    --accent-ink: #4a36c4;
+    --online: #1e8a50;
+    --danger: #b3261e;
+    --focus: #4a36c4;
+    --art-scrim: rgb(14 15 17 / 0.72);
+    --shadow-float: 0 18px 48px rgb(20 22 30 / 0.22);
+  }
+}
+
+/* Titanium: a lighter dark, for screens where Graphite feels too deep. */
+[data-theme="titanium"] {
   color-scheme: dark;
-  --ground: #1a1628;
-  --surface-1: #221d34;
-  --surface-2: #2b2540;
-  --surface-3: #372f50;
-  --ink: #f0edf8;
-  --ink-2: #c3bcdb;
-  --ink-3: #aaa1c9;
-  --accent-fill: #6650e6;
-  --accent-fill-hover: #745ff0;
+  --ground: #2a2c31;
+  --surface-1: #323439;
+  --surface-2: #3b3d43;
+  --surface-3: #46484f;
+  --ink: #f1f2f4;
+  --ink-2: #c8cad1;
+  --ink-3: #b3b5bd;
+  --accent-fill: #5d49d8;
+  --accent-fill-hover: #6b58e4;
   --on-accent: #ffffff;
-  --accent-ink: #c4b9ff;
-  --online: #63d095;
-  --danger: #ff9a90;
-  --focus: #d8d0ff;
-  --art-scrim: rgb(16 12 28 / 0.74);
-  --shadow-float: 0 18px 48px rgb(0 0 0 / 0.5);
+  --accent-ink: #bcb2ff;
+  --online: #66d197;
+  --danger: #ffa197;
+  --focus: #d3cbff;
+  --art-scrim: rgb(20 21 24 / 0.74);
+  --shadow-float: 0 18px 48px rgb(0 0 0 / 0.4);
 }
 
 :root {

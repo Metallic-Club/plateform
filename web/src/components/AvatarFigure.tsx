@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import type { AvatarLook, ItemArt, ItemSlot } from "@/lib/api/types";
+import type { AvatarLook, ItemArt, WardrobeCategory } from "@/lib/api/types";
 
 /*
  * Blocky avatar renderer used by profiles, friends, wardrobe and catalog art.
  * It stands in for real 3D renders from the engine. Shapes are flat; each item
- * is drawn from its slot, shape key and two colours.
+ * is drawn from its category, shape key and two colours.
  */
 
 const DEFAULT_TOP = "#7a7d86";
@@ -212,7 +212,7 @@ function pick(table: Record<string, Part>, art: ItemArt | undefined, skin: strin
   return fn ? fn(art, skin) : null;
 }
 
-const get = (look: AvatarLook, slot: ItemSlot) => look.equipped[slot];
+const get = (look: AvatarLook, slot: WardrobeCategory) => look.equipped[slot];
 
 export function AvatarFigure({
   look,
@@ -226,8 +226,8 @@ export function AvatarFigure({
   label?: string;
 }) {
   const skin = look.skin;
-  const top = get(look, "top");
-  const bottom = get(look, "bottom");
+  const top = get(look, "shirt");
+  const bottom = get(look, "pants");
   return (
     <svg
       className={className}
@@ -258,7 +258,7 @@ export function AvatarFigure({
       {/* head */}
       <rect x={40} y={18} width={40} height={40} fill={skin} />
       {pick(hair, get(look, "hair"), skin)}
-      {pick(faces, get(look, "face"), skin) ?? faces.calm({ slot: "face", shape: "calm", primary: "#1a1a1d", secondary: "#1a1a1d" }, skin)}
+      {pick(faces, get(look, "face"), skin) ?? faces.calm({ category: "face", shape: "calm", primary: "#1a1a1d", secondary: "#1a1a1d" }, skin)}
       {pick(hats, get(look, "hat"), skin)}
     </svg>
   );
@@ -280,9 +280,9 @@ function shoePair(a: ItemArt) {
 /** Draws a single catalog item on its own, centred, for marketplace tiles. */
 export function ItemArtView({ art, className, label }: { art: ItemArt; className?: string; label?: string }) {
   const skin = "#00000000";
-  const views: Record<ItemSlot, { box: string; node: ReactNode }> = {
-    top: { box: "10 50 100 72", node: pick(tops, art, "#c9a487") },
-    bottom: { box: "18 104 84 84", node: pick(bottoms, art, "#c9a487") },
+  const views: Record<WardrobeCategory, { box: string; node: ReactNode }> = {
+    shirt: { box: "10 50 100 72", node: pick(tops, art, "#c9a487") },
+    pants: { box: "18 104 84 84", node: pick(bottoms, art, "#c9a487") },
     shoes: { box: "24 136 72 52", node: shoePair(art) },
     hat: { box: "24 0 72 48", node: pick(hats, art, skin) },
     hair: {
@@ -305,7 +305,7 @@ export function ItemArtView({ art, className, label }: { art: ItemArt; className
     },
     back: { box: "14 54 92 112", node: pick(backs, art, skin) },
   };
-  const v = views[art.slot];
+  const v = views[art.category];
   return (
     <svg
       className={className}

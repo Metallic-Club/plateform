@@ -295,6 +295,7 @@
   display: grid;
   gap: var(--s-4);
   max-width: 68ch;
+  align-content: start;
 }
 
 .prose {
@@ -302,6 +303,7 @@
   gap: var(--s-3);
   font-size: 1.0625rem;
   line-height: 1.6;
+  align-content: start;
 }
 
 .tags {
@@ -327,4 +329,14 @@
 .servers {
   display: grid;
   gap: var(--s-4);
+}
+
+.joinError {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.voteNote {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
 }

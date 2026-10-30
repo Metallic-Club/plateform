@@ -5,7 +5,7 @@ import { COOKIES, MOCK_SCENARIOS, THEMES } from "@/lib/prefs";
  * Query flags that stick as cookies, so a host sets them once:
  *   ?shell=launcher|browser  the desktop launcher's web view opens the site with shell=launcher
  *   ?display=tv|standard     10-foot / controller layout
- *   ?theme=graphite|aluminium|anodised
+ *   ?theme=graphite|titanium|light|system
  *   ?mock=normal|empty|error|slow|guest   preview scenarios (mock API only)
  * The flag is applied to this request too, so the first render already matches.
  */
