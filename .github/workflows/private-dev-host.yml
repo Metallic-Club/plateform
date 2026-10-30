@@ -1,0 +1,36 @@
+name: Private development-host smoke
+on:
+  pull_request:
+    paths:
+      - deploy/dev-host/**
+      - server/**
+      - api/openapi.yaml
+      - .github/workflows/private-dev-host.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux-docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Host preparation tests
+        run: python3 -I -m unittest discover -s deploy/dev-host -p test_host.py -v
+      - name: Prepare and validate private configuration
+        run: |
+          python3 deploy/dev-host/host.py prepare --state-dir "$RUNNER_TEMP/metallic-dev-host"
+          python3 deploy/dev-host/host.py config --state-dir "$RUNNER_TEMP/metallic-dev-host"
+      - name: Build locked canonical backend and launch ephemeral project
+        run: |
+          python3 deploy/dev-host/host.py build --state-dir "$RUNNER_TEMP/metallic-dev-host"
+          python3 deploy/dev-host/host.py database --state-dir "$RUNNER_TEMP/metallic-dev-host"
+          python3 deploy/dev-host/host.py migrate --state-dir "$RUNNER_TEMP/metallic-dev-host"
+          python3 deploy/dev-host/host.py start --state-dir "$RUNNER_TEMP/metallic-dev-host"
+      - name: Verify private Docker runtime and backup restore
+        run: python3 deploy/dev-host/ci_smoke.py run --state-dir "$RUNNER_TEMP/metallic-dev-host"
+      - name: Remove only this ephemeral CI project and its volumes
+        if: always()
+        run: python3 deploy/dev-host/ci_smoke.py cleanup --state-dir "$RUNNER_TEMP/metallic-dev-host"
