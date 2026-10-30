@@ -129,6 +129,8 @@ The helper verifies this state's complete keys, refuses a running API or populat
 with `--single-transaction --exit-on-error --no-owner --role=metallic`. It never uses `--clean`, `--create`, DROP or
 volume deletion. Failure rolls the transaction back. The ordinary `start` and `probe` actions can then verify the
 restored instance; choose an unused loopback `--port` for a second API. Keep the original deployment unchanged.
+The empty-target check counts non-system schemas with a literal `pg_` prefix boundary and uses namespace
+dependencies for public objects, including functions and enum/domain types rather than tables alone.
 
 ## Verification and image maintenance
 
@@ -141,6 +143,8 @@ not push an image or deploy a host; its token has only `contents:read` and check
 The smoke and destructive cleanup refuse to run outside GitHub Actions or outside its validated `RUNNER_TEMP`;
 they cannot be used as ordinary host lifecycle commands. Helper tests run with both restrictive and usual umasks.
 The workflow makes the checkout SQL file 0600 before preparation to exercise the protected bootstrap mount.
+Runtime resource checks inspect Docker's actual HostConfig values, avoiding Compose JSON display-type assumptions.
+Before successful restore, owned schema/function/enum/domain fixtures must each be refused and remain unchanged.
 
 Image tags and multi-platform manifest digests were verified through the public Docker registry on 2026-10-30:
 
@@ -160,3 +164,4 @@ Primary sources: [official Rust image tags](https://github.com/docker-library/of
 [Compose resource/port controls](https://docs.docker.com/reference/compose-file/services/),
 [Docker localhost port-publishing version boundary](https://docs.docker.com/engine/network/port-publishing/),
 [PostgreSQL durability settings](https://www.postgresql.org/docs/18/runtime-config-wal.html).
+[PostgreSQL namespace dependency catalog](https://www.postgresql.org/docs/18/catalog-pg-depend.html).

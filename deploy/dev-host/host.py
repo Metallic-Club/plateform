@@ -220,7 +220,12 @@ def restore(state, port, name, sudo=False):
     active = run_compose(state, port, ["ps", "--status", "running", "--services"], sudo=sudo, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if "api" in active.stdout.decode("ascii").split():
         raise HostError("Stop the API before restoring.")
-    query = "SELECT (SELECT count(*) FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' AND nspname NOT IN ('public','information_schema')) + (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public')"
+    query = (
+        "SELECT (SELECT count(*) FROM pg_catalog.pg_namespace "
+        "WHERE NOT starts_with(nspname,'pg_') AND nspname NOT IN ('public','information_schema')) "
+        "+ (SELECT count(*) FROM pg_catalog.pg_depend d JOIN pg_catalog.pg_namespace n ON n.oid=d.refobjid "
+        "WHERE d.refclassid='pg_catalog.pg_namespace'::regclass AND n.nspname='public')"
+    )
     empty = run_compose(state, port, ["exec", "-T", "db", "psql", "--username=postgres", "--dbname=metallic", "-Atc", query], sudo=sudo, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if empty.stdout.strip() != b"0":
         raise HostError("Restore requires an empty database; existing data will not be overwritten.")

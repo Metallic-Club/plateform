@@ -64,6 +64,29 @@ def request(port, path, body=None, cookie=None):
         return json.load(response), response.headers.get("Set-Cookie", "").split(";", 1)[0]
 
 
+def refuse_nonempty_restore(state):
+    fixtures = [
+        ("CREATE SCHEMA pgx", "SELECT count(*) FROM pg_namespace WHERE nspname='pgx'", b"1", "DROP SCHEMA pgx"),
+        ("CREATE FUNCTION public.guard_fixture() RETURNS integer LANGUAGE sql AS $$SELECT 42$$", "SELECT public.guard_fixture()", b"42", "DROP FUNCTION public.guard_fixture()"),
+        ("CREATE TYPE public.guard_fixture AS ENUM ('fixture')", "SELECT 'fixture'::public.guard_fixture::text", b"fixture", "DROP TYPE public.guard_fixture"),
+        ("CREATE DOMAIN public.guard_fixture AS text", "SELECT 'fixture'::public.guard_fixture::text", b"fixture", "DROP DOMAIN public.guard_fixture"),
+    ]
+    for setup, retained, expected, remove_own_fixture in fixtures:
+        sql(state, setup)
+        try:
+            try:
+                host.restore(state, 18080, "smoke.dump")
+            except host.HostError as error:
+                assert "Restore requires an empty database" in str(error)
+            else:
+                raise AssertionError("Restore accepted a preexisting schema/function/type")
+            assert sql(state, retained) == expected, "Refused restore must retain the owned fixture"
+            assert sql(state, "SELECT count(*) FROM pg_namespace WHERE nspname='identity'") == b"0"
+        finally:
+            # Only the definition just created by this CI case; no CASCADE or external project mutation.
+            sql(state, remove_own_fixture)
+
+
 def smoke(state):
     require_ci(state)
     host.require_engine(state, 18080)
@@ -73,10 +96,6 @@ def smoke(state):
     assert database["healthcheck"]["test"] == ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres"]
     assert api["ports"][0]["host_ip"] == "127.0.0.1"
     assert len(api["ports"]) == 1 and int(api["ports"][0]["target"]) == 8080
-    for service in (api, database):
-        assert float(service["cpus"]) == 2 and service["mem_limit"] == 2147483648
-        assert service["pids_limit"] == 256
-        assert service["logging"]["options"] == {"max-size": "10m", "max-file": "3"}
     assert api["read_only"] and api["user"] == "10001:10001"
     assert any(mount["target"] == "/var/lib/postgresql" for mount in database["volumes"])
     bootstrap = next(mount for mount in database["volumes"] if mount["target"] == "/docker-entrypoint-initdb.d/10-metallic.sql")
@@ -85,8 +104,14 @@ def smoke(state):
     ready()
     for service in ("api", "db"):
         container = capture(state, ["ps", "--quiet", service]).decode("ascii").strip()
-        # Inspect selected networking data only, never complete container configuration or environment.
-        ports = json.loads(subprocess.check_output(["docker", "inspect", "--format", "{{json .HostConfig.PortBindings}}", container]))
+        # Host settings contain resource/network controls; never request process configuration/environment.
+        settings = json.loads(subprocess.check_output(["docker", "inspect", "--format", "{{json .HostConfig}}", container]))
+        assert settings["Memory"] == 2147483648 and settings["MemorySwap"] == 2147483648
+        assert settings["NanoCpus"] == 2000000000 and settings["PidsLimit"] == 256
+        assert settings["LogConfig"]["Type"] == "json-file"
+        assert settings["LogConfig"]["Config"]["max-size"] == "10m"
+        assert settings["LogConfig"]["Config"]["max-file"] == "3"
+        ports = settings.get("PortBindings")
         if service == "db":
             assert not ports
         else:
@@ -117,6 +142,7 @@ def smoke(state):
         shutil.copy2(state / "backups/smoke.dump", private_backups / "smoke.dump")
         try:
             capture(restored, ["up", "--detach", "--wait", "db"])
+            refuse_nonempty_restore(restored)
             host.restore(restored, 18080, "smoke.dump")
             assert sql(restored, "SELECT id FROM public.host_smoke") == b"42"
             restored_model = json.loads(capture(restored, ["config", "--format", "json"]))
