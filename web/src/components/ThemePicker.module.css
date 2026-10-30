@@ -1,0 +1,129 @@
+.group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.legend {
+  font-size: var(--t-lead);
+  font-weight: 700;
+  margin-bottom: var(--s-4);
+  padding: 0;
+}
+
+.legendCompact {
+  font-size: var(--t-meta);
+  color: var(--ink-2);
+  margin-bottom: var(--s-2);
+  padding: 0;
+}
+
+.options {
+  display: grid;
+  gap: var(--s-2);
+}
+
+[data-variant="full"] .options {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s-3);
+}
+
+.option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2);
+  min-height: 44px;
+  cursor: pointer;
+  background: transparent;
+}
+
+[data-variant="full"] .option {
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--s-3);
+  background: var(--surface-1);
+}
+
+.option:hover {
+  background: var(--surface-2);
+}
+
+.input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.option:has(.input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The swatch renders each theme's own tokens via its data-theme attribute. */
+.swatch {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 44px;
+  height: 28px;
+  background: var(--ground);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+}
+
+[data-variant="full"] .swatch {
+  width: 100%;
+  height: 72px;
+  clip-path: polygon(0 0, calc(100% - var(--mill)) 0, 100% var(--mill), 100% 100%, 0 100%);
+}
+
+.swGround {
+  display: none;
+}
+
+.swSurface {
+  position: absolute;
+  left: 18%;
+  right: 0;
+  bottom: 0;
+  height: 55%;
+  background: var(--surface-2);
+}
+
+.swAccent {
+  position: absolute;
+  left: 30%;
+  bottom: 22%;
+  width: 26%;
+  height: 22%;
+  background: var(--accent-fill);
+}
+
+.text {
+  display: grid;
+  gap: 2px;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.note {
+  font-size: var(--t-meta);
+  color: var(--ink-2);
+}
+
+.option:has(.input:checked) {
+  background: var(--surface-3);
+}
+
+.option:has(.input:checked) .name::after {
+  content: "  (current)";
+  font-weight: 400;
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+}

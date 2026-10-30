@@ -1,0 +1,15 @@
+.dialogText {
+  color: var(--ink);
+  max-width: 52ch;
+}
+
+.dialogActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.dialogNote {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+}

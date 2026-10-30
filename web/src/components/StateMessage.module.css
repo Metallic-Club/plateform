@@ -1,0 +1,31 @@
+.state {
+  display: grid;
+  gap: var(--s-3);
+  justify-items: start;
+  padding: var(--s-6);
+  background: var(--surface-1);
+  clip-path: polygon(0 0, calc(100% - var(--mill)) 0, 100% var(--mill), 100% 100%, 0 100%);
+}
+
+.state[data-tone="error"] {
+  background: var(--surface-2);
+}
+
+.title {
+  font-size: var(--t-lead);
+  line-height: 1.25;
+}
+
+.body {
+  max-width: 60ch;
+  color: var(--ink-2);
+  display: grid;
+  gap: var(--s-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}

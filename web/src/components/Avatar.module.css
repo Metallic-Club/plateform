@@ -1,0 +1,30 @@
+.wrap {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+
+.figure {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--surface-3);
+}
+
+/* Presence marks a real state: online or in a game. No glow, no pulse. */
+.dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 30%;
+  height: 30%;
+  min-width: 9px;
+  min-height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--ground);
+  background: var(--online);
+}
+
+.dot[data-status="in-game"] {
+  background: var(--accent-fill);
+}

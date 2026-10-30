@@ -1,0 +1,36 @@
+import { playHref } from "@/lib/links";
+import type { Shell } from "@/lib/prefs";
+import { Icon } from "../Icon";
+import { button, type ButtonSize } from "../ui/button";
+import { GetMetallicButton } from "./GetMetallicButton";
+
+/**
+ * Play. Inside the launcher it is a plain metallic:// link the launcher
+ * handles; in a browser it opens the "Get Metallic" flow.
+ */
+export function PlayButton({
+  game,
+  shell,
+  serverId,
+  size = "regular",
+  label = "Play",
+  block = false,
+}: {
+  game: { id: string; name: string };
+  shell: Shell;
+  serverId?: string;
+  size?: ButtonSize;
+  label?: string;
+  block?: boolean;
+}) {
+  const href = playHref(game.id, serverId);
+  if (shell === "launcher") {
+    return (
+      <a href={href} className={button("primary", size, block)}>
+        <Icon name="play" size={size === "large" ? 20 : 16} />
+        {label}
+      </a>
+    );
+  }
+  return <GetMetallicButton gameName={game.name} href={href} size={size} label={label} block={block} />;
+}

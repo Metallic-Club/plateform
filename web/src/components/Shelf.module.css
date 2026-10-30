@@ -1,0 +1,94 @@
+.shelf {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+.title {
+  font-size: var(--t-lead);
+  line-height: 1.2;
+}
+
+.description {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+  margin-top: 2px;
+}
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  flex: none;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.more:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Phones: sideways scroll with snap, the next item peeking in. */
+.items {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 62%;
+  gap: var(--s-4);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  margin-inline: calc(-1 * var(--gutter));
+  padding-inline: var(--gutter);
+  scroll-padding-inline: var(--gutter);
+  padding-bottom: var(--s-1);
+}
+
+.items::-webkit-scrollbar {
+  display: none;
+}
+
+.items > li {
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+@media (min-width: 600px) {
+  .items {
+    grid-auto-columns: 38%;
+  }
+}
+
+@media (min-width: 900px) {
+  .items {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr));
+    overflow: visible;
+    margin-inline: 0;
+    padding-inline: 0;
+    gap: var(--s-5) var(--s-4);
+  }
+  .items[data-columns="4"] {
+    --cols: 4;
+  }
+  .items[data-columns="5"] {
+    --cols: 5;
+  }
+  .items[data-columns="6"] {
+    --cols: 4;
+  }
+}
+
+@media (min-width: 1200px) {
+  .items[data-columns="6"] {
+    --cols: 6;
+  }
+}

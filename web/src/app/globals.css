@@ -1,0 +1,285 @@
+/*
+ * Metallic web: tokens and base styles.
+ * Every component reads these tokens. Themes only redefine tokens.
+ * See web/docs/DESIGN.md for the reasons behind each value.
+ */
+
+:root,
+[data-theme="graphite"] {
+  color-scheme: dark;
+  --ground: #18191c;
+  --surface-1: #202125;
+  --surface-2: #292a2f;
+  --surface-3: #34353b;
+  --ink: #ececef;
+  --ink-2: #b4b6be;
+  --ink-3: #9a9ca5;
+  --accent-fill: #5d49d8;
+  --accent-fill-hover: #6b58e4;
+  --on-accent: #ffffff;
+  --accent-ink: #ab9eff;
+  --online: #5cc88a;
+  --danger: #ff8a80;
+  --focus: #c9c0ff;
+  --art-scrim: rgb(14 15 17 / 0.72);
+  --shadow-float: 0 18px 48px rgb(0 0 0 / 0.45);
+}
+
+[data-theme="aluminium"] {
+  color-scheme: light;
+  --ground: #e6e7ea;
+  --surface-1: #f2f2f4;
+  --surface-2: #fafafb;
+  --surface-3: #d8d9de;
+  --ink: #131417;
+  --ink-2: #41434b;
+  --ink-3: #575a63;
+  --accent-fill: #5541d0;
+  --accent-fill-hover: #4835bf;
+  --on-accent: #ffffff;
+  --accent-ink: #4a36c4;
+  --online: #1e8a50;
+  --danger: #b3261e;
+  --focus: #4a36c4;
+  --art-scrim: rgb(14 15 17 / 0.72);
+  --shadow-float: 0 18px 48px rgb(20 22 30 / 0.22);
+}
+
+[data-theme="anodised"] {
+  color-scheme: dark;
+  --ground: #1a1628;
+  --surface-1: #221d34;
+  --surface-2: #2b2540;
+  --surface-3: #372f50;
+  --ink: #f0edf8;
+  --ink-2: #c3bcdb;
+  --ink-3: #aaa1c9;
+  --accent-fill: #6650e6;
+  --accent-fill-hover: #745ff0;
+  --on-accent: #ffffff;
+  --accent-ink: #c4b9ff;
+  --online: #63d095;
+  --danger: #ff9a90;
+  --focus: #d8d0ff;
+  --art-scrim: rgb(16 12 28 / 0.74);
+  --shadow-float: 0 18px 48px rgb(0 0 0 / 0.5);
+}
+
+:root {
+  --font: var(--font-archivo), system-ui, sans-serif;
+
+  /* Type: five sizes do all the work. */
+  --t-meta: 0.8125rem; /* 13px: meta lines, captions */
+  --t-body: 0.9375rem; /* 15px: UI and running text */
+  --t-lead: 1.25rem; /* 20px: section headings */
+  --t-title: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem); /* page titles */
+  --t-display: clamp(2.5rem, 1.2rem + 4.4vw, 5.25rem); /* featured game name */
+
+  /* Space scale (4px base). Section gaps are clearly larger than gaps inside. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 72px;
+  --s-9: 104px;
+
+  --gutter: 16px;
+  --page-max: 1400px;
+  --header-h: 60px;
+  --tabbar-h: 64px;
+
+  /* The milled corner: the one identity motif. */
+  --mill: 10px;
+  --mill-sm: 6px;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur: 140ms;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 28px;
+    --header-h: 64px;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --gutter: 40px;
+  }
+}
+
+/* 10-foot / controller layout: larger type and targets, heavier focus. */
+[data-display="tv"] {
+  font-size: 125%;
+  --mill: 14px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd,
+ul,
+ol {
+  margin: 0;
+}
+
+ul[role="list"],
+ol[role="list"] {
+  list-style: none;
+  padding: 0;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.1;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+[data-display="tv"] :focus-visible {
+  outline-width: 4px;
+  outline-offset: 4px;
+}
+
+::selection {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--gutter);
+  top: -100px;
+  z-index: 100;
+  padding: var(--s-3) var(--s-4);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: var(--s-2);
+}
+
+/* Display width: Archivo stretched wide, like stamped metal plates. */
+.wide {
+  font-variation-settings: "wdth" 125;
+  letter-spacing: -0.01em;
+}
+
+.page {
+  width: 100%;
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.milled {
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--mill)) 0,
+    100% var(--mill),
+    100% 100%,
+    0 100%
+  );
+}
+
+.milled-sm {
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--mill-sm)) 0,
+    100% var(--mill-sm),
+    100% 100%,
+    0 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
