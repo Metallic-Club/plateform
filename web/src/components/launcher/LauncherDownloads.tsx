@@ -20,6 +20,7 @@ export function LauncherDownloads() {
   const { hasBridge, status, progress, update, refresh } = useInstallStatus();
   const info = useLauncherInfo();
   const [studioError, setStudioError] = useState<string | null>(null);
+  const [restartError, setRestartError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (!hasBridge) {
@@ -54,6 +55,18 @@ export function LauncherDownloads() {
     } catch (e) {
       setStudioError(describeBridgeError(e instanceof BridgeError ? e.code : "failed"));
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function restartNow() {
+    setRestartError(null);
+    setBusy(true);
+    try {
+      // On success the Launcher closes this page, so there is nothing to do after.
+      await invoke("restartToUpdate");
+    } catch (e) {
+      setRestartError(describeBridgeError(e instanceof BridgeError ? e.code : "failed"));
       setBusy(false);
     }
   }
@@ -135,11 +148,23 @@ export function LauncherDownloads() {
           </div>
         </div>
         {restart ? (
-          <p className={styles.notice} data-tone={restart.required ? "warning" : "update"} role="status">
-            <strong>{restart.required ? "Update required." : "Restart to update."}</strong>{" "}
-            {restart.version ? `Version ${restart.version} is ready. ` : "An update is ready. "}
-            {restart.required ? "Close Metallic and open it again to keep playing." : "Close Metallic and open it again to finish."}
-          </p>
+          <>
+            <p className={styles.notice} data-tone={restart.required ? "warning" : "update"} role="status">
+              <strong>{restart.required ? "Update required." : "Restart to update."}</strong>{" "}
+              {restart.version ? `Version ${restart.version} is ready. ` : "An update is ready. "}
+              {restart.required ? "Restart Metallic to keep playing." : "Restart Metallic to finish."}
+            </p>
+            <div className={styles.actions}>
+              <button type="button" className={button("primary")} onClick={restartNow} disabled={busy}>
+                Restart now
+              </button>
+            </div>
+            {restartError ? (
+              <p className={styles.error} role="alert">
+                {restartError}
+              </p>
+            ) : null}
+          </>
         ) : (
           <p className={styles.cardText}>{launcherLine(status.launcher)}</p>
         )}

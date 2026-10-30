@@ -45,7 +45,7 @@ async function rejectsWith(p: Promise<unknown>, code: string) {
 }
 
 describe("allow-list", () => {
-  it("holds exactly the commands in plateform #7 section 2", () => {
+  it("holds exactly the commands in plateform #7 section 2, plus restartToUpdate", () => {
     assert.deepEqual([...BRIDGE_COMMANDS].sort(), [
       "getInfo",
       "getSettings",
@@ -53,6 +53,7 @@ describe("allow-list", () => {
       "installStudio",
       "openStudio",
       "play",
+      "restartToUpdate",
       "setSettings",
       "signIn",
       "signOut",

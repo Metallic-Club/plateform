@@ -57,6 +57,8 @@ export interface BridgeCommands {
   setSettings: [{ patch: { closeToTray: boolean } }, LauncherSettings];
   signIn: [undefined, { userCode: string; verificationUri: string }];
   signOut: [undefined, Empty];
+  /** Restarts the Launcher into a downloaded update (studio launcher-l1, Task 4). */
+  restartToUpdate: [undefined, Empty];
 }
 export type BridgeCommand = keyof BridgeCommands;
 
@@ -70,6 +72,7 @@ export const BRIDGE_COMMANDS: readonly BridgeCommand[] = [
   "setSettings",
   "signIn",
   "signOut",
+  "restartToUpdate",
 ];
 
 export type SignInState = "pending" | "signedIn" | "denied" | "expired" | "failed";
