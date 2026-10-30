@@ -463,8 +463,9 @@ paths:
       operationId: replaceSocialLinks
       summary: Set the profile's social links
       description: |
-        Plain handles in P1. Discord links made through Discord sign-in show `verified: true` (P2). Under-13
-        accounts cannot show social links.
+        Plain handles in P1; the server builds the URL. Discord links made through Discord account linking show
+        `verified: true` (P2). Accounts under 16 get 403 `age_restricted`; from P2 links show to others only after
+        the owner passes age assurance.
       requestBody:
         required: true
         content:
