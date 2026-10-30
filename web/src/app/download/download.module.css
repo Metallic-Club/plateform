@@ -1,0 +1,85 @@
+.download {
+  display: grid;
+  gap: var(--s-8);
+  padding-top: var(--s-7);
+}
+
+.app {
+  display: grid;
+  gap: var(--s-6);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .app {
+    grid-template-columns: 280px 1fr;
+    gap: var(--s-8);
+  }
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  width: min(100%, 280px);
+  background: var(--surface-1);
+  color: var(--ink);
+  --mill: 28px;
+}
+
+.mark svg {
+  width: 52%;
+  height: 52%;
+}
+
+.text {
+  display: grid;
+  gap: var(--s-4);
+  justify-items: start;
+}
+
+.title {
+  font-size: var(--t-display);
+  font-weight: 800;
+  line-height: 0.95;
+}
+
+.lede {
+  font-size: var(--t-lead);
+  line-height: 1.45;
+  max-width: 44ch;
+}
+
+.status {
+  padding: var(--s-4);
+  background: var(--surface-2);
+  max-width: 56ch;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.hint {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+}
+
+.h2 {
+  font-size: var(--t-lead);
+}
+
+.studio {
+  display: grid;
+  gap: var(--s-2);
+  max-width: 60ch;
+}
+
+.studio a {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

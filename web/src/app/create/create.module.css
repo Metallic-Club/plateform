@@ -1,0 +1,144 @@
+.create {
+  display: grid;
+  gap: var(--s-9);
+  padding-top: var(--s-6);
+}
+
+.h2 {
+  font-size: var(--t-lead);
+}
+
+.sub {
+  color: var(--ink-2);
+}
+
+.intro {
+  display: grid;
+  gap: var(--s-5);
+  justify-items: start;
+}
+
+.title {
+  font-size: var(--t-display);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  max-width: 14ch;
+}
+
+.lede {
+  font-size: var(--t-lead);
+  line-height: 1.45;
+  max-width: 46ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.templates {
+  display: grid;
+  gap: var(--s-6);
+}
+
+.templatesHead {
+  display: grid;
+  gap: var(--s-1);
+}
+
+/* The first template gets the full width: it is the one most people start with. */
+.lead {
+  display: grid;
+  gap: var(--s-5);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .lead {
+    grid-template-columns: 1.4fr 1fr;
+    gap: var(--s-7);
+  }
+}
+
+.leadArt {
+  aspect-ratio: 16 / 9;
+  background: var(--surface-2);
+}
+
+.leadArt svg,
+.itemArt svg {
+  width: 100%;
+  height: 100%;
+}
+
+.leadText {
+  display: grid;
+  gap: var(--s-3);
+  max-width: 44ch;
+}
+
+.leadName {
+  font-size: var(--t-title);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.includes {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+}
+
+.list {
+  display: grid;
+  gap: var(--s-5) var(--s-6);
+}
+
+@media (min-width: 760px) {
+  .list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: var(--s-4);
+  align-items: start;
+}
+
+@media (min-width: 1200px) {
+  .item {
+    grid-template-columns: 200px 1fr;
+  }
+}
+
+.itemArt {
+  aspect-ratio: 16 / 10;
+  background: var(--surface-2);
+}
+
+.itemText {
+  display: grid;
+  gap: var(--s-1);
+}
+
+.itemName {
+  font-size: 1.0625rem;
+}
+
+.next {
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-6);
+  background: var(--surface-1);
+}
+
+.nextList {
+  display: grid;
+  gap: var(--s-3);
+  max-width: 64ch;
+  padding-left: 1.2em;
+  margin: 0;
+}
