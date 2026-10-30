@@ -4,5 +4,6 @@ mod auth;
 mod contract;
 mod games;
 mod ledger;
+mod password_length;
 mod social;
 mod support;

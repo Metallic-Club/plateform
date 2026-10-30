@@ -79,6 +79,8 @@ from failed runs are dropped at the next run. Every response is validated agains
 
 - argon2id (m=19456, t=2, p=1); emails, birth dates and parent emails encrypted with AES-256-GCM; lookups use keyed
   hashes. Session and refresh tokens stored as SHA-256 only.
+- Signup and login share the 128-Unicode-code-point password maximum. Hashing and verification use the complete
+  original UTF-8 bytes, without normalization, trimming or truncation.
 - Session cookie: HttpOnly, Secure, SameSite=Lax. CSRF token = HMAC of the session, checked in constant time on
   unsafe methods; Origin allow-list on unsafe requests.
 - Native apps: device flow (RFC 8628), 15-minute access tokens, rotating 30-day refresh tokens; reuse revokes the

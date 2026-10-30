@@ -470,7 +470,7 @@ pub async fn log_in(
         "Enter your username or email.",
     );
     v.check(
-        !password.is_empty() && password.len() <= 128,
+        !password.is_empty() && password.chars().count() <= 128,
         "password",
         "invalid",
         "Enter your password.",

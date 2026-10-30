@@ -175,6 +175,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401':
           description: Wrong login or password. The response never says which.
           content:
@@ -1756,7 +1757,7 @@ components:
           type: string
           minLength: 10
           maxLength: 128
-          description: Checked against a breached-password list. No other composition rules.
+          description: Length counts Unicode code points, not UTF-8 bytes. Checked against a breached-password list. No other composition rules.
         email: { type: string, format: email, maxLength: 254 }
         birthDate:
           type: string
@@ -1773,7 +1774,10 @@ components:
       required: [login, password]
       properties:
         login: { type: string, description: Username or email., maxLength: 254 }
-        password: { type: string, maxLength: 128 }
+        password:
+          type: string
+          maxLength: 128
+          description: Length counts Unicode code points, as at signup. The complete original value is verified without normalization or truncation.
         totpCode: { type: string, pattern: '^[0-9]{6}$' }
         captchaToken: { type: string }
     Session:
