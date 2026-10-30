@@ -9,11 +9,23 @@ publish = false
 build = "build.rs"
 
 [dependencies]
-axum = "0.8.9"
+aes-gcm = "0.11"
+argon2 = "0.6"
+async-trait = "0.1"
+axum = { version = "0.8.9", features = ["macros"] }
+base64 = "0.23"
+hmac = "0.13"
+rand = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1.54", features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
-tower-http = { version = "0.7", features = ["trace", "timeout", "limit"] }
+serde_urlencoded = "0.7"
+sha2 = "0.11"
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "migrate", "macros", "derive", "time", "json", "tls-rustls-ring-native-roots"] }
+subtle = "2.6"
+time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
+tokio = { version = "1.54", features = ["macros", "rt-multi-thread", "net", "signal", "time", "sync"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.7", features = ["trace", "timeout", "limit", "cors", "set-header"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 
@@ -22,11 +34,24 @@ yaml-rust2 = "0.13"
 
 [dev-dependencies]
 http-body-util = "0.1"
-tower = { version = "0.5", features = ["util"] }
+jsonschema = { version = "0.60", default-features = false }
 yaml-rust2 = "0.13"
 
+[[test]]
+name = "api"
+path = "tests/api/main.rs"
+
 [profile.dev]
+# Disk on the dev PC is tight; line tables are enough for backtraces.
 debug = "line-tables-only"
+incremental = false
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.test]
+debug = "line-tables-only"
+incremental = false
 
 [lints.rust]
 unsafe_code = "forbid"
