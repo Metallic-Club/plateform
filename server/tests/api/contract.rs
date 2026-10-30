@@ -340,6 +340,17 @@ async fn every_operation_answers_as_documented() {
     let ada_app = ada.with_bearer(&access);
     ok(&ada_app.op("getMe", &[], Value::Null).await, 200);
 
+    // web-session handoff (the Launcher's web view)
+    let r = ada_app.op("createWebSessionCode", &[], Value::Null).await;
+    ok(&r, 200);
+    let wsc = r.body["code"].as_str().expect("code").to_owned();
+    let redeem = json!({ "code": wsc });
+    ok(
+        &anon.op("redeemWebSessionCode", &[], redeem.clone()).await,
+        200,
+    );
+    ok(&anon.op("redeemWebSessionCode", &[], redeem).await, 400);
+
     // users
     ok(&ada.op("getMe", &[], Value::Null).await, 200);
     ok(

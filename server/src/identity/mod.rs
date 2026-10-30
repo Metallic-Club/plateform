@@ -5,6 +5,7 @@ pub mod account;
 pub mod auth;
 pub mod names;
 pub mod oauth;
+pub mod web_session;
 
 use std::collections::HashMap;
 
@@ -221,6 +222,7 @@ pub async fn cleanup_expired(db: &sqlx::PgPool) -> ApiResult<u64> {
         "DELETE FROM identity.access_tokens WHERE expires_at < now()",
         "DELETE FROM identity.refresh_tokens WHERE expires_at < now() - interval '1 day'",
         "DELETE FROM identity.device_authorizations WHERE expires_at < now() - interval '1 hour'",
+        "DELETE FROM identity.web_session_codes WHERE expires_at < now() - interval '1 hour'",
         "DELETE FROM identity.email_tokens WHERE expires_at < now() - interval '1 day'",
         "DELETE FROM identity.name_holds WHERE release_after < now()",
     ] {
