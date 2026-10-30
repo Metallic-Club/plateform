@@ -3,6 +3,9 @@
 Captured from the owner's message as written, grouped only for reading. Not a design yet: the platform gets its own
 design pass after the Metallic Studio design is approved. Lines marked "reading:" are guesses to confirm with the owner.
 
+## Main navigation (owner, 2026-10-30)
+- Home, Explore, Wardrobe, Marketplace (reading: the top-level tabs of the site/launcher, in this order)
+
 ## Accounts and safety
 - Secure login
 - Profiles: edit bio; link Discord, YouTube, Twitch, TikTok and more
