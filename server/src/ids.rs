@@ -46,7 +46,11 @@ impl IdGenerator {
 /// Parses a decimal id as the API sends it (`^[1-9][0-9]{0,18}$`, fits in i64).
 pub fn parse_id(s: &str) -> Option<i64> {
     let bytes = s.as_bytes();
-    if bytes.is_empty() || bytes.len() > 19 || bytes[0] == b'0' || !bytes.iter().all(u8::is_ascii_digit) {
+    if bytes.is_empty()
+        || bytes.len() > 19
+        || bytes[0] == b'0'
+        || !bytes.iter().all(u8::is_ascii_digit)
+    {
         return None;
     }
     s.parse::<i64>().ok().filter(|n| *n > 0)
@@ -72,7 +76,15 @@ mod tests {
     fn parse_id_matches_the_contract_pattern() {
         assert_eq!(parse_id("1050000000000001"), Some(1_050_000_000_000_001));
         assert_eq!(parse_id("9223372036854775807"), Some(i64::MAX));
-        for bad in ["", "0", "01", "-1", "1a", "9223372036854775808", "12345678901234567890"] {
+        for bad in [
+            "",
+            "0",
+            "01",
+            "-1",
+            "1a",
+            "9223372036854775808",
+            "12345678901234567890",
+        ] {
             assert_eq!(parse_id(bad), None, "{bad}");
         }
     }

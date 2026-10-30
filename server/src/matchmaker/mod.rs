@@ -51,7 +51,10 @@ pub async fn live_counts(db: impl PgExecutor<'_>, game_ids: &[i64]) -> ApiResult
     .bind(game_ids)
     .fetch_all(db)
     .await?;
-    Ok(rows.into_iter().map(|(g, p, s, t)| (g, (p, s, t))).collect())
+    Ok(rows
+        .into_iter()
+        .map(|(g, p, s, t)| (g, (p, s, t)))
+        .collect())
 }
 
 pub async fn all_live_counts(db: impl PgExecutor<'_>) -> ApiResult<LiveCounts> {
@@ -61,7 +64,10 @@ pub async fn all_live_counts(db: impl PgExecutor<'_>) -> ApiResult<LiveCounts> {
     )))
     .fetch_all(db)
     .await?;
-    Ok(rows.into_iter().map(|(g, p, s, t)| (g, (p, s, t))).collect())
+    Ok(rows
+        .into_iter()
+        .map(|(g, p, s, t)| (g, (p, s, t)))
+        .collect())
 }
 
 #[derive(Serialize)]
@@ -79,11 +85,21 @@ pub struct Items<T> {
 
 /// `listRegions`
 pub async fn list_regions(State(state): State<AppState>) -> ApiResult<Json<Items<Region>>> {
-    let rows: Vec<(String, String, String)> =
-        sqlx::query_as("SELECT code, name, probe_url FROM matchmaker.regions WHERE active ORDER BY position, code")
-            .fetch_all(&state.db)
-            .await?;
-    Ok(Json(Items { items: rows.into_iter().map(|(code, name, probe_url)| Region { code, name, probe_url }).collect() }))
+    let rows: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT code, name, probe_url FROM matchmaker.regions WHERE active ORDER BY position, code",
+    )
+    .fetch_all(&state.db)
+    .await?;
+    Ok(Json(Items {
+        items: rows
+            .into_iter()
+            .map(|(code, name, probe_url)| Region {
+                code,
+                name,
+                probe_url,
+            })
+            .collect(),
+    }))
 }
 
 pub fn valid_region_code(code: &str) -> bool {
@@ -118,7 +134,8 @@ impl ServerRow {
     }
 }
 
-const SERVER_COLUMNS: &str = "id, game_id, place_id, region, status, max_players, player_ids, joinable, started_at";
+const SERVER_COLUMNS: &str =
+    "id, game_id, place_id, region, status, max_players, player_ids, joinable, started_at";
 
 async fn live_servers(db: impl PgExecutor<'_>, game: i64) -> ApiResult<Vec<ServerRow>> {
     Ok(sqlx::query_as(sqlx::AssertSqlSafe(format!(
@@ -130,10 +147,12 @@ async fn live_servers(db: impl PgExecutor<'_>, game: i64) -> ApiResult<Vec<Serve
 }
 
 async fn live_server(db: impl PgExecutor<'_>, id: i64) -> ApiResult<Option<ServerRow>> {
-    Ok(sqlx::query_as(sqlx::AssertSqlSafe(format!("SELECT {SERVER_COLUMNS} FROM matchmaker.servers WHERE id = $1 AND {LIVE}")))
-        .bind(id)
-        .fetch_optional(db)
-        .await?)
+    Ok(sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT {SERVER_COLUMNS} FROM matchmaker.servers WHERE id = $1 AND {LIVE}"
+    )))
+    .bind(id)
+    .fetch_optional(db)
+    .await?)
 }
 
 #[derive(Serialize)]
@@ -173,7 +192,11 @@ pub async fn visible_friends(state: &AppState, viewer: i64) -> ApiResult<HashSet
     let privacy = social::privacy_many(&state.db, &friends).await?;
     Ok(friends
         .into_iter()
-        .filter(|f| privacy.get(f).is_some_and(|p| p.presence_visibility != "nobody"))
+        .filter(|f| {
+            privacy
+                .get(f)
+                .is_some_and(|p| p.presence_visibility != "nobody")
+        })
         .collect())
 }
 
@@ -189,38 +212,64 @@ pub async fn list_servers(
     let region = match q.region.as_deref() {
         None | Some("") => None,
         Some(r) if valid_region_code(r) => Some(r.to_owned()),
-        Some(_) => return Err(Problem::invalid("region", "invalid", "Unknown region code.")),
+        Some(_) => {
+            return Err(Problem::invalid(
+                "region",
+                "invalid",
+                "Unknown region code.",
+            ));
+        }
     };
     let sort = q.sort.as_deref().unwrap_or("most_players");
     if !matches!(sort, "most_players" | "fewest_players" | "newest") {
-        return Err(Problem::invalid("sort", "invalid", "Use most_players, fewest_players or newest."));
+        return Err(Problem::invalid(
+            "sort",
+            "invalid",
+            "Use most_players, fewest_players or newest.",
+        ));
     }
     let hide_full = parse_flag("hideFull", q.hide_full.as_deref())?.unwrap_or(true);
     let band = crate::viewer_band(&state, viewer.as_ref()).await?;
-    games::viewable(&state.db, game_id, &games::labels_for(band), viewer.as_ref().map(|v| v.user_id))
-        .await?
-        .ok_or_else(Problem::not_found)?;
+    games::viewable(
+        &state.db,
+        game_id,
+        &games::labels_for(band),
+        viewer.as_ref().map(|v| v.user_id),
+    )
+    .await?
+    .ok_or_else(Problem::not_found)?;
 
     let mut servers = live_servers(&state.db, game_id).await?;
-    servers.retain(|s| region.as_deref().is_none_or(|r| s.region == r) && (!hide_full || s.can_join()));
+    servers.retain(|s| {
+        region.as_deref().is_none_or(|r| s.region == r) && (!hide_full || s.can_join())
+    });
     let friends = match &viewer {
         Some(v) => visible_friends(&state, v.user_id).await?,
         None => HashSet::new(),
     };
     let hidden: HashSet<i64> = match &viewer {
-        Some(v) => social::hidden_for(&state.db, v.user_id).await?.into_iter().collect(),
+        Some(v) => social::hidden_for(&state.db, v.user_id)
+            .await?
+            .into_iter()
+            .collect(),
         None => HashSet::new(),
     };
     let friend_count = |s: &ServerRow| s.player_ids.iter().filter(|p| friends.contains(p)).count();
     servers.sort_by(|a, b| {
-        friend_count(b).cmp(&friend_count(a)).then_with(|| match sort {
-            "fewest_players" => a.playing().cmp(&b.playing()),
-            "newest" => b.started_at.cmp(&a.started_at),
-            _ => b.playing().cmp(&a.playing()),
-        })
+        friend_count(b)
+            .cmp(&friend_count(a))
+            .then_with(|| match sort {
+                "fewest_players" => a.playing().cmp(&b.playing()),
+                "newest" => b.started_at.cmp(&a.started_at),
+                _ => b.playing().cmp(&a.playing()),
+            })
     });
     let total = servers.len();
-    let page_rows: Vec<ServerRow> = servers.into_iter().skip(offset as usize).take(page.limit as usize).collect();
+    let page_rows: Vec<ServerRow> = servers
+        .into_iter()
+        .skip(offset as usize)
+        .take(page.limit as usize)
+        .collect();
     let friend_ids: Vec<i64> = page_rows
         .iter()
         .flat_map(|s| s.player_ids.iter().copied())
@@ -236,13 +285,23 @@ pub async fn list_servers(
             region: s.region.clone(),
             playing: s.playing(),
             max_players: s.max_players,
-            friends: s.player_ids.iter().filter_map(|p| people.get(p).filter(|_| friends.contains(p)).map(|u| u.summary())).collect(),
+            friends: s
+                .player_ids
+                .iter()
+                .filter_map(|p| {
+                    people
+                        .get(p)
+                        .filter(|_| friends.contains(p))
+                        .map(|u| u.summary())
+                })
+                .collect(),
             started_at: rfc3339(s.started_at),
             joinable: s.can_join(),
         })
         .collect();
     let next = offset + page.limit;
-    let next_cursor = ((total as i64) > next && next <= crate::http::MAX_OFFSET).then(|| crate::http::Cursor::Offset(next).encode());
+    let next_cursor = ((total as i64) > next && next <= crate::http::MAX_OFFSET)
+        .then(|| crate::http::Cursor::Offset(next).encode());
     Ok(Json(PageBody { items, next_cursor }))
 }
 
@@ -280,29 +339,49 @@ pub async fn create_join_ticket(
     let parse = |field: &str, v: &Option<String>| -> ApiResult<Option<i64>> {
         match v {
             None => Ok(None),
-            Some(s) => crate::ids::parse_id(s).map(Some).ok_or_else(|| Problem::invalid(field, "invalid", "Not an id.")),
+            Some(s) => crate::ids::parse_id(s)
+                .map(Some)
+                .ok_or_else(|| Problem::invalid(field, "invalid", "Not an id.")),
         }
     };
     let server_id = parse("serverId", &req.server_id)?;
     let follow = parse("followUserId", &req.follow_user_id)?;
     if server_id.is_some() && follow.is_some() {
-        return Err(Problem::invalid("serverId", "conflict", "Give serverId or followUserId, not both."));
+        return Err(Problem::invalid(
+            "serverId",
+            "conflict",
+            "Give serverId or followUserId, not both.",
+        ));
     }
     if let Some(r) = &req.region
         && !valid_region_code(r)
     {
-        return Err(Problem::invalid("region", "invalid", "Unknown region code."));
+        return Err(Problem::invalid(
+            "region",
+            "invalid",
+            "Unknown region code.",
+        ));
     }
 
-    let me = crate::identity::basic(&state.db, viewer.user_id).await?.ok_or_else(Problem::unauthorized)?;
-    let game = games::viewable(&state.db, game_id, &games::labels_for(Some(me.band())), Some(viewer.user_id))
+    let me = crate::identity::basic(&state.db, viewer.user_id)
         .await?
-        .ok_or_else(Problem::not_found)?;
+        .ok_or_else(Problem::unauthorized)?;
+    let game = games::viewable(
+        &state.db,
+        game_id,
+        &games::labels_for(Some(me.band())),
+        Some(viewer.user_id),
+    )
+    .await?
+    .ok_or_else(Problem::not_found)?;
     let place_id = game.start_place_id.ok_or_else(Problem::not_found)?;
     let full = || Problem::conflict("server_full", "Server full");
 
     let chosen: Option<ServerRow> = if let Some(sid) = server_id {
-        let s = live_server(&state.db, sid).await?.filter(|s| s.game_id == game_id).ok_or_else(Problem::not_found)?;
+        let s = live_server(&state.db, sid)
+            .await?
+            .filter(|s| s.game_id == game_id)
+            .ok_or_else(Problem::not_found)?;
         if !s.can_join() {
             return Err(full());
         }
@@ -315,7 +394,10 @@ pub async fn create_join_ticket(
         Some(s)
     } else {
         let friends = visible_friends(&state, viewer.user_id).await?;
-        let hidden: HashSet<i64> = social::hidden_for(&state.db, viewer.user_id).await?.into_iter().collect();
+        let hidden: HashSet<i64> = social::hidden_for(&state.db, viewer.user_id)
+            .await?
+            .into_iter()
+            .collect();
         let servers = live_servers(&state.db, game_id).await?;
         pick_server(&servers, req.region.as_deref(), &friends, &hidden)
     };
@@ -342,12 +424,25 @@ pub async fn create_join_ticket(
         place_id: place.to_string(),
         expires_at: rfc3339(expires_at),
     };
-    Ok((StatusCode::CREATED, [(header::CACHE_CONTROL, "no-store")], Json(body)).into_response())
+    Ok((
+        StatusCode::CREATED,
+        [(header::CACHE_CONTROL, "no-store")],
+        Json(body),
+    )
+        .into_response())
 }
 
 /// The server a friend is in, if their privacy lets the viewer follow them (spec 9.7).
-async fn follow_target(state: &AppState, viewer: i64, target: i64, game_id: i64) -> ApiResult<ServerRow> {
-    let denied = || Problem::forbidden("join_not_allowed", "You cannot join this player").with_detail("They are not in a server you can join.");
+async fn follow_target(
+    state: &AppState,
+    viewer: i64,
+    target: i64,
+    game_id: i64,
+) -> ApiResult<ServerRow> {
+    let denied = || {
+        Problem::forbidden("join_not_allowed", "You cannot join this player")
+            .with_detail("They are not in a server you can join.")
+    };
     let (a, b) = social::blocks_between(&state.db, viewer, target).await?;
     if a || b {
         return Err(denied());
@@ -357,21 +452,35 @@ async fn follow_target(state: &AppState, viewer: i64, target: i64, game_id: i64)
     let Some(p) = privacy.get(&target) else {
         return Err(denied());
     };
-    if !social::audience_allows(&p.join_policy, false, friend) || !social::audience_allows(&p.presence_visibility, false, friend) {
+    if !social::audience_allows(&p.join_policy, false, friend)
+        || !social::audience_allows(&p.presence_visibility, false, friend)
+    {
         return Err(denied());
     }
     let rec = state.presence.get_many(&[target]).await;
-    let Some(Activity::InGame { game_id: g, server_id }) = rec.first().and_then(|r| r.activity) else {
+    let Some(Activity::InGame {
+        game_id: g,
+        server_id,
+    }) = rec.first().and_then(|r| r.activity)
+    else {
         return Err(denied());
     };
     if g != game_id {
         return Err(denied());
     }
-    live_server(&state.db, server_id).await?.filter(|s| s.player_ids.contains(&target)).ok_or_else(denied)
+    live_server(&state.db, server_id)
+        .await?
+        .filter(|s| s.player_ids.contains(&target))
+        .ok_or_else(denied)
 }
 
 /// Quick join: prefer the asked region, friends present, and servers 60-90% full so games feel alive (spec 9.7).
-pub fn pick_server(servers: &[ServerRow], region: Option<&str>, friends: &HashSet<i64>, hidden: &HashSet<i64>) -> Option<ServerRow> {
+pub fn pick_server(
+    servers: &[ServerRow],
+    region: Option<&str>,
+    friends: &HashSet<i64>,
+    hidden: &HashSet<i64>,
+) -> Option<ServerRow> {
     servers
         .iter()
         .filter(|s| s.can_join() && !s.player_ids.iter().any(|p| hidden.contains(p)))
@@ -386,8 +495,16 @@ pub fn pick_server(servers: &[ServerRow], region: Option<&str>, friends: &HashSe
 
 fn score(s: &ServerRow, region: Option<&str>, friends: &HashSet<i64>) -> f64 {
     let fill = s.playing() as f64 / f64::from(s.max_players.max(1));
-    let fill_score = if (0.6..=0.9).contains(&fill) { 30.0 } else { 30.0 - (fill - 0.75).abs() * 40.0 };
-    let region_score = if region.is_some_and(|r| r == s.region) { 100.0 } else { 0.0 };
+    let fill_score = if (0.6..=0.9).contains(&fill) {
+        30.0
+    } else {
+        30.0 - (fill - 0.75).abs() * 40.0
+    };
+    let region_score = if region.is_some_and(|r| r == s.region) {
+        100.0
+    } else {
+        0.0
+    };
     let friend_score = s.player_ids.iter().filter(|p| friends.contains(p)).count() as f64 * 20.0;
     region_score + friend_score + fill_score
 }
@@ -408,7 +525,10 @@ pub struct LiveCount {
 }
 
 /// `getLiveCounts`
-pub async fn get_live_counts(State(state): State<AppState>, ApiQuery(q): ApiQuery<LiveQuery>) -> ApiResult<Response> {
+pub async fn get_live_counts(
+    State(state): State<AppState>,
+    ApiQuery(q): ApiQuery<LiveQuery>,
+) -> ApiResult<Response> {
     let ids = crate::http::parse_id_list("gameIds", q.game_ids.as_deref(), 100)?;
     let live = live_counts(&state.db, &ids).await?;
     let now = OffsetDateTime::now_utc();
@@ -416,10 +536,19 @@ pub async fn get_live_counts(State(state): State<AppState>, ApiQuery(q): ApiQuer
         .iter()
         .map(|id| {
             let (playing, servers, at) = live.get(id).copied().unwrap_or((0, 0, now));
-            LiveCount { game_id: id.to_string(), playing, servers, updated_at: rfc3339(at) }
+            LiveCount {
+                game_id: id.to_string(),
+                playing,
+                servers,
+                updated_at: rfc3339(at),
+            }
         })
         .collect();
-    Ok(([(header::CACHE_CONTROL, "public, max-age=15")], Json(Items { items })).into_response())
+    Ok((
+        [(header::CACHE_CONTROL, "public, max-age=15")],
+        Json(Items { items }),
+    )
+        .into_response())
 }
 
 #[derive(Serialize)]
@@ -439,16 +568,23 @@ pub async fn get_platform_live(State(state): State<AppState>) -> ApiResult<Respo
     .fetch_one(&state.db)
     .await?;
     let online = (state.presence.online_count().await as i64).max(playing);
-    let body = PlatformLive { playing, online, servers, updated_at: rfc3339(OffsetDateTime::now_utc()) };
+    let body = PlatformLive {
+        playing,
+        online,
+        servers,
+        updated_at: rfc3339(OffsetDateTime::now_utc()),
+    };
     Ok(([(header::CACHE_CONTROL, "public, max-age=15")], Json(body)).into_response())
 }
 
 /// Deletes used or expired join tickets and servers stopped more than a day ago (hourly job).
 pub async fn cleanup_expired(db: &sqlx::PgPool) -> ApiResult<u64> {
-    let mut n = sqlx::query("DELETE FROM matchmaker.join_tickets WHERE expires_at < now() - interval '1 hour'")
-        .execute(db)
-        .await?
-        .rows_affected();
+    let mut n = sqlx::query(
+        "DELETE FROM matchmaker.join_tickets WHERE expires_at < now() - interval '1 hour'",
+    )
+    .execute(db)
+    .await?
+    .rows_affected();
     n += sqlx::query("DELETE FROM matchmaker.servers WHERE status = 'stopped' AND stopped_at < now() - interval '1 day'")
         .execute(db)
         .await?
@@ -483,13 +619,36 @@ mod tests {
             server(3, "eu-central", (20..=27).collect(), 10),
             server(4, "us-east", (30..=39).collect(), 10),
         ];
-        assert_eq!(pick_server(&servers, Some("us-east"), &none, &none).map(|s| s.id), Some(2), "75% full in region");
-        assert_eq!(pick_server(&servers, Some("eu-central"), &none, &none).map(|s| s.id), Some(3));
+        assert_eq!(
+            pick_server(&servers, Some("us-east"), &none, &none).map(|s| s.id),
+            Some(2),
+            "75% full in region"
+        );
+        assert_eq!(
+            pick_server(&servers, Some("eu-central"), &none, &none).map(|s| s.id),
+            Some(3)
+        );
         let friends: HashSet<i64> = [1, 2].into();
-        assert_eq!(pick_server(&servers, None, &friends, &none).map(|s| s.id), Some(1), "friends win");
+        assert_eq!(
+            pick_server(&servers, None, &friends, &none).map(|s| s.id),
+            Some(1),
+            "friends win"
+        );
         let hidden: HashSet<i64> = [12].into();
-        assert_eq!(pick_server(&servers, Some("us-east"), &none, &hidden).map(|s| s.id), Some(1), "blocked users avoided, full server skipped");
-        assert!(pick_server(&[server(9, "us-east", (1..=4).collect(), 4)], None, &none, &none).is_none());
+        assert_eq!(
+            pick_server(&servers, Some("us-east"), &none, &hidden).map(|s| s.id),
+            Some(1),
+            "blocked users avoided, full server skipped"
+        );
+        assert!(
+            pick_server(
+                &[server(9, "us-east", (1..=4).collect(), 4)],
+                None,
+                &none,
+                &none
+            )
+            .is_none()
+        );
     }
 
     #[test]

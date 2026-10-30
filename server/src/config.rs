@@ -132,9 +132,12 @@ impl Config {
     /// Reads configuration through `lookup`, so tests do not touch the process environment.
     pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Result<Self, ConfigError> {
         let get = |name: &'static str| lookup(name).filter(|v| !v.trim().is_empty());
-        let bind_addr = parse("METALLIC_BIND_ADDR", get("METALLIC_BIND_ADDR"), "127.0.0.1:8080", |v| {
-            v.parse::<SocketAddr>().map_err(|e| e.to_string())
-        })?;
+        let bind_addr = parse(
+            "METALLIC_BIND_ADDR",
+            get("METALLIC_BIND_ADDR"),
+            "127.0.0.1:8080",
+            |v| v.parse::<SocketAddr>().map_err(|e| e.to_string()),
+        )?;
         let role = parse("METALLIC_ROLE", get("METALLIC_ROLE"), "api", |v| match v {
             "api" => Ok(Role::Api),
             "worker" => Ok(Role::Worker),
@@ -144,7 +147,9 @@ impl Config {
             "dev" => Ok(Environment::Dev),
             "staging" => Ok(Environment::Staging),
             "prod" => Ok(Environment::Prod),
-            other => Err(format!("unknown environment `{other}` (expected dev, staging or prod)")),
+            other => Err(format!(
+                "unknown environment `{other}` (expected dev, staging or prod)"
+            )),
         })?;
         let dev = environment == Environment::Dev;
         let log_filter = get("METALLIC_LOG").unwrap_or_else(|| "info".to_owned());
@@ -205,7 +210,9 @@ impl Config {
             if origin == "*" || !(origin.starts_with("https://") || origin.starts_with("http://")) {
                 return Err(ConfigError {
                     variable: "METALLIC_CORS_ORIGINS",
-                    message: format!("`{origin}` is not an http(s) origin (wildcards are not allowed)"),
+                    message: format!(
+                        "`{origin}` is not an http(s) origin (wildcards are not allowed)"
+                    ),
                 });
             }
         }
@@ -213,19 +220,30 @@ impl Config {
             .unwrap_or_else(|| "http://localhost:3000".to_owned())
             .trim_end_matches('/')
             .to_owned();
-        let cookie_secure = parse("METALLIC_COOKIE_SECURE", get("METALLIC_COOKIE_SECURE"), "true", parse_bool)?;
+        let cookie_secure = parse(
+            "METALLIC_COOKIE_SECURE",
+            get("METALLIC_COOKIE_SECURE"),
+            "true",
+            parse_bool,
+        )?;
         if !cookie_secure && !dev {
             return Err(ConfigError {
                 variable: "METALLIC_COOKIE_SECURE",
                 message: "may only be false in dev".to_owned(),
             });
         }
-        let client_ip_header = get("METALLIC_CLIENT_IP_HEADER").map(|h| h.trim().to_ascii_lowercase());
+        let client_ip_header =
+            get("METALLIC_CLIENT_IP_HEADER").map(|h| h.trim().to_ascii_lowercase());
         let dev_mail_dir = get("METALLIC_DEV_MAIL_DIR");
         let worker_id = parse("METALLIC_WORKER_ID", get("METALLIC_WORKER_ID"), "0", |v| {
             int_in(v, 0, 1023).map(|n: u32| n as u16)
         })?;
-        let run_jobs = parse("METALLIC_RUN_JOBS", get("METALLIC_RUN_JOBS"), if dev { "true" } else { "false" }, parse_bool)?;
+        let run_jobs = parse(
+            "METALLIC_RUN_JOBS",
+            get("METALLIC_RUN_JOBS"),
+            if dev { "true" } else { "false" },
+            parse_bool,
+        )?;
         let migrate_on_start = parse(
             "METALLIC_MIGRATE_ON_START",
             get("METALLIC_MIGRATE_ON_START"),
@@ -235,15 +253,69 @@ impl Config {
 
         let d = Policy::default();
         let policy = Policy {
-            verify_window_days: parse_num("METALLIC_VERIFY_WINDOW_DAYS", get("METALLIC_VERIFY_WINDOW_DAYS"), d.verify_window_days, 1, 365)?,
-            max_accounts_per_email: parse_num("METALLIC_MAX_ACCOUNTS_PER_EMAIL", get("METALLIC_MAX_ACCOUNTS_PER_EMAIL"), d.max_accounts_per_email, 1, 100)?,
-            signups_per_ip_free: parse_num("METALLIC_SIGNUPS_PER_IP_FREE", get("METALLIC_SIGNUPS_PER_IP_FREE"), d.signups_per_ip_free, 0, 10_000)?,
-            signups_per_ip_review: parse_num("METALLIC_SIGNUPS_PER_IP_REVIEW", get("METALLIC_SIGNUPS_PER_IP_REVIEW"), d.signups_per_ip_review, 1, 10_000)?,
-            name_hold_rename_days: parse_num("METALLIC_NAME_HOLD_RENAME_DAYS", get("METALLIC_NAME_HOLD_RENAME_DAYS"), d.name_hold_rename_days, 0, 3650)?,
-            name_hold_deletion_days: parse_num("METALLIC_NAME_HOLD_DELETION_DAYS", get("METALLIC_NAME_HOLD_DELETION_DAYS"), d.name_hold_deletion_days, 0, 3650)?,
-            name_release_jitter_days: parse_num("METALLIC_NAME_RELEASE_JITTER_DAYS", get("METALLIC_NAME_RELEASE_JITTER_DAYS"), d.name_release_jitter_days, 0, 365)?,
-            username_checks_per_hour: parse_num("METALLIC_USERNAME_CHECKS_PER_HOUR", get("METALLIC_USERNAME_CHECKS_PER_HOUR"), i64::from(d.username_checks_per_hour), 1, 100_000)? as u32,
-            parental_consent_age: parse_num("METALLIC_PARENTAL_CONSENT_AGE", get("METALLIC_PARENTAL_CONSENT_AGE"), i64::from(d.parental_consent_age), 13, 16)? as i32,
+            verify_window_days: parse_num(
+                "METALLIC_VERIFY_WINDOW_DAYS",
+                get("METALLIC_VERIFY_WINDOW_DAYS"),
+                d.verify_window_days,
+                1,
+                365,
+            )?,
+            max_accounts_per_email: parse_num(
+                "METALLIC_MAX_ACCOUNTS_PER_EMAIL",
+                get("METALLIC_MAX_ACCOUNTS_PER_EMAIL"),
+                d.max_accounts_per_email,
+                1,
+                100,
+            )?,
+            signups_per_ip_free: parse_num(
+                "METALLIC_SIGNUPS_PER_IP_FREE",
+                get("METALLIC_SIGNUPS_PER_IP_FREE"),
+                d.signups_per_ip_free,
+                0,
+                10_000,
+            )?,
+            signups_per_ip_review: parse_num(
+                "METALLIC_SIGNUPS_PER_IP_REVIEW",
+                get("METALLIC_SIGNUPS_PER_IP_REVIEW"),
+                d.signups_per_ip_review,
+                1,
+                10_000,
+            )?,
+            name_hold_rename_days: parse_num(
+                "METALLIC_NAME_HOLD_RENAME_DAYS",
+                get("METALLIC_NAME_HOLD_RENAME_DAYS"),
+                d.name_hold_rename_days,
+                0,
+                3650,
+            )?,
+            name_hold_deletion_days: parse_num(
+                "METALLIC_NAME_HOLD_DELETION_DAYS",
+                get("METALLIC_NAME_HOLD_DELETION_DAYS"),
+                d.name_hold_deletion_days,
+                0,
+                3650,
+            )?,
+            name_release_jitter_days: parse_num(
+                "METALLIC_NAME_RELEASE_JITTER_DAYS",
+                get("METALLIC_NAME_RELEASE_JITTER_DAYS"),
+                d.name_release_jitter_days,
+                0,
+                365,
+            )?,
+            username_checks_per_hour: parse_num(
+                "METALLIC_USERNAME_CHECKS_PER_HOUR",
+                get("METALLIC_USERNAME_CHECKS_PER_HOUR"),
+                i64::from(d.username_checks_per_hour),
+                1,
+                100_000,
+            )? as u32,
+            parental_consent_age: parse_num(
+                "METALLIC_PARENTAL_CONSENT_AGE",
+                get("METALLIC_PARENTAL_CONSENT_AGE"),
+                i64::from(d.parental_consent_age),
+                13,
+                16,
+            )? as i32,
         };
 
         Ok(Self {
@@ -296,7 +368,13 @@ fn parse<T>(
     convert(raw.trim()).map_err(|message| ConfigError { variable, message })
 }
 
-fn parse_num(variable: &'static str, value: Option<String>, default: i64, min: i64, max: i64) -> Result<i64, ConfigError> {
+fn parse_num(
+    variable: &'static str,
+    value: Option<String>,
+    default: i64,
+    min: i64,
+    max: i64,
+) -> Result<i64, ConfigError> {
     match value {
         None => Ok(default),
         Some(v) => int_in(v.trim(), min, max).map_err(|message| ConfigError { variable, message }),
@@ -304,7 +382,9 @@ fn parse_num(variable: &'static str, value: Option<String>, default: i64, min: i
 }
 
 fn int_in<T: TryFrom<i64>>(v: &str, min: i64, max: i64) -> Result<T, String> {
-    let n: i64 = v.parse().map_err(|e: std::num::ParseIntError| e.to_string())?;
+    let n: i64 = v
+        .parse()
+        .map_err(|e: std::num::ParseIntError| e.to_string())?;
     if n < min || n > max {
         return Err(format!("must be between {min} and {max}"));
     }
@@ -319,7 +399,11 @@ fn parse_bool(v: &str) -> Result<bool, String> {
     }
 }
 
-fn key_bytes(variable: &'static str, value: Option<String>, min_len: usize) -> Result<Vec<u8>, ConfigError> {
+fn key_bytes(
+    variable: &'static str,
+    value: Option<String>,
+    min_len: usize,
+) -> Result<Vec<u8>, ConfigError> {
     let err = |message: &str| ConfigError {
         variable,
         message: message.to_owned(),
@@ -345,7 +429,10 @@ mod tests {
     const KEY: &str = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
 
     fn config(vars: &[(&str, &str)]) -> Result<Config, ConfigError> {
-        let map: HashMap<String, String> = vars.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
+        let map: HashMap<String, String> = vars
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect();
         Config::from_lookup(|name| map.get(name).cloned())
     }
 
@@ -375,7 +462,10 @@ mod tests {
             ("METALLIC_HMAC_KEY", KEY),
             ("METALLIC_DATA_KEY", KEY),
             ("METALLIC_SERVER_SECRET", "0123456789abcdef0123456789abcdef"),
-            ("METALLIC_CORS_ORIGINS", "https://a.example, https://b.example/"),
+            (
+                "METALLIC_CORS_ORIGINS",
+                "https://a.example, https://b.example/",
+            ),
             ("METALLIC_VERIFY_WINDOW_DAYS", "45"),
             ("METALLIC_MAX_ACCOUNTS_PER_EMAIL", "3"),
         ])
@@ -385,7 +475,10 @@ mod tests {
         assert_eq!(c.environment, Environment::Prod);
         assert_eq!(c.log_filter, "debug");
         assert_eq!(c.request_timeout, Duration::from_secs(30));
-        assert_eq!(c.cors_origins, vec!["https://a.example", "https://b.example"]);
+        assert_eq!(
+            c.cors_origins,
+            vec!["https://a.example", "https://b.example"]
+        );
         assert_eq!(c.policy.verify_window_days, 45);
         assert_eq!(c.policy.max_accounts_per_email, 3);
         assert!(!c.run_jobs, "jobs stay off in the api role outside dev");
@@ -396,15 +489,33 @@ mod tests {
     fn rejects_bad_values_and_names_the_variable() {
         let var = |vars: &[(&str, &str)]| config(vars).unwrap_err().variable;
         assert_eq!(var(&[("METALLIC_ROLE", "matchmaker")]), "METALLIC_ROLE");
-        assert_eq!(var(&[("METALLIC_BIND_ADDR", "nowhere")]), "METALLIC_BIND_ADDR");
-        assert_eq!(var(&[("METALLIC_ENV", "test")]), "METALLIC_ENV");
-        assert_eq!(var(&[("METALLIC_REQUEST_TIMEOUT_SECS", "0")]), "METALLIC_REQUEST_TIMEOUT_SECS");
-        assert_eq!(var(&[("METALLIC_CORS_ORIGINS", "*")]), "METALLIC_CORS_ORIGINS");
         assert_eq!(
-            var(&[("METALLIC_ENV", "prod"), ("METALLIC_COOKIE_SECURE", "false")]),
+            var(&[("METALLIC_BIND_ADDR", "nowhere")]),
+            "METALLIC_BIND_ADDR"
+        );
+        assert_eq!(var(&[("METALLIC_ENV", "test")]), "METALLIC_ENV");
+        assert_eq!(
+            var(&[("METALLIC_REQUEST_TIMEOUT_SECS", "0")]),
+            "METALLIC_REQUEST_TIMEOUT_SECS"
+        );
+        assert_eq!(
+            var(&[("METALLIC_CORS_ORIGINS", "*")]),
+            "METALLIC_CORS_ORIGINS"
+        );
+        assert_eq!(
+            var(&[
+                ("METALLIC_ENV", "prod"),
+                ("METALLIC_COOKIE_SECURE", "false")
+            ]),
             "METALLIC_COOKIE_SECURE"
         );
-        assert_eq!(var(&[("METALLIC_HMAC_KEY", "c2hvcnQ=")]), "METALLIC_HMAC_KEY");
-        assert_eq!(var(&[("METALLIC_VERIFY_WINDOW_DAYS", "0")]), "METALLIC_VERIFY_WINDOW_DAYS");
+        assert_eq!(
+            var(&[("METALLIC_HMAC_KEY", "c2hvcnQ=")]),
+            "METALLIC_HMAC_KEY"
+        );
+        assert_eq!(
+            var(&[("METALLIC_VERIFY_WINDOW_DAYS", "0")]),
+            "METALLIC_VERIFY_WINDOW_DAYS"
+        );
     }
 }

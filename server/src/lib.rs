@@ -46,7 +46,10 @@ use crate::{
     identity::{AgeBand, auth::Viewer},
     ids::IdGenerator,
     problem::{ApiResult, Problem},
-    services::{CaptchaVerifier, Limit, Mailer, MemoryPresence, MemoryRateLimiter, PresenceStore, RateLimiter},
+    services::{
+        CaptchaVerifier, Limit, Mailer, MemoryPresence, MemoryRateLimiter, PresenceStore,
+        RateLimiter,
+    },
 };
 
 /// Operations generated from the OpenAPI file.
@@ -110,7 +113,8 @@ impl AppState {
 
     /// Swaps the rate limiter (tests use a generous one).
     pub fn with_limiter(self, limiter: Arc<dyn RateLimiter>) -> Self {
-        let inner = Arc::try_unwrap(self.0).unwrap_or_else(|_| panic!("with_limiter is called before the state is shared"));
+        let inner = Arc::try_unwrap(self.0)
+            .unwrap_or_else(|_| panic!("with_limiter is called before the state is shared"));
         Self(Arc::new(AppInner { limiter, ..inner }))
     }
 }
@@ -125,7 +129,9 @@ impl Deref for AppState {
 
 impl std::fmt::Debug for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AppState").field("environment", &self.config.environment).finish_non_exhaustive()
+        f.debug_struct("AppState")
+            .field("environment", &self.config.environment)
+            .finish_non_exhaustive()
     }
 }
 
@@ -133,7 +139,9 @@ impl std::fmt::Debug for AppState {
 pub async fn viewer_band(state: &AppState, viewer: Option<&Viewer>) -> ApiResult<Option<AgeBand>> {
     match viewer {
         None => Ok(None),
-        Some(v) => Ok(identity::basic(&state.db, v.user_id).await?.map(|u| u.band())),
+        Some(v) => Ok(identity::basic(&state.db, v.user_id)
+            .await?
+            .map(|u| u.band())),
     }
 }
 
@@ -144,18 +152,30 @@ pub fn app(state: AppState) -> Router {
     routes::router(state.clone())
         .layer(middleware::from_fn_with_state(state.clone(), guard))
         .layer(RequestBodyLimitLayer::new(MAX_BODY_BYTES))
-        .layer(TimeoutLayer::with_status_code(StatusCode::REQUEST_TIMEOUT, timeout))
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            timeout,
+        ))
         .layer(middleware::from_fn(problem_for_bare_errors))
         .layer(cors)
         .layer(security_header(header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
         .layer(security_header(header::REFERRER_POLICY, "no-referrer"))
         .layer(security_header(header::X_FRAME_OPTIONS, "DENY"))
-        .layer(security_header(header::CONTENT_SECURITY_POLICY, "default-src 'none'; frame-ancestors 'none'"))
-        .layer(security_header(header::STRICT_TRANSPORT_SECURITY, "max-age=31536000; includeSubDomains"))
+        .layer(security_header(
+            header::CONTENT_SECURITY_POLICY,
+            "default-src 'none'; frame-ancestors 'none'",
+        ))
+        .layer(security_header(
+            header::STRICT_TRANSPORT_SECURITY,
+            "max-age=31536000; includeSubDomains",
+        ))
         .layer(
             // Logs method, route template and status only: no query strings, bodies, cookies or addresses.
             TraceLayer::new_for_http().make_span_with(|req: &Request<Body>| {
-                let route = req.extensions().get::<MatchedPath>().map_or("unmatched", MatchedPath::as_str);
+                let route = req
+                    .extensions()
+                    .get::<MatchedPath>()
+                    .map_or("unmatched", MatchedPath::as_str);
                 tracing::info_span!("http", method = %req.method(), route)
             }),
         )
@@ -167,15 +187,29 @@ fn security_header(name: HeaderName, value: &'static str) -> SetResponseHeaderLa
 
 /// CORS for the allow-listed web origins only (never `*`), with credentials for the session cookie.
 fn cors_layer(config: &Config) -> CorsLayer {
-    let mut origins: Vec<HeaderValue> = config.cors_origins.iter().filter_map(|o| HeaderValue::from_str(o).ok()).collect();
+    let mut origins: Vec<HeaderValue> = config
+        .cors_origins
+        .iter()
+        .filter_map(|o| HeaderValue::from_str(o).ok())
+        .collect();
     if let Ok(web) = HeaderValue::from_str(config.public_web_url.trim_end_matches('/')) {
         origins.push(web);
     }
     CorsLayer::new()
         .allow_origin(AllowOrigin::list(origins))
         .allow_credentials(true)
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, HeaderName::from_static("x-csrf-token")])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+        ])
+        .allow_headers([
+            header::CONTENT_TYPE,
+            header::AUTHORIZATION,
+            HeaderName::from_static("x-csrf-token"),
+        ])
         .expose_headers([header::RETRY_AFTER, HeaderName::from_static("x-csrf-token")])
         .max_age(Duration::from_secs(600))
 }
@@ -188,7 +222,8 @@ async fn guard(State(state): State<AppState>, req: Request, next: Next) -> Respo
             && req.headers().contains_key(header::ORIGIN)
             && !identity::auth::origin_allowed(&state, req.headers())
         {
-            return Problem::forbidden("origin_not_allowed", "Request origin not allowed").into_response();
+            return Problem::forbidden("origin_not_allowed", "Request origin not allowed")
+                .into_response();
         }
         let (parts, body) = req.into_parts();
         let key = identity::auth::ip_key(&state, &parts);
@@ -209,7 +244,9 @@ async fn problem_for_bare_errors(req: Request, next: Next) -> Response {
         .headers()
         .get(header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v.starts_with("application/problem+json") || v.starts_with("application/json"));
+        .is_some_and(|v| {
+            v.starts_with("application/problem+json") || v.starts_with("application/json")
+        });
     if !(status.is_client_error() || status.is_server_error()) || is_problem {
         return response;
     }

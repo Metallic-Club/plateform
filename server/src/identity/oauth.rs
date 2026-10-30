@@ -49,10 +49,16 @@ pub struct OAuthError {
 
 impl OAuthError {
     fn new(error: &'static str) -> Self {
-        Self { error, description: None }
+        Self {
+            error,
+            description: None,
+        }
     }
     fn with(error: &'static str, description: &str) -> Self {
-        Self { error, description: Some(description.to_owned()) }
+        Self {
+            error,
+            description: Some(description.to_owned()),
+        }
     }
 }
 
@@ -65,9 +71,13 @@ struct OAuthErrorBody<'a> {
 
 impl IntoResponse for OAuthError {
     fn into_response(self) -> Response {
-        let body = OAuthErrorBody { error: self.error, error_description: self.description.as_deref() };
+        let body = OAuthErrorBody {
+            error: self.error,
+            error_description: self.description.as_deref(),
+        };
         let mut r = (StatusCode::BAD_REQUEST, Json(body)).into_response();
-        r.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+        r.headers_mut()
+            .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
         r
     }
 }
@@ -103,16 +113,23 @@ impl IntoResponse for TokenError {
 }
 
 fn form(body: &Bytes) -> Result<std::collections::HashMap<String, String>, OAuthError> {
-    serde_urlencoded::from_bytes(body).map_err(|_| OAuthError::with("invalid_request", "Send application/x-www-form-urlencoded."))
+    serde_urlencoded::from_bytes(body)
+        .map_err(|_| OAuthError::with("invalid_request", "Send application/x-www-form-urlencoded."))
 }
 
 fn parse_scopes(client_id: &str, requested: Option<&str>) -> Result<Vec<String>, OAuthError> {
     let (_, allowed) = client(client_id).ok_or_else(|| OAuthError::new("invalid_client"))?;
-    let requested = requested.map(str::trim).filter(|s| !s.is_empty()).unwrap_or("profile play");
+    let requested = requested
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("profile play");
     let mut scopes: Vec<String> = vec!["profile".to_owned()];
     for s in requested.split(' ').filter(|s| !s.is_empty()) {
         if !allowed.contains(&s) {
-            return Err(OAuthError::with("invalid_scope", "This app cannot ask for that scope."));
+            return Err(OAuthError::with(
+                "invalid_scope",
+                "This app cannot ask for that scope.",
+            ));
         }
         if !scopes.iter().any(|x| x == s) {
             scopes.push(s.to_owned());
@@ -136,7 +153,11 @@ fn new_user_code() -> String {
 
 /// Normalises what a person typed: upper-case, no separators. None if it cannot be a user code.
 pub fn normalize_user_code(input: &str) -> Option<String> {
-    let code: String = input.chars().filter(|c| !matches!(c, '-' | ' ')).map(|c| c.to_ascii_uppercase()).collect();
+    let code: String = input
+        .chars()
+        .filter(|c| !matches!(c, '-' | ' '))
+        .map(|c| c.to_ascii_uppercase())
+        .collect();
     (code.len() == 8 && code.bytes().all(|b| USER_CODE_ALPHABET.contains(&b))).then_some(code)
 }
 
@@ -151,7 +172,11 @@ pub struct DeviceCodeResponse {
 }
 
 /// `startDeviceAuthorization`
-pub async fn start_device(State(state): State<AppState>, ClientIp(ip): ClientIp, body: Bytes) -> Result<Response, TokenError> {
+pub async fn start_device(
+    State(state): State<AppState>,
+    ClientIp(ip): ClientIp,
+    body: Bytes,
+) -> Result<Response, TokenError> {
     limit(&state, DEVICE_START_LIMIT, &ip_key_for(&state, ip)).await?;
     let f = form(&body)?;
     let client_id = f.get("client_id").map(String::as_str).unwrap_or("");
@@ -220,9 +245,17 @@ pub async fn approve_device(
     require_session(&viewer)?;
     limit(&state, APPROVE_LIMIT, &viewer.user_id.to_string()).await?;
     let Some(approve) = body.approve else {
-        return Err(Problem::invalid("approve", "required", "Say whether to approve."));
+        return Err(Problem::invalid(
+            "approve",
+            "required",
+            "Say whether to approve.",
+        ));
     };
-    let code = body.user_code.as_deref().and_then(normalize_user_code).ok_or_else(Problem::not_found)?;
+    let code = body
+        .user_code
+        .as_deref()
+        .and_then(normalize_user_code)
+        .ok_or_else(Problem::not_found)?;
     let status = if approve { "approved" } else { "denied" };
     let row: Option<(String, Vec<String>)> = sqlx::query_as(
         "UPDATE identity.device_authorizations SET status = $2, user_id = $3 \
@@ -235,8 +268,18 @@ pub async fn approve_device(
     .await?;
     let (client_id, scopes) = row.ok_or_else(Problem::not_found)?;
     let client_name = client(&client_id).map(|c| c.0).unwrap_or("Unknown app");
-    tracing::info!(user_id = viewer.user_id, client_id = client_id.as_str(), approved = approve, "device sign-in decided");
-    Ok(Json(ApproveResult { client_id, client_name, scopes, approved: approve }))
+    tracing::info!(
+        user_id = viewer.user_id,
+        client_id = client_id.as_str(),
+        approved = approve,
+        "device sign-in decided"
+    );
+    Ok(Json(ApproveResult {
+        client_id,
+        client_name,
+        scopes,
+        approved: approve,
+    }))
 }
 
 #[derive(Serialize)]
@@ -249,7 +292,11 @@ pub struct TokenResponse {
 }
 
 /// `exchangeToken`
-pub async fn token(State(state): State<AppState>, ClientIp(ip): ClientIp, body: Bytes) -> Result<Response, TokenError> {
+pub async fn token(
+    State(state): State<AppState>,
+    ClientIp(ip): ClientIp,
+    body: Bytes,
+) -> Result<Response, TokenError> {
     limit(&state, TOKEN_LIMIT, &ip_key_for(&state, ip)).await?;
     let f = form(&body)?;
     let client_id = f.get("client_id").map(String::as_str).unwrap_or("");
@@ -275,17 +322,30 @@ pub async fn token(State(state): State<AppState>, ClientIp(ip): ClientIp, body: 
     }
 }
 
-async fn device_grant(state: &AppState, client_id: &str, device_code: &str) -> Result<Response, TokenError> {
+async fn device_grant(
+    state: &AppState,
+    client_id: &str,
+    device_code: &str,
+) -> Result<Response, TokenError> {
     let hash = token_hash(device_code);
     let mut tx = state.db.begin().await?;
-    let row: Option<(String, String, Vec<String>, Option<i64>, i32, OffsetDateTime, Option<OffsetDateTime>)> = sqlx::query_as(
+    let row: Option<(
+        String,
+        String,
+        Vec<String>,
+        Option<i64>,
+        i32,
+        OffsetDateTime,
+        Option<OffsetDateTime>,
+    )> = sqlx::query_as(
         "SELECT client_id, status, scopes, user_id, interval_secs, expires_at, last_polled_at \
          FROM identity.device_authorizations WHERE device_code_hash = $1 FOR UPDATE",
     )
     .bind(&hash)
     .fetch_optional(&mut *tx)
     .await?;
-    let Some((owner_client, status, scopes, user_id, interval, expires_at, last_polled)) = row else {
+    let Some((owner_client, status, scopes, user_id, interval, expires_at, last_polled)) = row
+    else {
         return Err(OAuthError::new("invalid_grant").into());
     };
     if owner_client != client_id {
@@ -329,7 +389,8 @@ async fn device_grant(state: &AppState, client_id: &str, device_code: &str) -> R
                 Err(OAuthError::new("access_denied"))
             } else {
                 let family_id = state.ids.next();
-                let pair = issue_pair(&mut tx, user_id, family_id, client_id, &scopes, None).await?;
+                let pair =
+                    issue_pair(&mut tx, user_id, family_id, client_id, &scopes, None).await?;
                 tracing::info!(user_id, client_id, "device sign-in completed");
                 Ok(pair)
             }
@@ -340,28 +401,45 @@ async fn device_grant(state: &AppState, client_id: &str, device_code: &str) -> R
     Ok(no_store(Json(result?).into_response()))
 }
 
-async fn refresh_grant(state: &AppState, client_id: &str, refresh_token: &str) -> Result<Response, TokenError> {
+async fn refresh_grant(
+    state: &AppState,
+    client_id: &str,
+    refresh_token: &str,
+) -> Result<Response, TokenError> {
     let hash = token_hash(refresh_token);
     let mut tx = state.db.begin().await?;
-    let row: Option<(i64, i64, String, Vec<String>, OffsetDateTime, Option<OffsetDateTime>, Option<OffsetDateTime>)> =
-        sqlx::query_as(
-            "SELECT family_id, user_id, client_id, scopes, expires_at, used_at, revoked_at \
+    let row: Option<(
+        i64,
+        i64,
+        String,
+        Vec<String>,
+        OffsetDateTime,
+        Option<OffsetDateTime>,
+        Option<OffsetDateTime>,
+    )> = sqlx::query_as(
+        "SELECT family_id, user_id, client_id, scopes, expires_at, used_at, revoked_at \
              FROM identity.refresh_tokens WHERE token_hash = $1 FOR UPDATE",
-        )
-        .bind(&hash)
-        .fetch_optional(&mut *tx)
-        .await?;
-    let Some((family_id, user_id, owner_client, scopes, expires_at, used_at, revoked_at)) = row else {
+    )
+    .bind(&hash)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some((family_id, user_id, owner_client, scopes, expires_at, used_at, revoked_at)) = row
+    else {
         return Err(OAuthError::new("invalid_grant").into());
     };
-    if owner_client != client_id || revoked_at.is_some() || expires_at <= OffsetDateTime::now_utc() {
+    if owner_client != client_id || revoked_at.is_some() || expires_at <= OffsetDateTime::now_utc()
+    {
         return Err(OAuthError::new("invalid_grant").into());
     }
     if used_at.is_some() {
         // Reuse of a rotated token: someone else may hold the chain. Revoke all of it.
         revoke_family(&mut *tx, family_id).await?;
         tx.commit().await?;
-        tracing::warn!(user_id, client_id, "refresh token reuse detected; token family revoked");
+        tracing::warn!(
+            user_id,
+            client_id,
+            "refresh token reuse detected; token family revoked"
+        );
         return Err(OAuthError::new("invalid_grant").into());
     }
     if !user_can_get_tokens(&mut *tx, user_id).await? {
@@ -443,14 +521,21 @@ pub async fn revoke_family(db: &mut sqlx::PgConnection, family_id: i64) -> Resul
 }
 
 /// `revokeToken` (RFC 7009): always 200 unless the request is malformed.
-pub async fn revoke(State(state): State<AppState>, ClientIp(ip): ClientIp, body: Bytes) -> Result<Response, TokenError> {
+pub async fn revoke(
+    State(state): State<AppState>,
+    ClientIp(ip): ClientIp,
+    body: Bytes,
+) -> Result<Response, TokenError> {
     limit(&state, TOKEN_LIMIT, &ip_key_for(&state, ip)).await?;
     let f = form(&body)?;
     let client_id = f.get("client_id").map(String::as_str).unwrap_or("");
     if client(client_id).is_none() {
         return Err(OAuthError::new("invalid_client").into());
     }
-    let token = f.get("token").filter(|t| !t.is_empty() && t.len() <= 256).ok_or_else(|| OAuthError::new("invalid_request"))?;
+    let token = f
+        .get("token")
+        .filter(|t| !t.is_empty() && t.len() <= 256)
+        .ok_or_else(|| OAuthError::new("invalid_request"))?;
     let hash = token_hash(token);
     let family: Option<i64> = sqlx::query_scalar(
         "SELECT family_id FROM identity.refresh_tokens WHERE token_hash = $1 AND client_id = $2 \
@@ -475,8 +560,10 @@ pub async fn revoke(State(state): State<AppState>, ClientIp(ip): ClientIp, body:
 }
 
 fn no_store(mut r: Response) -> Response {
-    r.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
-    r.headers_mut().insert(header::PRAGMA, HeaderValue::from_static("no-cache"));
+    r.headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    r.headers_mut()
+        .insert(header::PRAGMA, HeaderValue::from_static("no-cache"));
     r
 }
 
@@ -491,17 +578,41 @@ mod tests {
             assert_eq!(c.len(), 8);
             assert!(c.bytes().all(|b| USER_CODE_ALPHABET.contains(&b)));
         }
-        assert_eq!(normalize_user_code("wdjb-mjht"), Some("WDJBMJHT".to_owned()));
-        assert_eq!(normalize_user_code("WDJB MJHT"), Some("WDJBMJHT".to_owned()));
-        assert_eq!(normalize_user_code("WDJB-MJHA"), None, "vowels are not in the alphabet");
+        assert_eq!(
+            normalize_user_code("wdjb-mjht"),
+            Some("WDJBMJHT".to_owned())
+        );
+        assert_eq!(
+            normalize_user_code("WDJB MJHT"),
+            Some("WDJBMJHT".to_owned())
+        );
+        assert_eq!(
+            normalize_user_code("WDJB-MJHA"),
+            None,
+            "vowels are not in the alphabet"
+        );
         assert_eq!(normalize_user_code("WDJB"), None);
     }
 
     #[test]
     fn scopes_follow_the_client() {
-        assert_eq!(parse_scopes("metallic-studio", Some("profile play publish")).ok(), Some(vec!["profile".into(), "play".into(), "publish".into()]));
-        assert_eq!(parse_scopes("metallic-launcher", None).ok(), Some(vec!["profile".into(), "play".into()]));
-        assert_eq!(parse_scopes("metallic-launcher", Some("publish")).err().map(|e| e.error), Some("invalid_scope"));
-        assert_eq!(parse_scopes("other", None).err().map(|e| e.error), Some("invalid_client"));
+        assert_eq!(
+            parse_scopes("metallic-studio", Some("profile play publish")).ok(),
+            Some(vec!["profile".into(), "play".into(), "publish".into()])
+        );
+        assert_eq!(
+            parse_scopes("metallic-launcher", None).ok(),
+            Some(vec!["profile".into(), "play".into()])
+        );
+        assert_eq!(
+            parse_scopes("metallic-launcher", Some("publish"))
+                .err()
+                .map(|e| e.error),
+            Some("invalid_scope")
+        );
+        assert_eq!(
+            parse_scopes("other", None).err().map(|e| e.error),
+            Some("invalid_client")
+        );
     }
 }

@@ -42,7 +42,8 @@ pub fn ct_eq(a: &[u8], b: &[u8]) -> bool {
 
 /// Keyed hash with a purpose label so one key serves several uses without cross-use.
 pub fn keyed_hash(key: &[u8], purpose: &str, value: &[u8]) -> Vec<u8> {
-    let mut mac = <HmacSha256 as hmac::KeyInit>::new_from_slice(key).expect("HMAC accepts any key length");
+    let mut mac =
+        <HmacSha256 as hmac::KeyInit>::new_from_slice(key).expect("HMAC accepts any key length");
     mac.update(purpose.as_bytes());
     mac.update(&[0]);
     mac.update(value);
@@ -157,7 +158,10 @@ mod tests {
     #[test]
     fn keyed_hashes_depend_on_purpose_and_normalise_email() {
         let key = [7u8; 32];
-        assert_eq!(email_hash(&key, " Kit@Example.com "), email_hash(&key, "kit@example.com"));
+        assert_eq!(
+            email_hash(&key, " Kit@Example.com "),
+            email_hash(&key, "kit@example.com")
+        );
         assert_ne!(keyed_hash(&key, "a", b"x"), keyed_hash(&key, "b", b"x"));
     }
 
@@ -168,7 +172,11 @@ mod tests {
         assert_eq!(decrypt(&key, "email", &sealed).unwrap(), b"kit@example.com");
         assert!(decrypt(&key, "birth_date", &sealed).is_none());
         assert!(decrypt(&[1u8; 32], "email", &sealed).is_none());
-        assert_ne!(encrypt(&key, "email", b"x"), encrypt(&key, "email", b"x"), "nonces are random");
+        assert_ne!(
+            encrypt(&key, "email", b"x"),
+            encrypt(&key, "email", b"x"),
+            "nonces are random"
+        );
     }
 
     #[test]

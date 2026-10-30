@@ -34,7 +34,12 @@ pub fn default_privacy(band: AgeBand) -> Privacy {
     Privacy {
         presence_visibility: "friends".into(),
         join_policy: "friends".into(),
-        friend_requests: if band == AgeBand::Under13 || band == AgeBand::Unknown { "friends_of_friends" } else { "everyone" }.into(),
+        friend_requests: if band == AgeBand::Under13 || band == AgeBand::Unknown {
+            "friends_of_friends"
+        } else {
+            "everyone"
+        }
+        .into(),
         social_links_visibility: if minor { "nobody" } else { "friends" }.into(),
     }
 }
@@ -42,7 +47,11 @@ pub fn default_privacy(band: AgeBand) -> Privacy {
 /// Caps privacy for under-13 accounts (and unknown ages): nothing visible to everyone, no requests from strangers.
 pub fn cap_privacy(band: AgeBand, mut p: Privacy) -> Privacy {
     if matches!(band, AgeBand::Under13 | AgeBand::Unknown) {
-        for field in [&mut p.presence_visibility, &mut p.join_policy, &mut p.social_links_visibility] {
+        for field in [
+            &mut p.presence_visibility,
+            &mut p.join_policy,
+            &mut p.social_links_visibility,
+        ] {
             if field == "everyone" {
                 *field = "friends".into();
             }
@@ -54,7 +63,11 @@ pub fn cap_privacy(band: AgeBand, mut p: Privacy) -> Privacy {
     p
 }
 
-pub async fn create_default_settings(conn: &mut PgConnection, user_id: i64, band: AgeBand) -> ApiResult<()> {
+pub async fn create_default_settings(
+    conn: &mut PgConnection,
+    user_id: i64,
+    band: AgeBand,
+) -> ApiResult<()> {
     let p = default_privacy(band);
     sqlx::query(
         "INSERT INTO social.user_settings (user_id, presence_visibility, join_policy, friend_requests, social_links_visibility) \
@@ -102,7 +115,11 @@ pub async fn settings(db: impl PgExecutor<'_>, user_id: i64, band: AgeBand) -> A
                 },
             ),
         },
-        None => Settings { theme: "graphite".into(), language: "en".into(), privacy: default_privacy(band) },
+        None => Settings {
+            theme: "graphite".into(),
+            language: "en".into(),
+            privacy: default_privacy(band),
+        },
     })
 }
 
@@ -128,7 +145,10 @@ pub async fn save_settings(db: impl PgExecutor<'_>, user_id: i64, s: &Settings) 
 }
 
 /// Privacy of many users at once (missing rows read as the strictest defaults).
-pub async fn privacy_many(db: impl PgExecutor<'_>, ids: &[i64]) -> ApiResult<std::collections::HashMap<i64, Privacy>> {
+pub async fn privacy_many(
+    db: impl PgExecutor<'_>,
+    ids: &[i64],
+) -> ApiResult<std::collections::HashMap<i64, Privacy>> {
     let rows: Vec<(i64, String, String, String, String)> = sqlx::query_as(
         "SELECT user_id, presence_visibility, join_policy, friend_requests, social_links_visibility \
          FROM social.user_settings WHERE user_id = ANY($1)",
@@ -139,7 +159,15 @@ pub async fn privacy_many(db: impl PgExecutor<'_>, ids: &[i64]) -> ApiResult<std
     Ok(rows
         .into_iter()
         .map(|(id, a, b, c, d)| {
-            (id, Privacy { presence_visibility: a, join_policy: b, friend_requests: c, social_links_visibility: d })
+            (
+                id,
+                Privacy {
+                    presence_visibility: a,
+                    join_policy: b,
+                    friend_requests: c,
+                    social_links_visibility: d,
+                },
+            )
         })
         .collect())
 }
@@ -150,11 +178,13 @@ fn pair(a: i64, b: i64) -> (i64, i64) {
 
 pub async fn are_friends(db: impl PgExecutor<'_>, a: i64, b: i64) -> ApiResult<bool> {
     let (lo, hi) = pair(a, b);
-    Ok(sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM social.friendships WHERE user_low = $1 AND user_high = $2)")
-        .bind(lo)
-        .bind(hi)
-        .fetch_one(db)
-        .await?)
+    Ok(sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM social.friendships WHERE user_low = $1 AND user_high = $2)",
+    )
+    .bind(lo)
+    .bind(hi)
+    .fetch_one(db)
+    .await?)
 }
 
 /// All friend ids of `user` (bounded by the friend limit).
@@ -169,7 +199,10 @@ pub async fn friend_ids(db: impl PgExecutor<'_>, user: i64) -> ApiResult<Vec<i64
 }
 
 /// Friend ids with the date each friendship started.
-pub async fn friends_since(db: impl PgExecutor<'_>, user: i64) -> ApiResult<Vec<(i64, time::OffsetDateTime)>> {
+pub async fn friends_since(
+    db: impl PgExecutor<'_>,
+    user: i64,
+) -> ApiResult<Vec<(i64, time::OffsetDateTime)>> {
     Ok(sqlx::query_as(
         "SELECT CASE WHEN user_low = $1 THEN user_high ELSE user_low END, since FROM social.friendships \
          WHERE user_low = $1 OR user_high = $1",
@@ -180,10 +213,12 @@ pub async fn friends_since(db: impl PgExecutor<'_>, user: i64) -> ApiResult<Vec<
 }
 
 pub async fn friend_count(db: impl PgExecutor<'_>, user: i64) -> ApiResult<i64> {
-    Ok(sqlx::query_scalar("SELECT count(*) FROM social.friendships WHERE user_low = $1 OR user_high = $1")
-        .bind(user)
-        .fetch_one(db)
-        .await?)
+    Ok(sqlx::query_scalar(
+        "SELECT count(*) FROM social.friendships WHERE user_low = $1 OR user_high = $1",
+    )
+    .bind(user)
+    .fetch_one(db)
+    .await?)
 }
 
 /// Number of friends `a` and `b` have in common.
@@ -279,20 +314,44 @@ pub fn social_url(platform: &str, handle: &str) -> Option<String> {
 pub fn normalize_handle(platform: &str, handle: &str) -> Option<String> {
     let h = handle.trim();
     let bare = h.trim_start_matches('@');
-    let all = |s: &str, extra: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || extra.contains(c));
+    let all = |s: &str, extra: &str| {
+        s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || extra.contains(c))
+    };
     let len = bare.len();
     let ok = match platform {
-        "discord" => (2..=32).contains(&len) && all(bare, "._") && bare.chars().all(|c| !c.is_ascii_uppercase()),
+        "discord" => {
+            (2..=32).contains(&len)
+                && all(bare, "._")
+                && bare.chars().all(|c| !c.is_ascii_uppercase())
+        }
         "youtube" => (3..=30).contains(&len) && all(bare, "._-"),
         "twitch" => (4..=25).contains(&len) && all(bare, "_"),
         "tiktok" => (2..=24).contains(&len) && all(bare, "._"),
         "x" => (1..=15).contains(&len) && all(bare, "_"),
-        "bluesky" => (3..=64).contains(&len) && all(bare, ".-") && bare.contains('.') && !bare.starts_with('.') && !bare.ends_with('.'),
+        "bluesky" => {
+            (3..=64).contains(&len)
+                && all(bare, ".-")
+                && bare.contains('.')
+                && !bare.starts_with('.')
+                && !bare.ends_with('.')
+        }
         "instagram" => (1..=30).contains(&len) && all(bare, "._"),
-        "github" => (1..=39).contains(&len) && all(bare, "-") && !bare.starts_with('-') && !bare.ends_with('-'),
+        "github" => {
+            (1..=39).contains(&len)
+                && all(bare, "-")
+                && !bare.starts_with('-')
+                && !bare.ends_with('-')
+        }
         _ => false,
     };
-    ok.then(|| if platform == "youtube" { format!("@{bare}") } else { bare.to_owned() })
+    ok.then(|| {
+        if platform == "youtube" {
+            format!("@{bare}")
+        } else {
+            bare.to_owned()
+        }
+    })
 }
 
 pub async fn social_links(db: impl PgExecutor<'_>, user: i64) -> ApiResult<Vec<SocialLink>> {
@@ -312,8 +371,15 @@ pub async fn social_links(db: impl PgExecutor<'_>, user: i64) -> ApiResult<Vec<S
         .collect())
 }
 
-pub async fn replace_social_links(conn: &mut PgConnection, user: i64, links: &[(String, String)]) -> ApiResult<()> {
-    sqlx::query("DELETE FROM social.social_links WHERE user_id = $1").bind(user).execute(&mut *conn).await?;
+pub async fn replace_social_links(
+    conn: &mut PgConnection,
+    user: i64,
+    links: &[(String, String)],
+) -> ApiResult<()> {
+    sqlx::query("DELETE FROM social.social_links WHERE user_id = $1")
+        .bind(user)
+        .execute(&mut *conn)
+        .await?;
     for (i, (platform, handle)) in links.iter().enumerate() {
         sqlx::query("INSERT INTO social.social_links (user_id, platform, handle, position) VALUES ($1, $2, $3, $4)")
             .bind(user)
@@ -341,7 +407,11 @@ pub async fn purge_user(conn: &mut PgConnection, user: i64) -> ApiResult<()> {
 }
 
 /// Makes `a` and `b` friends (idempotent).
-pub async fn make_friends(conn: &mut PgConnection, a: i64, b: i64) -> ApiResult<time::OffsetDateTime> {
+pub async fn make_friends(
+    conn: &mut PgConnection,
+    a: i64,
+    b: i64,
+) -> ApiResult<time::OffsetDateTime> {
     let (lo, hi) = pair(a, b);
     sqlx::query("INSERT INTO social.friendships (user_low, user_high) VALUES ($1, $2) ON CONFLICT DO NOTHING")
         .bind(lo)
@@ -353,22 +423,26 @@ pub async fn make_friends(conn: &mut PgConnection, a: i64, b: i64) -> ApiResult<
         .bind(b)
         .execute(&mut *conn)
         .await?;
-    Ok(sqlx::query_scalar("SELECT since FROM social.friendships WHERE user_low = $1 AND user_high = $2")
-        .bind(lo)
-        .bind(hi)
-        .fetch_one(&mut *conn)
-        .await?)
+    Ok(sqlx::query_scalar(
+        "SELECT since FROM social.friendships WHERE user_low = $1 AND user_high = $2",
+    )
+    .bind(lo)
+    .bind(hi)
+    .fetch_one(&mut *conn)
+    .await?)
 }
 
 pub async fn unfriend(conn: &mut PgConnection, a: i64, b: i64) -> ApiResult<bool> {
     let (lo, hi) = pair(a, b);
-    Ok(sqlx::query("DELETE FROM social.friendships WHERE user_low = $1 AND user_high = $2")
-        .bind(lo)
-        .bind(hi)
-        .execute(conn)
-        .await?
-        .rows_affected()
-        > 0)
+    Ok(
+        sqlx::query("DELETE FROM social.friendships WHERE user_low = $1 AND user_high = $2")
+            .bind(lo)
+            .bind(hi)
+            .execute(conn)
+            .await?
+            .rows_affected()
+            > 0,
+    )
 }
 
 #[cfg(test)]
@@ -396,13 +470,25 @@ mod tests {
 
     #[test]
     fn handles_and_urls() {
-        assert_eq!(normalize_handle("youtube", "ferrokit").as_deref(), Some("@ferrokit"));
-        assert_eq!(normalize_handle("twitch", "ferrokit").as_deref(), Some("ferrokit"));
+        assert_eq!(
+            normalize_handle("youtube", "ferrokit").as_deref(),
+            Some("@ferrokit")
+        );
+        assert_eq!(
+            normalize_handle("twitch", "ferrokit").as_deref(),
+            Some("ferrokit")
+        );
         assert_eq!(normalize_handle("twitch", "fk"), None);
         assert_eq!(normalize_handle("discord", "Ferro"), None);
-        assert_eq!(normalize_handle("bluesky", "kit.example.com").as_deref(), Some("kit.example.com"));
+        assert_eq!(
+            normalize_handle("bluesky", "kit.example.com").as_deref(),
+            Some("kit.example.com")
+        );
         assert_eq!(normalize_handle("x", "javascript:alert(1)"), None);
-        assert_eq!(social_url("youtube", "@ferrokit").as_deref(), Some("https://www.youtube.com/@ferrokit"));
+        assert_eq!(
+            social_url("youtube", "@ferrokit").as_deref(),
+            Some("https://www.youtube.com/@ferrokit")
+        );
         assert_eq!(social_url("discord", "ferro"), None);
         assert!(audience_allows("friends", false, true));
         assert!(!audience_allows("friends", false, false));

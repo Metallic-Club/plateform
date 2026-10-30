@@ -81,13 +81,22 @@ impl Problem {
 
     /// 400 listing every field that failed.
     pub fn validation(errors: Vec<FieldError>) -> Self {
-        let mut p = Self::new(StatusCode::BAD_REQUEST, "validation_failed", "Some fields are not valid");
+        let mut p = Self::new(
+            StatusCode::BAD_REQUEST,
+            "validation_failed",
+            "Some fields are not valid",
+        );
         p.errors = errors;
         p
     }
 
     pub fn bad_request(detail: impl Into<String>) -> Self {
-        Self::new(StatusCode::BAD_REQUEST, "bad_request", "The request is not valid").with_detail(detail)
+        Self::new(
+            StatusCode::BAD_REQUEST,
+            "bad_request",
+            "The request is not valid",
+        )
+        .with_detail(detail)
     }
 
     pub fn rate_limited(retry_after: u64) -> Self {
@@ -97,12 +106,21 @@ impl Problem {
     }
 
     pub fn internal() -> Self {
-        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "Something went wrong")
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "Something went wrong",
+        )
     }
 
     /// The operation is in the contract but its handler is not built yet.
     pub fn not_implemented(operation_id: &str) -> Self {
-        Self::new(StatusCode::NOT_IMPLEMENTED, "not_implemented", "Not built yet").with_detail(format!(
+        Self::new(
+            StatusCode::NOT_IMPLEMENTED,
+            "not_implemented",
+            "Not built yet",
+        )
+        .with_detail(format!(
             "Operation `{operation_id}` is in the API contract but has no handler yet."
         ))
     }
@@ -138,7 +156,11 @@ impl Validator {
     }
 
     pub fn finish(self) -> ApiResult<()> {
-        if self.errors.is_empty() { Ok(()) } else { Err(Problem::validation(self.errors)) }
+        if self.errors.is_empty() {
+            Ok(())
+        } else {
+            Err(Problem::validation(self.errors))
+        }
     }
 }
 
@@ -181,7 +203,10 @@ impl IntoResponse for Problem {
         let retry_after = self.retry_after;
         let mut response = (status, axum::Json(self)).into_response();
         let headers = response.headers_mut();
-        headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/problem+json"));
+        headers.insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/problem+json"),
+        );
         headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
         if let Some(secs) = retry_after {
             headers.insert(header::RETRY_AFTER, HeaderValue::from(secs));

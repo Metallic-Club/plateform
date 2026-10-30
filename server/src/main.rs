@@ -18,10 +18,18 @@ const USAGE: &str = "usage: metallic-platform [serve | migrate | seed | keygen]
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let command = std::env::args().nth(1).unwrap_or_else(|| "serve".to_owned());
+    let command = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "serve".to_owned());
     if command == "keygen" {
-        println!("METALLIC_HMAC_KEY={}", STANDARD.encode(crypto::random_bytes::<32>()));
-        println!("METALLIC_DATA_KEY={}", STANDARD.encode(crypto::random_bytes::<32>()));
+        println!(
+            "METALLIC_HMAC_KEY={}",
+            STANDARD.encode(crypto::random_bytes::<32>())
+        );
+        println!(
+            "METALLIC_DATA_KEY={}",
+            STANDARD.encode(crypto::random_bytes::<32>())
+        );
         println!("METALLIC_SERVER_SECRET={}", crypto::new_token(""));
         return ExitCode::SUCCESS;
     }
@@ -65,9 +73,14 @@ async fn run(command: &str, config: Config) -> Result<(), BoxError> {
     let dev = config.environment == Environment::Dev;
     // Real mail and captcha providers arrive with deployment; until then only dev may run (no address or link is logged).
     if !dev {
-        return Err("no production mailer or captcha provider is configured yet; run with METALLIC_ENV=dev".into());
+        return Err(
+            "no production mailer or captcha provider is configured yet; run with METALLIC_ENV=dev"
+                .into(),
+        );
     }
-    let mailer: Arc<dyn Mailer> = Arc::new(DevMailer { dir: config.dev_mail_dir.as_ref().map(Into::into) });
+    let mailer: Arc<dyn Mailer> = Arc::new(DevMailer {
+        dir: config.dev_mail_dir.as_ref().map(Into::into),
+    });
     let captcha: Arc<dyn CaptchaVerifier> = Arc::new(AcceptingCaptcha);
     let state = AppState::new(db, config, secrets, mailer, captcha);
 
@@ -81,12 +94,15 @@ async fn run(command: &str, config: Config) -> Result<(), BoxError> {
                 p
             }
         };
-        seed::run(&state, &password).await.map_err(|p| format!("seed failed: {}", p.code))?;
+        seed::run(&state, &password)
+            .await
+            .map_err(|p| format!("seed failed: {}", p.code))?;
         tracing::info!("demo data loaded");
         return Ok(());
     }
 
-    let job_task = (state.config.role == Role::Worker || state.config.run_jobs).then(|| tokio::spawn(jobs::run_forever(state.clone())));
+    let job_task = (state.config.role == Role::Worker || state.config.run_jobs)
+        .then(|| tokio::spawn(jobs::run_forever(state.clone())));
     let result = match state.config.role {
         Role::Api => serve(state.clone()).await,
         Role::Worker => {
@@ -104,9 +120,12 @@ async fn run(command: &str, config: Config) -> Result<(), BoxError> {
 async fn serve(state: AppState) -> Result<(), BoxError> {
     let listener = tokio::net::TcpListener::bind(state.config.bind_addr).await?;
     tracing::info!(addr = %listener.local_addr()?, "api listening");
-    axum::serve(listener, app(state).into_make_service_with_connect_info::<SocketAddr>())
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    axum::serve(
+        listener,
+        app(state).into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
     Ok(())
 }
 

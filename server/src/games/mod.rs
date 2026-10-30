@@ -91,7 +91,11 @@ pub fn up_percent(up: i64, down: i64) -> Option<i64> {
 
 /// Labels a viewer may see; signed-out visitors get the youngest set.
 pub fn labels_for(band: Option<AgeBand>) -> Vec<String> {
-    band.unwrap_or(AgeBand::Under13).allowed_labels().iter().map(|s| (*s).to_owned()).collect()
+    band.unwrap_or(AgeBand::Under13)
+        .allowed_labels()
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect()
 }
 
 impl GameRow {
@@ -109,8 +113,14 @@ impl GameRow {
             thumbnail_url: self.thumbnail_url.clone(),
             genres: self.genres.clone(),
             playing,
-            rating: RatingSummary { up_percent: up_percent(self.up, self.down), votes: self.up + self.down },
-            content_label: self.content_label.clone().unwrap_or_else(|| "everyone".into()),
+            rating: RatingSummary {
+                up_percent: up_percent(self.up, self.down),
+                votes: self.up + self.down,
+            },
+            content_label: self
+                .content_label
+                .clone()
+                .unwrap_or_else(|| "everyone".into()),
             is_first_party: self.is_first_party,
         }
     }
@@ -120,26 +130,39 @@ impl GameRow {
 pub async fn summaries(state: &AppState, rows: &[GameRow]) -> ApiResult<Vec<GameSummary>> {
     let ids: Vec<i64> = rows.iter().map(|r| r.id).collect();
     let live = crate::matchmaker::live_counts(&state.db, &ids).await?;
-    Ok(rows.iter().map(|r| r.summary(live.get(&r.id).map(|l| l.0).unwrap_or(0))).collect())
+    Ok(rows
+        .iter()
+        .map(|r| r.summary(live.get(&r.id).map(|l| l.0).unwrap_or(0)))
+        .collect())
 }
 
 /// Visible games by id, in the order given (missing or hidden games are skipped).
-pub async fn visible_by_ids(db: impl PgExecutor<'_>, ids: &[i64], labels: &[String]) -> ApiResult<Vec<GameRow>> {
+pub async fn visible_by_ids(
+    db: impl PgExecutor<'_>,
+    ids: &[i64],
+    labels: &[String],
+) -> ApiResult<Vec<GameRow>> {
     if ids.is_empty() {
         return Ok(Vec::new());
     }
-    let rows: Vec<GameRow> =
-        sqlx::query_as(sqlx::AssertSqlSafe(format!("SELECT {GAME_COLUMNS} FROM {GAME_FROM} WHERE {VISIBLE} AND g.id = ANY($2)")))
-            .bind(labels)
-            .bind(ids)
-            .fetch_all(db)
-            .await?;
+    let rows: Vec<GameRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT {GAME_COLUMNS} FROM {GAME_FROM} WHERE {VISIBLE} AND g.id = ANY($2)"
+    )))
+    .bind(labels)
+    .bind(ids)
+    .fetch_all(db)
+    .await?;
     let mut map: HashMap<i64, GameRow> = rows.into_iter().map(|r| (r.id, r)).collect();
     Ok(ids.iter().filter_map(|id| map.remove(id)).collect())
 }
 
 /// A game the viewer may open: public and labelled for them, or their own.
-pub async fn viewable(db: impl PgExecutor<'_>, id: i64, labels: &[String], viewer: Option<i64>) -> ApiResult<Option<GameRow>> {
+pub async fn viewable(
+    db: impl PgExecutor<'_>,
+    id: i64,
+    labels: &[String],
+    viewer: Option<i64>,
+) -> ApiResult<Option<GameRow>> {
     Ok(sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {GAME_COLUMNS} FROM {GAME_FROM} WHERE g.id = $2 AND (({VISIBLE}) OR (g.owner_kind = 'user' AND g.owner_id = $3 AND g.status <> 'removed'))"
     )))
@@ -155,10 +178,11 @@ pub async fn names(db: impl PgExecutor<'_>, ids: &[i64]) -> ApiResult<HashMap<i6
     if ids.is_empty() {
         return Ok(HashMap::new());
     }
-    let rows: Vec<(i64, String)> = sqlx::query_as("SELECT id, name FROM games.games WHERE id = ANY($1)")
-        .bind(ids)
-        .fetch_all(db)
-        .await?;
+    let rows: Vec<(i64, String)> =
+        sqlx::query_as("SELECT id, name FROM games.games WHERE id = ANY($1)")
+            .bind(ids)
+            .fetch_all(db)
+            .await?;
     Ok(rows.into_iter().collect())
 }
 
@@ -172,7 +196,13 @@ pub async fn played_seconds(db: impl PgExecutor<'_>, user: i64, game: i64) -> Ap
 }
 
 /// Records a finished play session into history (called by the matchmaker when a player leaves a server).
-pub async fn record_play(conn: &mut PgConnection, user: i64, game: i64, seconds: i64, at: OffsetDateTime) -> ApiResult<()> {
+pub async fn record_play(
+    conn: &mut PgConnection,
+    user: i64,
+    game: i64,
+    seconds: i64,
+    at: OffsetDateTime,
+) -> ApiResult<()> {
     sqlx::query(
         "INSERT INTO games.play_history (user_id, game_id, last_played_at, seconds) VALUES ($1, $2, $3, $4) \
          ON CONFLICT (user_id, game_id) DO UPDATE SET last_played_at = greatest(games.play_history.last_played_at, EXCLUDED.last_played_at), \
@@ -188,15 +218,23 @@ pub async fn record_play(conn: &mut PgConnection, user: i64, game: i64, seconds:
 }
 
 pub async fn place_in_game(db: impl PgExecutor<'_>, place: i64, game: i64) -> ApiResult<bool> {
-    Ok(sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM games.places WHERE id = $1 AND game_id = $2)")
-        .bind(place)
-        .bind(game)
-        .fetch_one(db)
-        .await?)
+    Ok(sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM games.places WHERE id = $1 AND game_id = $2)",
+    )
+    .bind(place)
+    .bind(game)
+    .fetch_one(db)
+    .await?)
 }
 
 /// Opens play sessions for players who joined a server and counts their visits.
-pub async fn start_sessions(conn: &mut PgConnection, ids: &crate::ids::IdGenerator, game: i64, server: i64, users: &[i64]) -> ApiResult<()> {
+pub async fn start_sessions(
+    conn: &mut PgConnection,
+    ids: &crate::ids::IdGenerator,
+    game: i64,
+    server: i64,
+    users: &[i64],
+) -> ApiResult<()> {
     if users.is_empty() {
         return Ok(());
     }
@@ -219,7 +257,12 @@ pub async fn start_sessions(conn: &mut PgConnection, ids: &crate::ids::IdGenerat
 }
 
 /// Ends open sessions of players who left a server and adds the time to their play history.
-pub async fn end_sessions(conn: &mut PgConnection, game: i64, server: i64, users: &[i64]) -> ApiResult<()> {
+pub async fn end_sessions(
+    conn: &mut PgConnection,
+    game: i64,
+    server: i64,
+    users: &[i64],
+) -> ApiResult<()> {
     if users.is_empty() {
         return Ok(());
     }

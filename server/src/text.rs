@@ -35,7 +35,9 @@ pub fn multi_line(value: &str, max: usize, strict: bool) -> Result<String, &'sta
     if v.chars().count() > max {
         return Err("too_long");
     }
-    if v.chars().any(|c| (c.is_control() && c != '\n') || is_invisible(c)) {
+    if v.chars()
+        .any(|c| (c.is_control() && c != '\n') || is_invisible(c))
+    {
         return Err("invalid_characters");
     }
     if is_offensive(v) {
@@ -54,7 +56,10 @@ fn is_invisible(c: char) -> bool {
 /// Links or digit runs (7+ digits, ignoring separators) that could be phone numbers or handles.
 pub fn has_contact_info(text: &str) -> bool {
     let lower = text.to_lowercase();
-    if ["http", "www.", ".com", ".net", ".gg", "discord", "@"].iter().any(|p| lower.contains(p)) {
+    if ["http", "www.", ".com", ".net", ".gg", "discord", "@"]
+        .iter()
+        .any(|p| lower.contains(p))
+    {
         return true;
     }
     let mut run = 0;
@@ -104,14 +109,23 @@ mod tests {
         assert!(has_contact_info("call 555-123-4567"));
         assert!(has_contact_info("see www.example.com"));
         assert!(!has_contact_info("I have 3 cats and 12 hats"));
-        assert_eq!(multi_line("add me on discord", 1000, true), Err("contact_info"));
+        assert_eq!(
+            multi_line("add me on discord", 1000, true),
+            Err("contact_info")
+        );
         assert!(multi_line("add me on discord", 1000, false).is_ok());
     }
 
     #[test]
     fn emails() {
         assert!(valid_email("kit@example.com"));
-        for bad in ["kit", "kit@", "@example.com", "kit@example", "k it@example.com"] {
+        for bad in [
+            "kit",
+            "kit@",
+            "@example.com",
+            "kit@example",
+            "k it@example.com",
+        ] {
             assert!(!valid_email(bad), "{bad}");
         }
     }

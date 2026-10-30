@@ -23,10 +23,18 @@ pub struct Limit {
 
 impl Limit {
     pub const fn per_minute(name: &'static str, max: u32) -> Self {
-        Self { name, max, window: Duration::from_secs(60) }
+        Self {
+            name,
+            max,
+            window: Duration::from_secs(60),
+        }
     }
     pub const fn per_hour(name: &'static str, max: u32) -> Self {
-        Self { name, max, window: Duration::from_secs(3600) }
+        Self {
+            name,
+            max,
+            window: Duration::from_secs(3600),
+        }
     }
 }
 
@@ -61,12 +69,18 @@ impl RateLimiter for MemoryRateLimiter {
         if map.len() >= MAX_TRACKED_KEYS {
             map.retain(|_, (start, _)| now.duration_since(*start) < Duration::from_secs(3600));
         }
-        let entry = map.entry(format!("{}:{key}", limit.name)).or_insert((now, 0));
+        let entry = map
+            .entry(format!("{}:{key}", limit.name))
+            .or_insert((now, 0));
         if now.duration_since(entry.0) >= limit.window {
             *entry = (now, 0);
         }
         entry.1 = entry.1.saturating_add(1);
-        let reset = limit.window.saturating_sub(now.duration_since(entry.0)).as_secs().max(1);
+        let reset = limit
+            .window
+            .saturating_sub(now.duration_since(entry.0))
+            .as_secs()
+            .max(1);
         Decision {
             allowed: entry.1 <= limit.max,
             remaining: limit.max.saturating_sub(entry.1),
@@ -111,7 +125,10 @@ pub struct MemoryPresence {
 
 impl MemoryPresence {
     pub fn new(ttl: Duration) -> Self {
-        Self { ttl, map: Mutex::new(HashMap::new()) }
+        Self {
+            ttl,
+            map: Mutex::new(HashMap::new()),
+        }
     }
 }
 
@@ -152,12 +169,20 @@ impl PresenceStore for MemoryPresence {
         user_ids
             .iter()
             .map(|id| match map.get(id) {
-                Some((activity, at, wall)) if now.duration_since(*at) < self.ttl => PresenceRecord {
-                    activity: Some(*activity),
+                Some((activity, at, wall)) if now.duration_since(*at) < self.ttl => {
+                    PresenceRecord {
+                        activity: Some(*activity),
+                        last_online_at: Some(*wall),
+                    }
+                }
+                Some((_, _, wall)) => PresenceRecord {
+                    activity: None,
                     last_online_at: Some(*wall),
                 },
-                Some((_, _, wall)) => PresenceRecord { activity: None, last_online_at: Some(*wall) },
-                None => PresenceRecord { activity: None, last_online_at: None },
+                None => PresenceRecord {
+                    activity: None,
+                    last_online_at: None,
+                },
             })
             .collect()
     }
@@ -165,7 +190,9 @@ impl PresenceStore for MemoryPresence {
     async fn online_count(&self) -> u64 {
         let now = Instant::now();
         let map = self.map.lock().unwrap_or_else(|e| e.into_inner());
-        map.values().filter(|(_, at, _)| now.duration_since(*at) < self.ttl).count() as u64
+        map.values()
+            .filter(|(_, at, _)| now.duration_since(*at) < self.ttl)
+            .count() as u64
     }
 }
 
@@ -198,7 +225,9 @@ pub struct Email {
 
 impl std::fmt::Debug for Email {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Email").field("kind", &self.kind).finish_non_exhaustive()
+        f.debug_struct("Email")
+            .field("kind", &self.kind)
+            .finish_non_exhaustive()
     }
 }
 
@@ -218,11 +247,17 @@ pub struct DevMailer {
 impl Mailer for DevMailer {
     async fn send(&self, email: Email) -> Result<(), String> {
         let Some(dir) = &self.dir else {
-            tracing::info!(kind = email.kind.as_str(), "dev mailer: email not delivered (set METALLIC_DEV_MAIL_DIR to keep it)");
+            tracing::info!(
+                kind = email.kind.as_str(),
+                "dev mailer: email not delivered (set METALLIC_DEV_MAIL_DIR to keep it)"
+            );
             return Ok(());
         };
         tokio_fs_write(dir, &email).await?;
-        tracing::info!(kind = email.kind.as_str(), "dev mailer: email written to the dev mail folder");
+        tracing::info!(
+            kind = email.kind.as_str(),
+            "dev mailer: email written to the dev mail folder"
+        );
         Ok(())
     }
 }
@@ -234,7 +269,10 @@ async fn tokio_fs_write(dir: &std::path::Path, email: &Email) -> Result<(), Stri
         OffsetDateTime::now_utc().unix_timestamp_nanos(),
         email.kind.as_str()
     );
-    let text = format!("To: {}\nSubject: {}\n\n{}\n", email.to, email.subject, email.body);
+    let text = format!(
+        "To: {}\nSubject: {}\n\n{}\n",
+        email.to, email.subject, email.body
+    );
     tokio::task::spawn_blocking(move || {
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         std::fs::write(dir.join(name), text).map_err(|e| e.to_string())
@@ -252,7 +290,10 @@ pub struct MemoryMailer {
 #[async_trait]
 impl Mailer for MemoryMailer {
     async fn send(&self, email: Email) -> Result<(), String> {
-        self.sent.lock().unwrap_or_else(|e| e.into_inner()).push(email);
+        self.sent
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(email);
         Ok(())
     }
 }
@@ -306,17 +347,29 @@ mod tests {
     #[tokio::test]
     async fn presence_expires_and_keeps_game_over_web_activity() {
         let presence = MemoryPresence::new(Duration::from_millis(200));
-        let game = Activity::InGame { game_id: 1, server_id: 2 };
+        let game = Activity::InGame {
+            game_id: 1,
+            server_id: 2,
+        };
         presence.beat(7, game).await;
         presence.beat(7, Activity::Online).await;
         assert_eq!(presence.get_many(&[7]).await[0].activity, Some(game));
         assert_eq!(presence.online_count().await, 1);
         presence.leave_game(7, 2).await;
-        assert_eq!(presence.get_many(&[7]).await[0].activity, Some(Activity::Online));
+        assert_eq!(
+            presence.get_many(&[7]).await[0].activity,
+            Some(Activity::Online)
+        );
         tokio::time::sleep(Duration::from_millis(250)).await;
         let rec = presence.get_many(&[7, 8]).await;
         assert_eq!(rec[0].activity, None);
         assert!(rec[0].last_online_at.is_some());
-        assert_eq!(rec[1], PresenceRecord { activity: None, last_online_at: None });
+        assert_eq!(
+            rec[1],
+            PresenceRecord {
+                activity: None,
+                last_online_at: None
+            }
+        );
     }
 }

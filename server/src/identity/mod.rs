@@ -130,19 +130,24 @@ const BASIC_COLUMNS: &str = "id, username::text AS username, display_name, bio, 
                              email_verified_at, is_first_party, avatar_headshot_url";
 
 pub async fn basic(db: impl PgExecutor<'_>, id: i64) -> ApiResult<Option<UserBasic>> {
-    Ok(sqlx::query_as::<_, UserBasic>(sqlx::AssertSqlSafe(format!("SELECT {BASIC_COLUMNS} FROM identity.users WHERE id = $1")))
-        .bind(id)
-        .fetch_optional(db)
-        .await?)
+    Ok(sqlx::query_as::<_, UserBasic>(sqlx::AssertSqlSafe(format!(
+        "SELECT {BASIC_COLUMNS} FROM identity.users WHERE id = $1"
+    )))
+    .bind(id)
+    .fetch_optional(db)
+    .await?)
 }
 
-pub async fn basic_by_username(db: impl PgExecutor<'_>, username: &str) -> ApiResult<Option<UserBasic>> {
-    Ok(
-        sqlx::query_as::<_, UserBasic>(sqlx::AssertSqlSafe(format!("SELECT {BASIC_COLUMNS} FROM identity.users WHERE username = $1::citext")))
-            .bind(username)
-            .fetch_optional(db)
-            .await?,
-    )
+pub async fn basic_by_username(
+    db: impl PgExecutor<'_>,
+    username: &str,
+) -> ApiResult<Option<UserBasic>> {
+    Ok(sqlx::query_as::<_, UserBasic>(sqlx::AssertSqlSafe(format!(
+        "SELECT {BASIC_COLUMNS} FROM identity.users WHERE username = $1::citext"
+    )))
+    .bind(username)
+    .fetch_optional(db)
+    .await?)
 }
 
 /// Visible users by id. Missing, banned or deleted users are absent from the map.
@@ -163,11 +168,19 @@ pub async fn basics(db: impl PgExecutor<'_>, ids: &[i64]) -> ApiResult<HashMap<i
 /// Summaries in the order of `ids`, skipping users that are not visible.
 pub async fn summaries(db: impl PgExecutor<'_>, ids: &[i64]) -> ApiResult<Vec<UserSummary>> {
     let map = basics(db, ids).await?;
-    Ok(ids.iter().filter_map(|id| map.get(id).map(UserBasic::summary)).collect())
+    Ok(ids
+        .iter()
+        .filter_map(|id| map.get(id).map(UserBasic::summary))
+        .collect())
 }
 
 /// Search visible users by username or display name (trigram similarity plus prefix).
-pub async fn search(db: impl PgExecutor<'_>, q: &str, limit: i64, offset: i64) -> ApiResult<Vec<UserBasic>> {
+pub async fn search(
+    db: impl PgExecutor<'_>,
+    q: &str,
+    limit: i64,
+    offset: i64,
+) -> ApiResult<Vec<UserBasic>> {
     let pattern = format!("{}%", like_escape(&q.to_lowercase()));
     Ok(sqlx::query_as::<_, UserBasic>(sqlx::AssertSqlSafe(format!(
         "SELECT {BASIC_COLUMNS} FROM identity.users \

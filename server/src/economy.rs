@@ -77,7 +77,12 @@ pub struct Posted {
     pub replayed: bool,
 }
 
-async fn account_id(conn: &mut PgConnection, ids: &crate::ids::IdGenerator, owner: Owner, bucket: &str) -> Result<i64, sqlx::Error> {
+async fn account_id(
+    conn: &mut PgConnection,
+    ids: &crate::ids::IdGenerator,
+    owner: Owner,
+    bucket: &str,
+) -> Result<i64, sqlx::Error> {
     let (kind, id) = owner.parts();
     sqlx::query(
         "INSERT INTO economy.ledger_accounts (id, owner_kind, owner_id, currency, bucket) VALUES ($1, $2, $3, $4, $5) \
@@ -123,7 +128,10 @@ async fn post_in(
     tx: &NewTransaction<'_>,
     postings: &[Posting],
 ) -> Result<Result<Posted, PostError>, sqlx::Error> {
-    if postings.is_empty() || postings.iter().map(|p| p.amount).sum::<i64>() != 0 || postings.iter().any(|p| p.amount == 0) {
+    if postings.is_empty()
+        || postings.iter().map(|p| p.amount).sum::<i64>() != 0
+        || postings.iter().any(|p| p.amount == 0)
+    {
         return Ok(Err(PostError::Unbalanced));
     }
     if let Some(existing) = replay(conn, tx).await? {
@@ -147,7 +155,10 @@ async fn post_in(
         *change.entry(*acct).or_default() += p.amount;
     }
     for (acct, p) in &legs {
-        if matches!(p.owner, Owner::User(_)) && change[acct] < 0 && balances.get(acct).copied().unwrap_or(0) + change[acct] < 0 {
+        if matches!(p.owner, Owner::User(_))
+            && change[acct] < 0
+            && balances.get(acct).copied().unwrap_or(0) + change[acct] < 0
+        {
             return Ok(Err(PostError::InsufficientFunds));
         }
     }
@@ -177,16 +188,31 @@ async fn post_in(
             .execute(&mut *conn)
             .await?;
     }
-    Ok(Ok(Posted { transaction_id: id, replayed: false }))
+    Ok(Ok(Posted {
+        transaction_id: id,
+        replayed: false,
+    }))
 }
 
-async fn replay(conn: &mut PgConnection, tx: &NewTransaction<'_>) -> Result<Option<Result<Posted, PostError>>, sqlx::Error> {
-    let existing: Option<(i64, String)> = sqlx::query_as("SELECT id, kind FROM economy.ledger_transactions WHERE idempotency_key = $1")
-        .bind(tx.idempotency_key)
-        .fetch_optional(&mut *conn)
-        .await?;
+async fn replay(
+    conn: &mut PgConnection,
+    tx: &NewTransaction<'_>,
+) -> Result<Option<Result<Posted, PostError>>, sqlx::Error> {
+    let existing: Option<(i64, String)> = sqlx::query_as(
+        "SELECT id, kind FROM economy.ledger_transactions WHERE idempotency_key = $1",
+    )
+    .bind(tx.idempotency_key)
+    .fetch_optional(&mut *conn)
+    .await?;
     Ok(existing.map(|(id, kind)| {
-        if kind == tx.kind { Ok(Posted { transaction_id: id, replayed: true }) } else { Err(PostError::KeyReused) }
+        if kind == tx.kind {
+            Ok(Posted {
+                transaction_id: id,
+                replayed: true,
+            })
+        } else {
+            Err(PostError::KeyReused)
+        }
     }))
 }
 
@@ -203,10 +229,25 @@ pub async fn grant_credits(
     post(
         conn,
         ids,
-        &NewTransaction { kind, idempotency_key, initiated_by: None, description, item_id: None, counterparty: None },
+        &NewTransaction {
+            kind,
+            idempotency_key,
+            initiated_by: None,
+            description,
+            item_id: None,
+            counterparty: None,
+        },
         &[
-            Posting { owner: Owner::System, bucket: "mint", amount: -amount },
-            Posting { owner: Owner::User(user), bucket: "available", amount },
+            Posting {
+                owner: Owner::System,
+                bucket: "mint",
+                amount: -amount,
+            },
+            Posting {
+                owner: Owner::User(user),
+                bucket: "available",
+                amount,
+            },
         ],
     )
     .await
@@ -249,10 +290,12 @@ async fn grant_item_in(
     .execute(&mut *conn)
     .await?;
     if inserted.rows_affected() == 0 {
-        let existing: i64 = sqlx::query_scalar("SELECT reference_id FROM economy.ledger_transactions WHERE idempotency_key = $1")
-            .bind(idempotency_key)
-            .fetch_one(&mut *conn)
-            .await?;
+        let existing: i64 = sqlx::query_scalar(
+            "SELECT reference_id FROM economy.ledger_transactions WHERE idempotency_key = $1",
+        )
+        .bind(idempotency_key)
+        .fetch_one(&mut *conn)
+        .await?;
         return Ok(existing);
     }
     crate::catalog::insert_inventory(conn, tx_id, user, item, source).await?;
@@ -292,9 +335,18 @@ pub async fn get_wallet(State(state): State<AppState>, viewer: Viewer) -> ApiRes
     .await?;
     let get = |b: &str| rows.iter().filter(|r| r.0 == b).map(|r| r.1).sum::<i64>();
     let available = get("available") + get("giftable_hold");
-    let updated = rows.iter().map(|r| r.2).max().unwrap_or_else(OffsetDateTime::now_utc);
+    let updated = rows
+        .iter()
+        .map(|r| r.2)
+        .max()
+        .unwrap_or_else(OffsetDateTime::now_utc);
     Ok(Json(Wallet {
-        balances: vec![Balance { currency: CURRENCY, available, giftable: get("available").max(0), pending: get("escrow").max(0) }],
+        balances: vec![Balance {
+            currency: CURRENCY,
+            available,
+            giftable: get("available").max(0),
+            pending: get("escrow").max(0),
+        }],
         updated_at: rfc3339(updated),
     }))
 }
@@ -323,8 +375,17 @@ pub struct TransactionBody {
 }
 
 const PUBLIC_KINDS: [&str; 11] = [
-    "purchase", "reward", "item_purchase", "item_sale", "gift_sent", "gift_received", "game_purchase", "game_earning", "refund",
-    "reversal", "adjustment",
+    "purchase",
+    "reward",
+    "item_purchase",
+    "item_sale",
+    "gift_sent",
+    "gift_received",
+    "game_purchase",
+    "game_earning",
+    "refund",
+    "reversal",
+    "adjustment",
 ];
 
 /// `listWalletTransactions`: the user's net change per transaction, newest first. Internal moves between the user's
@@ -338,7 +399,11 @@ pub async fn list_transactions(
     let after = page.key()?;
     let kind = q.kind.filter(|k| !k.is_empty());
     if kind.as_deref().is_some_and(|k| !PUBLIC_KINDS.contains(&k)) {
-        return Err(Problem::invalid("type", "invalid", "Unknown transaction type."));
+        return Err(Problem::invalid(
+            "type",
+            "invalid",
+            "Unknown transaction type.",
+        ));
     }
     let kinds: Vec<String> = match kind {
         Some(k) => vec![k],
@@ -372,17 +437,21 @@ pub async fn list_transactions(
     let people = crate::identity::basics(&state.db, &others).await?;
     let items = rows
         .into_iter()
-        .map(|(id, kind, amount, description, item_id, counterparty, created_at)| TransactionBody {
-            id: id.to_string(),
-            kind,
-            currency: CURRENCY,
-            amount,
-            status: "settled",
-            description,
-            item_id: item_id.map(|i| i.to_string()),
-            counterparty: counterparty.and_then(|c| people.get(&c)).map(|u| u.summary()),
-            created_at: rfc3339(created_at),
-        })
+        .map(
+            |(id, kind, amount, description, item_id, counterparty, created_at)| TransactionBody {
+                id: id.to_string(),
+                kind,
+                currency: CURRENCY,
+                amount,
+                status: "settled",
+                description,
+                item_id: item_id.map(|i| i.to_string()),
+                counterparty: counterparty
+                    .and_then(|c| people.get(&c))
+                    .map(|u| u.summary()),
+                created_at: rfc3339(created_at),
+            },
+        )
         .collect();
     Ok(Json(PageBody { items, next_cursor }))
 }

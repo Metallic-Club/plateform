@@ -63,7 +63,10 @@ pub async fn list_favorites(
         .await?
         .into_iter()
         .zip(&rows)
-        .map(|(game, r)| Favorite { game, favorited_at: rfc3339(r.at) })
+        .map(|(game, r)| Favorite {
+            game,
+            favorited_at: rfc3339(r.at),
+        })
         .collect();
     Ok(Json(PageBody { items, next_cursor }))
 }
@@ -71,16 +74,23 @@ pub async fn list_favorites(
 fn next_key(rows: &mut Vec<Timed>, limit: i64) -> Option<String> {
     if rows.len() as i64 > limit {
         rows.truncate(limit as usize);
-        rows.last().map(|r| Cursor::key_for(r.at, r.game.id).encode())
+        rows.last()
+            .map(|r| Cursor::key_for(r.at, r.game.id).encode())
     } else {
         None
     }
 }
 
 /// `addFavorite` (idempotent; at most 1,000).
-pub async fn add_favorite(State(state): State<AppState>, viewer: Viewer, IdPath(game_id): IdPath) -> ApiResult<StatusCode> {
+pub async fn add_favorite(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    IdPath(game_id): IdPath,
+) -> ApiResult<StatusCode> {
     let band = crate::viewer_band(&state, Some(&viewer)).await?;
-    super::viewable(&state.db, game_id, &labels_for(band), Some(viewer.user_id)).await?.ok_or_else(Problem::not_found)?;
+    super::viewable(&state.db, game_id, &labels_for(band), Some(viewer.user_id))
+        .await?
+        .ok_or_else(Problem::not_found)?;
     let mut tx = state.db.begin().await?;
     // Serialise this user's favourite writes so the cap cannot be raced past.
     sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('favorites:' || $1::text, 0))")
@@ -97,21 +107,29 @@ pub async fn add_favorite(State(state): State<AppState>, viewer: Viewer, IdPath(
     .await?;
     if !exists {
         if count >= MAX_FAVORITES {
-            return Err(Problem::conflict("favorite_limit_reached", "Favourites full")
-                .with_detail("You can keep up to 1,000 favourites. Remove some first."));
+            return Err(
+                Problem::conflict("favorite_limit_reached", "Favourites full")
+                    .with_detail("You can keep up to 1,000 favourites. Remove some first."),
+            );
         }
-        sqlx::query("INSERT INTO games.favorites (user_id, game_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
-            .bind(viewer.user_id)
-            .bind(game_id)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query(
+            "INSERT INTO games.favorites (user_id, game_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        )
+        .bind(viewer.user_id)
+        .bind(game_id)
+        .execute(&mut *tx)
+        .await?;
     }
     tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 /// `removeFavorite` (idempotent).
-pub async fn remove_favorite(State(state): State<AppState>, viewer: Viewer, IdPath(game_id): IdPath) -> ApiResult<StatusCode> {
+pub async fn remove_favorite(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    IdPath(game_id): IdPath,
+) -> ApiResult<StatusCode> {
     sqlx::query("DELETE FROM games.favorites WHERE user_id = $1 AND game_id = $2")
         .bind(viewer.user_id)
         .bind(game_id)
@@ -157,13 +175,21 @@ pub async fn list_history(
         .await?
         .into_iter()
         .zip(&rows)
-        .map(|(game, r)| HistoryEntry { game, last_played_at: rfc3339(r.at), minutes_played: r.seconds / 60 })
+        .map(|(game, r)| HistoryEntry {
+            game,
+            last_played_at: rfc3339(r.at),
+            minutes_played: r.seconds / 60,
+        })
         .collect();
     Ok(Json(PageBody { items, next_cursor }))
 }
 
 /// `removePlayHistoryEntry`: hides the game from history and from recommendations.
-pub async fn remove_history(State(state): State<AppState>, viewer: Viewer, IdPath(game_id): IdPath) -> ApiResult<StatusCode> {
+pub async fn remove_history(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    IdPath(game_id): IdPath,
+) -> ApiResult<StatusCode> {
     sqlx::query("UPDATE games.play_history SET hidden = true WHERE user_id = $1 AND game_id = $2")
         .bind(viewer.user_id)
         .bind(game_id)

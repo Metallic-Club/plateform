@@ -30,17 +30,27 @@ impl FromRequestParts<AppState> for GameServer {
     type Rejection = Problem;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Problem> {
-        let sent = parts.headers.get(SERVER_SECRET_HEADER).map(|v| v.as_bytes()).unwrap_or_default();
+        let sent = parts
+            .headers
+            .get(SERVER_SECRET_HEADER)
+            .map(|v| v.as_bytes())
+            .unwrap_or_default();
         if ct_eq(sent, state.secrets.server_secret.as_bytes()) {
             Ok(Self)
         } else {
-            Err(Problem::new(StatusCode::UNAUTHORIZED, "unauthorized", "Game server not recognised"))
+            Err(Problem::new(
+                StatusCode::UNAUTHORIZED,
+                "unauthorized",
+                "Game server not recognised",
+            ))
         }
     }
 }
 
 fn id_field(field: &str, v: &Option<String>) -> ApiResult<i64> {
-    v.as_deref().and_then(parse_id).ok_or_else(|| Problem::invalid(field, "invalid", "Not an id."))
+    v.as_deref()
+        .and_then(parse_id)
+        .ok_or_else(|| Problem::invalid(field, "invalid", "Not an id."))
 }
 
 #[derive(Deserialize)]
@@ -67,17 +77,33 @@ pub async fn register(
 ) -> ApiResult<(StatusCode, Json<Registered>)> {
     let game_id = id_field("gameId", &req.game_id)?;
     let place_id = id_field("placeId", &req.place_id)?;
-    let region = req.region.filter(|r| valid_region_code(r)).ok_or_else(|| Problem::invalid("region", "invalid", "Unknown region code."))?;
-    let max_players = req.max_players.filter(|m| (1..=200).contains(m)).ok_or_else(|| Problem::invalid("maxPlayers", "out_of_range", "Use 1 to 200."))?;
+    let region = req
+        .region
+        .filter(|r| valid_region_code(r))
+        .ok_or_else(|| Problem::invalid("region", "invalid", "Unknown region code."))?;
+    let max_players = req
+        .max_players
+        .filter(|m| (1..=200).contains(m))
+        .ok_or_else(|| Problem::invalid("maxPlayers", "out_of_range", "Use 1 to 200."))?;
     if !crate::games::place_in_game(&state.db, place_id, game_id).await? {
-        return Err(Problem::invalid("placeId", "not_found", "No such place in this game."));
+        return Err(Problem::invalid(
+            "placeId",
+            "not_found",
+            "No such place in this game.",
+        ));
     }
-    let region_ok: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM matchmaker.regions WHERE code = $1 AND active)")
-        .bind(&region)
-        .fetch_one(&state.db)
-        .await?;
+    let region_ok: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM matchmaker.regions WHERE code = $1 AND active)",
+    )
+    .bind(&region)
+    .fetch_one(&state.db)
+    .await?;
     if !region_ok {
-        return Err(Problem::invalid("region", "not_found", "Unknown region code."));
+        return Err(Problem::invalid(
+            "region",
+            "not_found",
+            "Unknown region code.",
+        ));
     }
     let id = state.ids.next();
     sqlx::query("INSERT INTO matchmaker.servers (id, game_id, place_id, region, max_players) VALUES ($1, $2, $3, $4, $5)")
@@ -88,8 +114,19 @@ pub async fn register(
         .bind(max_players)
         .execute(&state.db)
         .await?;
-    tracing::info!(server_id = id, game_id, region = region.as_str(), "game server registered");
-    Ok((StatusCode::CREATED, Json(Registered { server_id: id.to_string(), heartbeat_interval_secs: HEARTBEAT_INTERVAL_SECS })))
+    tracing::info!(
+        server_id = id,
+        game_id,
+        region = region.as_str(),
+        "game server registered"
+    );
+    Ok((
+        StatusCode::CREATED,
+        Json(Registered {
+            server_id: id.to_string(),
+            heartbeat_interval_secs: HEARTBEAT_INTERVAL_SECS,
+        }),
+    ))
 }
 
 #[derive(Deserialize)]
@@ -110,11 +147,16 @@ pub async fn heartbeat(
 ) -> ApiResult<StatusCode> {
     let players = req.players.unwrap_or_default();
     if players.len() > 200 {
-        return Err(Problem::invalid("players", "too_many", "At most 200 players."));
+        return Err(Problem::invalid(
+            "players",
+            "too_many",
+            "At most 200 players.",
+        ));
     }
     let mut ids: Vec<i64> = Vec::with_capacity(players.len());
     for p in &players {
-        let id = parse_id(p).ok_or_else(|| Problem::invalid("players", "invalid", "Player ids must be ids."))?;
+        let id = parse_id(p)
+            .ok_or_else(|| Problem::invalid("players", "invalid", "Player ids must be ids."))?;
         if !ids.contains(&id) {
             ids.push(id);
         }
@@ -122,7 +164,13 @@ pub async fn heartbeat(
     let status = match req.status.as_deref() {
         None | Some("running") => "running",
         Some("draining") => "draining",
-        Some(_) => return Err(Problem::invalid("status", "invalid", "Use running or draining.")),
+        Some(_) => {
+            return Err(Problem::invalid(
+                "status",
+                "invalid",
+                "Use running or draining.",
+            ));
+        }
     };
 
     let mut tx = state.db.begin().await?;
@@ -136,15 +184,31 @@ pub async fn heartbeat(
         return Err(Problem::not_found());
     };
     if old_status == "stopped" {
-        return Err(Problem::new(StatusCode::GONE, "server_stopped", "Server was stopped; register again"));
+        return Err(Problem::new(
+            StatusCode::GONE,
+            "server_stopped",
+            "Server was stopped; register again",
+        ));
     }
     if ids.len() > max_players as usize {
-        return Err(Problem::invalid("players", "too_many", "More players than the server holds."));
+        return Err(Problem::invalid(
+            "players",
+            "too_many",
+            "More players than the server holds.",
+        ));
     }
     let old_set: HashSet<i64> = old.iter().copied().collect();
     let new_set: HashSet<i64> = ids.iter().copied().collect();
-    let joined: Vec<i64> = ids.iter().copied().filter(|p| !old_set.contains(p)).collect();
-    let left: Vec<i64> = old.iter().copied().filter(|p| !new_set.contains(p)).collect();
+    let joined: Vec<i64> = ids
+        .iter()
+        .copied()
+        .filter(|p| !old_set.contains(p))
+        .collect();
+    let left: Vec<i64> = old
+        .iter()
+        .copied()
+        .filter(|p| !new_set.contains(p))
+        .collect();
 
     crate::games::start_sessions(&mut tx, &state.ids, game_id, server_id, &joined).await?;
     crate::games::end_sessions(&mut tx, game_id, server_id, &left).await?;
@@ -160,7 +224,10 @@ pub async fn heartbeat(
     tx.commit().await?;
 
     for user in &ids {
-        state.presence.beat(*user, Activity::InGame { game_id, server_id }).await;
+        state
+            .presence
+            .beat(*user, Activity::InGame { game_id, server_id })
+            .await;
     }
     for user in &left {
         state.presence.leave_game(*user, server_id).await;
@@ -182,7 +249,10 @@ pub async fn stop_server(state: &AppState, server_id: i64) -> ApiResult<bool> {
         return Ok(false);
     };
     crate::games::end_sessions(&mut tx, game_id, server_id, &players).await?;
-    sqlx::query("UPDATE matchmaker.servers SET player_ids = '{}' WHERE id = $1").bind(server_id).execute(&mut *tx).await?;
+    sqlx::query("UPDATE matchmaker.servers SET player_ids = '{}' WHERE id = $1")
+        .bind(server_id)
+        .execute(&mut *tx)
+        .await?;
     tx.commit().await?;
     for user in players {
         state.presence.leave_game(user, server_id).await;
@@ -191,11 +261,16 @@ pub async fn stop_server(state: &AppState, server_id: i64) -> ApiResult<bool> {
 }
 
 /// `POST /internal/v1/servers/{serverId}/stop`
-pub async fn stop(State(state): State<AppState>, _: GameServer, IdPath(server_id): IdPath) -> ApiResult<StatusCode> {
-    let exists: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM matchmaker.servers WHERE id = $1)")
-        .bind(server_id)
-        .fetch_one(&state.db)
-        .await?;
+pub async fn stop(
+    State(state): State<AppState>,
+    _: GameServer,
+    IdPath(server_id): IdPath,
+) -> ApiResult<StatusCode> {
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM matchmaker.servers WHERE id = $1)")
+            .bind(server_id)
+            .fetch_one(&state.db)
+            .await?;
     if !exists {
         return Err(Problem::not_found());
     }
@@ -242,9 +317,18 @@ pub async fn redeem(
     _: GameServer,
     ApiJson(req): ApiJson<RedeemRequest>,
 ) -> ApiResult<Json<Redeemed>> {
-    let ticket = req.ticket.filter(|t| t.starts_with("jt_") && t.len() <= 128).ok_or_else(|| Problem::invalid("ticket", "invalid", "Not a ticket."))?;
+    let ticket = req
+        .ticket
+        .filter(|t| t.starts_with("jt_") && t.len() <= 128)
+        .ok_or_else(|| Problem::invalid("ticket", "invalid", "Not a ticket."))?;
     let server_id = id_field("serverId", &req.server_id)?;
-    let invalid = || Problem::new(StatusCode::GONE, "ticket_invalid", "Ticket expired or already used");
+    let invalid = || {
+        Problem::new(
+            StatusCode::GONE,
+            "ticket_invalid",
+            "Ticket expired or already used",
+        )
+    };
     let mut tx = state.db.begin().await?;
     let row: Option<(i64, i64, i64, Option<i64>)> = sqlx::query_as(
         "SELECT user_id, game_id, place_id, server_id FROM matchmaker.join_tickets \
@@ -254,10 +338,12 @@ pub async fn redeem(
     .fetch_optional(&mut *tx)
     .await?;
     let (user_id, game_id, place_id, bound) = row.ok_or_else(invalid)?;
-    let server: Option<(i64, i64)> = sqlx::query_as("SELECT game_id, place_id FROM matchmaker.servers WHERE id = $1 AND status <> 'stopped'")
-        .bind(server_id)
-        .fetch_optional(&mut *tx)
-        .await?;
+    let server: Option<(i64, i64)> = sqlx::query_as(
+        "SELECT game_id, place_id FROM matchmaker.servers WHERE id = $1 AND status <> 'stopped'",
+    )
+    .bind(server_id)
+    .fetch_optional(&mut *tx)
+    .await?;
     let wrong = || Problem::conflict("ticket_wrong_server", "Ticket is for another server");
     match (server, bound) {
         (Some((g, p)), b) if g == game_id && p == place_id && b.is_none_or(|b| b == server_id) => {}
@@ -269,7 +355,10 @@ pub async fn redeem(
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
-    let user = crate::identity::basic(&state.db, user_id).await?.filter(|u| u.is_visible()).ok_or_else(invalid)?;
+    let user = crate::identity::basic(&state.db, user_id)
+        .await?
+        .filter(|u| u.is_visible())
+        .ok_or_else(invalid)?;
     Ok(Json(Redeemed {
         user_id: user_id.to_string(),
         username: user.username,

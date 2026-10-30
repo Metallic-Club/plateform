@@ -96,7 +96,11 @@ pub const IMPLEMENTED: &[&str] = &[
     "redeemJoinTicket",
 ];
 
-fn route(entry: MethodRouter<AppState>, filter: MethodFilter, id: &'static str) -> MethodRouter<AppState> {
+fn route(
+    entry: MethodRouter<AppState>,
+    filter: MethodFilter,
+    id: &'static str,
+) -> MethodRouter<AppState> {
     match id {
         "getHealth" => entry.on(filter, get_health),
         "signUp" => entry.on(filter, account::sign_up),
@@ -173,7 +177,9 @@ pub fn router(state: AppState) -> Router {
 
     by_path
         .into_iter()
-        .fold(Router::new(), |router, (path, methods)| router.route(path, methods))
+        .fold(Router::new(), |router, (path, methods)| {
+            router.route(path, methods)
+        })
         .fallback(|| async { Problem::not_found() })
         .with_state(state)
 }
@@ -198,12 +204,33 @@ struct Health {
 
 /// `getHealth`: 503 when the database does not answer within two seconds. The cache is not used yet (`skipped`).
 async fn get_health(State(state): State<AppState>) -> Response {
-    let db_ok = tokio::time::timeout(Duration::from_secs(2), sqlx::query("SELECT 1").execute(&state.db))
-        .await
-        .is_ok_and(|r| r.is_ok());
-    let checks = BTreeMap::from([("database", if db_ok { "ok" } else { "down" }), ("cache", "skipped")]);
-    let (status, code) = if db_ok { ("ok", StatusCode::OK) } else { ("degraded", StatusCode::SERVICE_UNAVAILABLE) };
-    let mut response = (code, Json(Health { status, version: state.version, checks })).into_response();
-    response.headers_mut().insert(axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store"));
+    let db_ok = tokio::time::timeout(
+        Duration::from_secs(2),
+        sqlx::query("SELECT 1").execute(&state.db),
+    )
+    .await
+    .is_ok_and(|r| r.is_ok());
+    let checks = BTreeMap::from([
+        ("database", if db_ok { "ok" } else { "down" }),
+        ("cache", "skipped"),
+    ]);
+    let (status, code) = if db_ok {
+        ("ok", StatusCode::OK)
+    } else {
+        ("degraded", StatusCode::SERVICE_UNAVAILABLE)
+    };
+    let mut response = (
+        code,
+        Json(Health {
+            status,
+            version: state.version,
+            checks,
+        }),
+    )
+        .into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
     response
 }

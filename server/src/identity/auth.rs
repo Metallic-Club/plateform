@@ -22,9 +22,17 @@ pub const SESSION_TTL: Duration = Duration::days(30);
 #[derive(Debug, Clone)]
 pub enum AuthKind {
     /// Website cookie. Holds the stored hash, never the cookie value.
-    Session { session_hash: Vec<u8>, expires_at: OffsetDateTime },
+    Session {
+        session_hash: Vec<u8>,
+        expires_at: OffsetDateTime,
+    },
     /// Native app access token.
-    Bearer { token_hash: Vec<u8>, family_id: i64, client_id: String, scopes: Vec<String> },
+    Bearer {
+        token_hash: Vec<u8>,
+        family_id: i64,
+        client_id: String,
+        scopes: Vec<String>,
+    },
 }
 
 /// A signed-in caller.
@@ -42,11 +50,10 @@ impl Viewer {
     /// Bearer tokens must carry `scope`; browser sessions may do everything their user may do.
     pub fn require_scope(&self, scope: &str) -> ApiResult<()> {
         match &self.kind {
-            AuthKind::Bearer { scopes, .. } if !scopes.iter().any(|s| s == scope) => Err(Problem::forbidden(
-                "insufficient_scope",
-                "This app was not allowed to do that",
-            )
-            .with_detail(format!("The access token needs the `{scope}` scope."))),
+            AuthKind::Bearer { scopes, .. } if !scopes.iter().any(|s| s == scope) => Err(
+                Problem::forbidden("insufficient_scope", "This app was not allowed to do that")
+                    .with_detail(format!("The access token needs the `{scope}` scope.")),
+            ),
             _ => Ok(()),
         }
     }
@@ -87,13 +94,20 @@ async fn authenticate(parts: &Parts, state: &AppState) -> ApiResult<Option<Viewe
         let token = auth
             .to_str()
             .ok()
-            .and_then(|v| v.strip_prefix("Bearer ").or_else(|| v.strip_prefix("bearer ")))
+            .and_then(|v| {
+                v.strip_prefix("Bearer ")
+                    .or_else(|| v.strip_prefix("bearer "))
+            })
             .map(str::trim)
             .filter(|t| !t.is_empty() && t.len() <= 256)
             .ok_or_else(Problem::unauthorized)?;
-        let viewer = bearer_viewer(state, token).await?.ok_or_else(Problem::unauthorized)?;
+        let viewer = bearer_viewer(state, token)
+            .await?
+            .ok_or_else(Problem::unauthorized)?;
         let activity = match &viewer.kind {
-            AuthKind::Bearer { client_id, .. } if client_id == "metallic-studio" => Activity::InStudio,
+            AuthKind::Bearer { client_id, .. } if client_id == "metallic-studio" => {
+                Activity::InStudio
+            }
             _ => Activity::Online,
         };
         state.presence.beat(viewer.user_id, activity).await;
@@ -111,10 +125,17 @@ async fn authenticate(parts: &Parts, state: &AppState) -> ApiResult<Option<Viewe
             return Ok(Some(viewer));
         };
         let expected = csrf_token(&state.secrets.hmac_key, session_hash);
-        let sent = parts.headers.get(CSRF_HEADER).and_then(|v| v.to_str().ok()).unwrap_or("");
+        let sent = parts
+            .headers
+            .get(CSRF_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
         if !ct_eq(sent.as_bytes(), expected.as_bytes()) {
-            return Err(Problem::forbidden("csrf_failed", "Security check failed")
-                .with_detail("Send the `X-CSRF-Token` from `GET /v1/auth/session` with every change."));
+            return Err(
+                Problem::forbidden("csrf_failed", "Security check failed").with_detail(
+                    "Send the `X-CSRF-Token` from `GET /v1/auth/session` with every change.",
+                ),
+            );
         }
     }
     state.presence.beat(viewer.user_id, Activity::Online).await;
@@ -151,7 +172,10 @@ async fn session_viewer(state: &AppState, cookie: &str) -> ApiResult<Option<View
     .await?;
     Ok(Some(Viewer {
         user_id,
-        kind: AuthKind::Session { session_hash: hash, expires_at },
+        kind: AuthKind::Session {
+            session_hash: hash,
+            expires_at,
+        },
     }))
 }
 
@@ -168,7 +192,12 @@ async fn bearer_viewer(state: &AppState, token: &str) -> ApiResult<Option<Viewer
     .await?;
     Ok(row.map(|(user_id, family_id, client_id, scopes)| Viewer {
         user_id,
-        kind: AuthKind::Bearer { token_hash: hash, family_id, client_id, scopes },
+        kind: AuthKind::Bearer {
+            token_hash: hash,
+            family_id,
+            client_id,
+            scopes,
+        },
     }))
 }
 
@@ -223,7 +252,11 @@ pub struct NewSession {
 
 /// `Set-Cookie` for a new session.
 pub fn session_cookie(state: &AppState, token: &str) -> HeaderValue {
-    let secure = if state.config.cookie_secure { "; Secure" } else { "" };
+    let secure = if state.config.cookie_secure {
+        "; Secure"
+    } else {
+        ""
+    };
     HeaderValue::from_str(&format!(
         "{SESSION_COOKIE}={token}; Path=/; HttpOnly{secure}; SameSite=Lax; Max-Age={}",
         SESSION_TTL.whole_seconds()
@@ -233,9 +266,15 @@ pub fn session_cookie(state: &AppState, token: &str) -> HeaderValue {
 
 /// `Set-Cookie` that removes the session cookie.
 pub fn clear_session_cookie(state: &AppState) -> HeaderValue {
-    let secure = if state.config.cookie_secure { "; Secure" } else { "" };
-    HeaderValue::from_str(&format!("{SESSION_COOKIE}=; Path=/; HttpOnly{secure}; SameSite=Lax; Max-Age=0"))
-        .expect("static cookie")
+    let secure = if state.config.cookie_secure {
+        "; Secure"
+    } else {
+        ""
+    };
+    HeaderValue::from_str(&format!(
+        "{SESSION_COOKIE}=; Path=/; HttpOnly{secure}; SameSite=Lax; Max-Age=0"
+    ))
+    .expect("static cookie")
 }
 
 /// Rejects unsafe cross-site requests whose `Origin` is not allowed (defence in depth beside SameSite and CSRF tokens).
@@ -245,20 +284,28 @@ pub fn origin_allowed(state: &AppState, headers: &HeaderMap) -> bool {
         return true;
     };
     let origin = origin.trim_end_matches('/');
-    if state.config.cors_origins.iter().any(|o| o == origin) || origin == state.config.public_web_url {
+    if state.config.cors_origins.iter().any(|o| o == origin)
+        || origin == state.config.public_web_url
+    {
         return true;
     }
     // Same origin as the API itself.
     headers
         .get(header::HOST)
         .and_then(|h| h.to_str().ok())
-        .is_some_and(|host| origin == format!("https://{host}") || origin == format!("http://{host}"))
+        .is_some_and(|host| {
+            origin == format!("https://{host}") || origin == format!("http://{host}")
+        })
 }
 
 /// Rate-limit helper: counts a hit and turns a refusal into a 429 problem.
 pub async fn limit(state: &AppState, limit: crate::services::Limit, key: &str) -> ApiResult<()> {
     let d = state.limiter.hit(limit, key).await;
-    if d.allowed { Ok(()) } else { Err(Problem::rate_limited(d.reset_secs)) }
+    if d.allowed {
+        Ok(())
+    } else {
+        Err(Problem::rate_limited(d.reset_secs))
+    }
 }
 
 /// Keyed hash of the client IP for rate-limit keys (never the raw address).
@@ -268,7 +315,11 @@ pub fn ip_key(state: &AppState, parts: &Parts) -> String {
 }
 
 pub fn ip_key_for(state: &AppState, ip: std::net::IpAddr) -> String {
-    short_key(&keyed_hash(&state.secrets.hmac_key, "ip", ip.to_string().as_bytes()))
+    short_key(&keyed_hash(
+        &state.secrets.hmac_key,
+        "ip",
+        ip.to_string().as_bytes(),
+    ))
 }
 
 /// Compact rate-limit key from a keyed hash.
@@ -282,7 +333,11 @@ pub fn require_session(viewer: &Viewer) -> ApiResult<()> {
     if viewer.is_session() {
         Ok(())
     } else {
-        Err(Problem::new(StatusCode::UNAUTHORIZED, "session_required", "Sign in on the website")
-            .with_detail("This endpoint needs the website session, not an app token."))
+        Err(Problem::new(
+            StatusCode::UNAUTHORIZED,
+            "session_required",
+            "Sign in on the website",
+        )
+        .with_detail("This endpoint needs the website session, not an app token."))
     }
 }

@@ -31,8 +31,18 @@ pub fn valid_format(name: &str) -> bool {
 pub fn filtered(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     let squashed: String = lower.chars().filter(|c| *c != '_').collect();
-    const IMPERSONATION: [&str; 6] = ["metallic", "admin", "moderator", "official", "staffteam", "support_team"];
-    IMPERSONATION.iter().any(|w| squashed.contains(&w.replace('_', ""))) || text::is_offensive(&squashed)
+    const IMPERSONATION: [&str; 6] = [
+        "metallic",
+        "admin",
+        "moderator",
+        "official",
+        "staffteam",
+        "support_team",
+    ];
+    IMPERSONATION
+        .iter()
+        .any(|w| squashed.contains(&w.replace('_', "")))
+        || text::is_offensive(&squashed)
 }
 
 /// Why `name` cannot be taken right now, or None if it can.
@@ -40,25 +50,30 @@ pub async fn check(db: impl PgExecutor<'_> + Copy, name: &str) -> ApiResult<Opti
     if !valid_format(name) {
         return Ok(Some(Unavailable::Invalid));
     }
-    let hold: Option<(String, Option<OffsetDateTime>)> =
-        sqlx::query_as("SELECT reason, release_after FROM identity.name_holds WHERE name_lower = $1::citext")
-            .bind(name)
-            .fetch_optional(db)
-            .await?;
+    let hold: Option<(String, Option<OffsetDateTime>)> = sqlx::query_as(
+        "SELECT reason, release_after FROM identity.name_holds WHERE name_lower = $1::citext",
+    )
+    .bind(name)
+    .fetch_optional(db)
+    .await?;
     if let Some((reason, release_after)) = hold {
         match (reason.as_str(), release_after) {
             ("reserved" | "brand" | "staff", _) => return Ok(Some(Unavailable::Reserved)),
-            (_, Some(at)) if at > OffsetDateTime::now_utc() => return Ok(Some(Unavailable::ReleasedRecently)),
+            (_, Some(at)) if at > OffsetDateTime::now_utc() => {
+                return Ok(Some(Unavailable::ReleasedRecently));
+            }
             _ => {}
         }
     }
     if filtered(name) {
         return Ok(Some(Unavailable::NotAllowed));
     }
-    let taken: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM identity.users WHERE username = $1::citext)")
-        .bind(name)
-        .fetch_one(db)
-        .await?;
+    let taken: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM identity.users WHERE username = $1::citext)",
+    )
+    .bind(name)
+    .fetch_one(db)
+    .await?;
     Ok(taken.then_some(Unavailable::Taken))
 }
 
@@ -104,7 +119,16 @@ mod tests {
         for ok in ["kit", "ferro_kit", "A1b2C3", "abcdefghijklmnopqrst"] {
             assert!(valid_format(ok), "{ok}");
         }
-        for bad in ["ab", "_kit", "kit_", "ki__t", "kit!", "abcdefghijklmnopqrstu", "kït", ""] {
+        for bad in [
+            "ab",
+            "_kit",
+            "kit_",
+            "ki__t",
+            "kit!",
+            "abcdefghijklmnopqrstu",
+            "kït",
+            "",
+        ] {
             assert!(!valid_format(bad), "{bad}");
         }
     }

@@ -42,12 +42,22 @@ pub struct Presence {
 
 impl Presence {
     fn offline(id: i64, last: Option<OffsetDateTime>) -> Self {
-        Self { user_id: id.to_string(), status: "offline", game: None, joinable: false, last_online_at: rfc3339_opt(last) }
+        Self {
+            user_id: id.to_string(),
+            status: "offline",
+            game: None,
+            joinable: false,
+            last_online_at: rfc3339_opt(last),
+        }
     }
 }
 
 /// Presence of `targets` as `viewer` may see it: hidden by privacy or a block reads as offline with no time.
-pub async fn presence_for(state: &AppState, viewer: Option<i64>, targets: &[i64]) -> ApiResult<Vec<Presence>> {
+pub async fn presence_for(
+    state: &AppState,
+    viewer: Option<i64>,
+    targets: &[i64],
+) -> ApiResult<Vec<Presence>> {
     let friends: HashSet<i64> = match viewer {
         Some(v) => super::friend_ids(&state.db, v).await?.into_iter().collect(),
         None => HashSet::new(),
@@ -80,13 +90,30 @@ pub async fn presence_for(state: &AppState, viewer: Option<i64>, targets: &[i64]
             }
             match rec.activity {
                 None => Presence::offline(id, rec.last_online_at),
-                Some(Activity::Online) => Presence { user_id: id.to_string(), status: "online", game: None, joinable: false, last_online_at: None },
-                Some(Activity::InStudio) => Presence { user_id: id.to_string(), status: "in_studio", game: None, joinable: false, last_online_at: None },
+                Some(Activity::Online) => Presence {
+                    user_id: id.to_string(),
+                    status: "online",
+                    game: None,
+                    joinable: false,
+                    last_online_at: None,
+                },
+                Some(Activity::InStudio) => Presence {
+                    user_id: id.to_string(),
+                    status: "in_studio",
+                    game: None,
+                    joinable: false,
+                    last_online_at: None,
+                },
                 Some(Activity::InGame { game_id, .. }) => Presence {
                     user_id: id.to_string(),
                     status: "in_game",
-                    game: names.get(&game_id).map(|n| GameRef { id: game_id.to_string(), name: n.clone() }),
-                    joinable: viewer.is_some() && !is_self && audience_allows(&p.join_policy, false, friend),
+                    game: names.get(&game_id).map(|n| GameRef {
+                        id: game_id.to_string(),
+                        name: n.clone(),
+                    }),
+                    joinable: viewer.is_some()
+                        && !is_self
+                        && audience_allows(&p.join_policy, false, friend),
                     last_online_at: None,
                 },
             }
@@ -107,7 +134,9 @@ pub async fn get_presence(
     ApiQuery(q): ApiQuery<PresenceQuery>,
 ) -> ApiResult<Json<Items<Presence>>> {
     let ids = parse_id_list("userIds", q.user_ids.as_deref(), 100)?;
-    Ok(Json(Items { items: presence_for(&state, Some(viewer.user_id), &ids).await? }))
+    Ok(Json(Items {
+        items: presence_for(&state, Some(viewer.user_id), &ids).await?,
+    }))
 }
 
 // ------------------------------------------------------------------ friends
@@ -137,7 +166,10 @@ pub async fn list_friends(
 ) -> ApiResult<Json<PageBody<Friend>>> {
     let page = Page::parse(q.limit.as_deref(), q.cursor.as_deref())?;
     let offset = page.offset()?;
-    let target = crate::identity::basic(&state.db, user_id).await?.filter(|u| u.is_visible()).ok_or_else(Problem::not_found)?;
+    let target = crate::identity::basic(&state.db, user_id)
+        .await?
+        .filter(|u| u.is_visible())
+        .ok_or_else(Problem::not_found)?;
     let viewer_id = viewer.as_ref().map(|v| v.user_id);
     let is_self = viewer_id == Some(user_id);
     if let Some(v) = viewer_id
@@ -157,11 +189,13 @@ pub async fn list_friends(
             None => false,
         };
         if !friend {
-            return Err(Problem::forbidden("privacy_restricted", "Not allowed").with_detail("This friend list is private."));
+            return Err(Problem::forbidden("privacy_restricted", "Not allowed")
+                .with_detail("This friend list is private."));
         }
     }
     let mut all = super::friends_since(&state.db, user_id).await?;
-    let people = crate::identity::basics(&state.db, &all.iter().map(|f| f.0).collect::<Vec<_>>()).await?;
+    let people =
+        crate::identity::basics(&state.db, &all.iter().map(|f| f.0).collect::<Vec<_>>()).await?;
     let hidden: HashSet<i64> = match viewer_id {
         Some(v) => super::hidden_for(&state.db, v).await?.into_iter().collect(),
         None => HashSet::new(),
@@ -170,16 +204,29 @@ pub async fn list_friends(
     if is_self {
         all.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0)));
     } else {
-        all.sort_by(|a, b| people[&a.0].username.to_lowercase().cmp(&people[&b.0].username.to_lowercase()));
+        all.sort_by(|a, b| {
+            people[&a.0]
+                .username
+                .to_lowercase()
+                .cmp(&people[&b.0].username.to_lowercase())
+        });
     }
     let total = all.len() as i64;
-    let slice: Vec<(i64, OffsetDateTime)> = all.into_iter().skip(offset as usize).take(page.limit as usize).collect();
+    let slice: Vec<(i64, OffsetDateTime)> = all
+        .into_iter()
+        .skip(offset as usize)
+        .take(page.limit as usize)
+        .collect();
     let ids: Vec<i64> = slice.iter().map(|f| f.0).collect();
     let presences = presence_for(&state, viewer_id, &ids).await?;
     let mut items: Vec<Friend> = slice
         .iter()
         .zip(presences)
-        .map(|((id, since), p)| Friend { user: people[id].summary(), since: rfc3339(*since), presence: Some(p) })
+        .map(|((id, since), p)| Friend {
+            user: people[id].summary(),
+            since: rfc3339(*since),
+            presence: Some(p),
+        })
         .collect();
     if is_self {
         // Most recently active first for the owner (spec: "most recently active first").
@@ -214,9 +261,19 @@ pub async fn list_requests(
     let incoming = match q.direction.as_deref() {
         None | Some("") | Some("incoming") => true,
         Some("outgoing") => false,
-        Some(_) => return Err(Problem::invalid("direction", "invalid", "Use incoming or outgoing.")),
+        Some(_) => {
+            return Err(Problem::invalid(
+                "direction",
+                "invalid",
+                "Use incoming or outgoing.",
+            ));
+        }
     };
-    let (mine, other) = if incoming { ("to_user", "from_user") } else { ("from_user", "to_user") };
+    let (mine, other) = if incoming {
+        ("to_user", "from_user")
+    } else {
+        ("from_user", "to_user")
+    };
     let mut rows: Vec<(i64, i64, OffsetDateTime)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT id, {other}, created_at FROM social.friend_requests WHERE {mine} = $1 \
          AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3)) ORDER BY created_at DESC, id DESC LIMIT $4"
@@ -233,7 +290,8 @@ pub async fn list_requests(
     } else {
         None
     };
-    let people = crate::identity::basics(&state.db, &rows.iter().map(|r| r.1).collect::<Vec<_>>()).await?;
+    let people =
+        crate::identity::basics(&state.db, &rows.iter().map(|r| r.1).collect::<Vec<_>>()).await?;
     let mut items = Vec::with_capacity(rows.len());
     for (id, other, created_at) in rows {
         if let Some(u) = people.get(&other) {
@@ -274,48 +332,86 @@ pub async fn send_request(
         .and_then(crate::ids::parse_id)
         .ok_or_else(|| Problem::invalid("userId", "invalid", "Not a user id."))?;
     limit(&state, FRIEND_REQUEST_LIMIT, &viewer.user_id.to_string()).await?;
-    let me = crate::identity::basic(&state.db, viewer.user_id).await?.ok_or_else(Problem::unauthorized)?;
+    let me = crate::identity::basic(&state.db, viewer.user_id)
+        .await?
+        .ok_or_else(Problem::unauthorized)?;
     if target_id == me.id {
-        return Err(Problem::invalid("userId", "self", "You cannot add yourself."));
+        return Err(Problem::invalid(
+            "userId",
+            "self",
+            "You cannot add yourself.",
+        ));
     }
     let target = crate::identity::basic(&state.db, target_id)
         .await?
         .filter(|u| u.is_visible())
         .ok_or_else(|| Problem::invalid("userId", "not_found", "No such user."))?;
     if !me.is_verified() {
-        return Err(Problem::forbidden("email_unverified", "Confirm your email first").with_detail("Verified accounts can add friends."));
+        return Err(
+            Problem::forbidden("email_unverified", "Confirm your email first")
+                .with_detail("Verified accounts can add friends."),
+        );
     }
     if me.status == "limited" {
-        return Err(Problem::forbidden("account_limited", "Not available yet").with_detail("Your account is waiting for approval."));
+        return Err(Problem::forbidden("account_limited", "Not available yet")
+            .with_detail("Your account is waiting for approval."));
     }
     let (i_blocked, they_blocked) = super::blocks_between(&state.db, me.id, target.id).await?;
     if i_blocked {
-        return Err(Problem::forbidden("user_blocked", "You blocked this user").with_detail("Unblock them first."));
+        return Err(Problem::forbidden("user_blocked", "You blocked this user")
+            .with_detail("Unblock them first."));
     }
     if they_blocked {
         // Silently succeed without sending (the contract says so), so a block cannot be detected.
-        return Ok((StatusCode::CREATED, Json(SendResult { status: "pending", request_id: None })));
+        return Ok((
+            StatusCode::CREATED,
+            Json(SendResult {
+                status: "pending",
+                request_id: None,
+            }),
+        ));
     }
     if super::are_friends(&state.db, me.id, target.id).await? {
-        return Ok((StatusCode::CREATED, Json(SendResult { status: "friends", request_id: None })));
+        return Ok((
+            StatusCode::CREATED,
+            Json(SendResult {
+                status: "friends",
+                request_id: None,
+            }),
+        ));
     }
 
     let mut tx = state.db.begin().await?;
-    let reverse: Option<i64> = sqlx::query_scalar("SELECT id FROM social.friend_requests WHERE from_user = $1 AND to_user = $2 FOR UPDATE")
-        .bind(target.id)
-        .bind(me.id)
-        .fetch_optional(&mut *tx)
-        .await?;
-    if super::friend_count(&mut *tx, me.id).await? >= MAX_FRIENDS || super::friend_count(&mut *tx, target.id).await? >= MAX_FRIENDS {
-        return Err(Problem::forbidden("friend_limit_reached", "Friend limit reached").with_detail("Each account can have up to 500 friends."));
+    let reverse: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM social.friend_requests WHERE from_user = $1 AND to_user = $2 FOR UPDATE",
+    )
+    .bind(target.id)
+    .bind(me.id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    if super::friend_count(&mut *tx, me.id).await? >= MAX_FRIENDS
+        || super::friend_count(&mut *tx, target.id).await? >= MAX_FRIENDS
+    {
+        return Err(
+            Problem::forbidden("friend_limit_reached", "Friend limit reached")
+                .with_detail("Each account can have up to 500 friends."),
+        );
     }
     if reverse.is_some() {
         super::make_friends(&mut tx, me.id, target.id).await?;
         tx.commit().await?;
-        return Ok((StatusCode::CREATED, Json(SendResult { status: "friends", request_id: None })));
+        return Ok((
+            StatusCode::CREATED,
+            Json(SendResult {
+                status: "friends",
+                request_id: None,
+            }),
+        ));
     }
     // The target's setting, and under-13 senders only reach friends of friends (no strangers either way).
-    let privacy = super::settings(&mut *tx, target.id, target.band()).await?.privacy;
+    let privacy = super::settings(&mut *tx, target.id, target.band())
+        .await?
+        .privacy;
     let mutual = super::mutual_count(&mut *tx, me.id, target.id).await? > 0;
     let allowed = match privacy.friend_requests.as_str() {
         "everyone" => true,
@@ -323,13 +419,18 @@ pub async fn send_request(
         _ => false,
     } && (me.band() != AgeBand::Under13 || mutual);
     if !allowed {
-        return Err(Problem::forbidden("requests_not_allowed", "Cannot send a request").with_detail("This player only takes requests from people they know."));
+        return Err(
+            Problem::forbidden("requests_not_allowed", "Cannot send a request")
+                .with_detail("This player only takes requests from people they know."),
+        );
     }
-    let existing: Option<i64> = sqlx::query_scalar("SELECT id FROM social.friend_requests WHERE from_user = $1 AND to_user = $2")
-        .bind(me.id)
-        .bind(target.id)
-        .fetch_optional(&mut *tx)
-        .await?;
+    let existing: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM social.friend_requests WHERE from_user = $1 AND to_user = $2",
+    )
+    .bind(me.id)
+    .bind(target.id)
+    .fetch_optional(&mut *tx)
+    .await?;
     let id = match existing {
         Some(id) => id,
         None => {
@@ -344,43 +445,87 @@ pub async fn send_request(
         }
     };
     tx.commit().await?;
-    Ok((StatusCode::CREATED, Json(SendResult { status: "pending", request_id: Some(id.to_string()) })))
+    Ok((
+        StatusCode::CREATED,
+        Json(SendResult {
+            status: "pending",
+            request_id: Some(id.to_string()),
+        }),
+    ))
 }
 
 /// `acceptFriendRequest`
-pub async fn accept_request(State(state): State<AppState>, viewer: Viewer, IdPath(request_id): IdPath) -> ApiResult<Json<Friend>> {
+pub async fn accept_request(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    IdPath(request_id): IdPath,
+) -> ApiResult<Json<Friend>> {
     let mut tx = state.db.begin().await?;
-    let from: Option<i64> = sqlx::query_scalar("SELECT from_user FROM social.friend_requests WHERE id = $1 AND to_user = $2 FOR UPDATE")
-        .bind(request_id)
-        .bind(viewer.user_id)
-        .fetch_optional(&mut *tx)
-        .await?;
+    let from: Option<i64> = sqlx::query_scalar(
+        "SELECT from_user FROM social.friend_requests WHERE id = $1 AND to_user = $2 FOR UPDATE",
+    )
+    .bind(request_id)
+    .bind(viewer.user_id)
+    .fetch_optional(&mut *tx)
+    .await?;
     let from = from.ok_or_else(Problem::not_found)?;
-    let other = crate::identity::basic(&mut *tx, from).await?.filter(|u| u.is_visible()).ok_or_else(Problem::not_found)?;
-    if super::friend_count(&mut *tx, viewer.user_id).await? >= MAX_FRIENDS || super::friend_count(&mut *tx, from).await? >= MAX_FRIENDS {
-        return Err(Problem::forbidden("friend_limit_reached", "Friend limit reached"));
+    let other = crate::identity::basic(&mut *tx, from)
+        .await?
+        .filter(|u| u.is_visible())
+        .ok_or_else(Problem::not_found)?;
+    if super::friend_count(&mut *tx, viewer.user_id).await? >= MAX_FRIENDS
+        || super::friend_count(&mut *tx, from).await? >= MAX_FRIENDS
+    {
+        return Err(Problem::forbidden(
+            "friend_limit_reached",
+            "Friend limit reached",
+        ));
     }
     let since = super::make_friends(&mut tx, viewer.user_id, from).await?;
     tx.commit().await?;
-    let presence = presence_for(&state, Some(viewer.user_id), &[from]).await?.pop();
-    Ok(Json(Friend { user: other.summary(), since: rfc3339(since), presence }))
+    let presence = presence_for(&state, Some(viewer.user_id), &[from])
+        .await?
+        .pop();
+    Ok(Json(Friend {
+        user: other.summary(),
+        since: rfc3339(since),
+        presence,
+    }))
 }
 
 /// `deleteFriendRequest`: decline incoming or cancel outgoing.
-pub async fn delete_request(State(state): State<AppState>, viewer: Viewer, IdPath(request_id): IdPath) -> ApiResult<StatusCode> {
-    let n = sqlx::query("DELETE FROM social.friend_requests WHERE id = $1 AND (from_user = $2 OR to_user = $2)")
-        .bind(request_id)
-        .bind(viewer.user_id)
-        .execute(&state.db)
-        .await?
-        .rows_affected();
-    if n == 0 { Err(Problem::not_found()) } else { Ok(StatusCode::NO_CONTENT) }
+pub async fn delete_request(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    IdPath(request_id): IdPath,
+) -> ApiResult<StatusCode> {
+    let n = sqlx::query(
+        "DELETE FROM social.friend_requests WHERE id = $1 AND (from_user = $2 OR to_user = $2)",
+    )
+    .bind(request_id)
+    .bind(viewer.user_id)
+    .execute(&state.db)
+    .await?
+    .rows_affected();
+    if n == 0 {
+        Err(Problem::not_found())
+    } else {
+        Ok(StatusCode::NO_CONTENT)
+    }
 }
 
 /// `removeFriend`
-pub async fn remove_friend(State(state): State<AppState>, viewer: Viewer, IdPath(user_id): IdPath) -> ApiResult<StatusCode> {
+pub async fn remove_friend(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    IdPath(user_id): IdPath,
+) -> ApiResult<StatusCode> {
     let mut conn = state.db.acquire().await?;
-    if super::unfriend(&mut conn, viewer.user_id, user_id).await? { Ok(StatusCode::NO_CONTENT) } else { Err(Problem::not_found()) }
+    if super::unfriend(&mut conn, viewer.user_id, user_id).await? {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(Problem::not_found())
+    }
 }
 
 /// `listBlocks`
@@ -407,22 +552,33 @@ pub async fn list_blocks(
     } else {
         None
     };
-    let items = crate::identity::summaries(&state.db, &rows.iter().map(|r| r.0).collect::<Vec<_>>()).await?;
+    let items =
+        crate::identity::summaries(&state.db, &rows.iter().map(|r| r.0).collect::<Vec<_>>())
+            .await?;
     Ok(Json(PageBody { items, next_cursor }))
 }
 
 /// `blockUser`: also ends friendship and pending requests both ways.
-pub async fn block_user(State(state): State<AppState>, viewer: Viewer, IdPath(user_id): IdPath) -> ApiResult<StatusCode> {
+pub async fn block_user(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    IdPath(user_id): IdPath,
+) -> ApiResult<StatusCode> {
     if user_id == viewer.user_id {
         return Err(Problem::not_found());
     }
-    crate::identity::basic(&state.db, user_id).await?.filter(|u| u.is_visible()).ok_or_else(Problem::not_found)?;
+    crate::identity::basic(&state.db, user_id)
+        .await?
+        .filter(|u| u.is_visible())
+        .ok_or_else(Problem::not_found)?;
     let mut tx = state.db.begin().await?;
-    sqlx::query("INSERT INTO social.blocks (blocker, blocked) VALUES ($1, $2) ON CONFLICT DO NOTHING")
-        .bind(viewer.user_id)
-        .bind(user_id)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "INSERT INTO social.blocks (blocker, blocked) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+    )
+    .bind(viewer.user_id)
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await?;
     super::unfriend(&mut tx, viewer.user_id, user_id).await?;
     sqlx::query("DELETE FROM social.friend_requests WHERE (from_user = $1 AND to_user = $2) OR (from_user = $2 AND to_user = $1)")
         .bind(viewer.user_id)
@@ -434,7 +590,11 @@ pub async fn block_user(State(state): State<AppState>, viewer: Viewer, IdPath(us
 }
 
 /// `unblockUser` (friendship is not restored).
-pub async fn unblock_user(State(state): State<AppState>, viewer: Viewer, IdPath(user_id): IdPath) -> ApiResult<StatusCode> {
+pub async fn unblock_user(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    IdPath(user_id): IdPath,
+) -> ApiResult<StatusCode> {
     sqlx::query("DELETE FROM social.blocks WHERE blocker = $1 AND blocked = $2")
         .bind(viewer.user_id)
         .bind(user_id)

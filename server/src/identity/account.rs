@@ -31,7 +31,11 @@ use crate::{
 const VERIFY_TOKEN_TTL: Duration = Duration::days(7);
 const SIGNUP_LIMIT: Limit = Limit::per_hour("signup", 20);
 const LOGIN_IP_LIMIT: Limit = Limit::per_minute("login_ip", 20);
-const LOGIN_NAME_LIMIT: Limit = Limit { name: "login_name", max: 10, window: std::time::Duration::from_secs(900) };
+const LOGIN_NAME_LIMIT: Limit = Limit {
+    name: "login_name",
+    max: 10,
+    window: std::time::Duration::from_secs(900),
+};
 const VERIFY_LIMIT: Limit = Limit::per_minute("verify_email", 20);
 const RESEND_LIMIT: Limit = Limit::per_hour("resend_email", 3);
 
@@ -58,12 +62,29 @@ pub struct SignUpRequest {
 
 /// Common passwords refused at sign-up. The full breached-password list (k-anonymity, spec 9.2) plugs in here.
 const COMMON_PASSWORDS: [&str; 16] = [
-    "1234567890", "12345678910", "123456789a", "password123", "password1234", "passwordpassword", "qwertyuiop",
-    "1q2w3e4r5t", "iloveyou123", "abc1234567", "0987654321", "1111111111", "letmein1234", "qwerty12345",
-    "welcome123", "football123",
+    "1234567890",
+    "12345678910",
+    "123456789a",
+    "password123",
+    "password1234",
+    "passwordpassword",
+    "qwertyuiop",
+    "1q2w3e4r5t",
+    "iloveyou123",
+    "abc1234567",
+    "0987654321",
+    "1111111111",
+    "letmein1234",
+    "qwerty12345",
+    "welcome123",
+    "football123",
 ];
 
-fn password_problem(password: &str, username: &str, email: &str) -> Option<(&'static str, &'static str)> {
+fn password_problem(
+    password: &str,
+    username: &str,
+    email: &str,
+) -> Option<(&'static str, &'static str)> {
     let len = password.chars().count();
     if len < 10 {
         return Some(("too_short", "Use at least 10 characters."));
@@ -72,11 +93,16 @@ fn password_problem(password: &str, username: &str, email: &str) -> Option<(&'st
         return Some(("too_long", "Use at most 128 characters."));
     }
     let lower = password.to_lowercase();
-    if COMMON_PASSWORDS.contains(&lower.as_str()) || lower.chars().all(|c| Some(c) == lower.chars().next()) {
+    if COMMON_PASSWORDS.contains(&lower.as_str())
+        || lower.chars().all(|c| Some(c) == lower.chars().next())
+    {
         return Some(("too_common", "This password is too easy to guess."));
     }
     if !username.is_empty() && lower.contains(&username.to_lowercase()) {
-        return Some(("contains_username", "Do not use your username in your password."));
+        return Some((
+            "contains_username",
+            "Do not use your username in your password.",
+        ));
     }
     if let Some((local, _)) = email.split_once('@')
         && local.len() >= 4
@@ -102,7 +128,11 @@ pub async fn sign_up(
     let password = body.password.unwrap_or_default();
     let email = body.email.unwrap_or_default().trim().to_owned();
     if !names::valid_format(&username) {
-        v.add("username", "invalid", "Use 3 to 20 letters, digits or single underscores, not at the start or end.");
+        v.add(
+            "username",
+            "invalid",
+            "Use 3 to 20 letters, digits or single underscores, not at the start or end.",
+        );
     }
     if !text::valid_email(&email) {
         v.add("email", "invalid", "Enter a valid email address.");
@@ -114,21 +144,39 @@ pub async fn sign_up(
         v.add("acceptTerms", "required", "Accept the terms to continue.");
     }
     let today = OffsetDateTime::now_utc().date();
-    let birth = body.birth_date.as_deref().and_then(|d| Date::parse(d, &Iso8601::DATE).ok());
+    let birth = body
+        .birth_date
+        .as_deref()
+        .and_then(|d| Date::parse(d, &Iso8601::DATE).ok());
     let age = match birth {
         Some(b) if b <= today && age_on(b, today) <= 120 => Some(age_on(b, today)),
         _ => {
-            v.add("birthDate", "invalid", "Enter your birth date as YYYY-MM-DD.");
+            v.add(
+                "birthDate",
+                "invalid",
+                "Enter your birth date as YYYY-MM-DD.",
+            );
             None
         }
     };
     let needs_parent = age.is_some_and(|a| a < state.config.policy.parental_consent_age);
-    let parent_email = body.parent_email.map(|e| e.trim().to_owned()).filter(|e| !e.is_empty());
+    let parent_email = body
+        .parent_email
+        .map(|e| e.trim().to_owned())
+        .filter(|e| !e.is_empty());
     if needs_parent {
         match &parent_email {
             Some(p) if text::valid_email(p) && !p.eq_ignore_ascii_case(&email) => {}
-            Some(_) => v.add("parentEmail", "invalid", "Enter a parent's email address, different from yours."),
-            None => v.add("parentEmail", "required", "Players under 13 need a parent's email address."),
+            Some(_) => v.add(
+                "parentEmail",
+                "invalid",
+                "Enter a parent's email address, different from yours.",
+            ),
+            None => v.add(
+                "parentEmail",
+                "required",
+                "Players under 13 need a parent's email address.",
+            ),
         }
     }
     v.finish()?;
@@ -143,7 +191,9 @@ pub async fn sign_up(
             Unavailable::NotAllowed => "That name is not allowed.",
             Unavailable::Invalid => "That name is not valid.",
         };
-        return Err(Problem::conflict("username_unavailable", "Username not available").with_detail(detail));
+        return Err(
+            Problem::conflict("username_unavailable", "Username not available").with_detail(detail),
+        );
     }
 
     let secrets = &state.secrets;
@@ -158,8 +208,10 @@ pub async fn sign_up(
     .fetch_one(&state.db)
     .await?;
     if banned {
-        return Err(Problem::conflict("email_unavailable", "Email not available")
-            .with_detail("This email address cannot be used for a new account."));
+        return Err(
+            Problem::conflict("email_unavailable", "Email not available")
+                .with_detail("This email address cannot be used for a new account."),
+        );
     }
     if accounts >= policy.max_accounts_per_email {
         return Err(Problem::conflict("account_limit_reached", "Account limit reached").with_detail(format!(
@@ -182,15 +234,20 @@ pub async fn sign_up(
             _ => false,
         };
         if !ok {
-            return Err(Problem::invalid("captchaToken", "captcha_required", "Complete the captcha to continue."));
+            return Err(Problem::invalid(
+                "captchaToken",
+                "captcha_required",
+                "Complete the captcha to continue.",
+            ));
         }
     }
     let review_hold = recent >= policy.signups_per_ip_review;
 
     let password_for_hash = password.clone();
-    let password_hash = tokio::task::spawn_blocking(move || crypto::hash_password(&password_for_hash))
-        .await
-        .map_err(|_| Problem::internal())?;
+    let password_hash =
+        tokio::task::spawn_blocking(move || crypto::hash_password(&password_for_hash))
+            .await
+            .map_err(|_| Problem::internal())?;
 
     let user_id = state.ids.next();
     let person_id = state.ids.next();
@@ -203,7 +260,10 @@ pub async fn sign_up(
     };
     let birth_text = birth.map(|b| b.to_string()).unwrap_or_default();
     let mut tx = state.db.begin().await?;
-    sqlx::query("INSERT INTO identity.persons (id) VALUES ($1)").bind(person_id).execute(&mut *tx).await?;
+    sqlx::query("INSERT INTO identity.persons (id) VALUES ($1)")
+        .bind(person_id)
+        .execute(&mut *tx)
+        .await?;
     let inserted = sqlx::query(
         "INSERT INTO identity.users (id, username, display_name, email_ciphertext, email_hash, birth_date_ciphertext, \
              age_band, status, status_reason, parent_email_ciphertext, delete_after, person_id) \
@@ -226,7 +286,10 @@ pub async fn sign_up(
     match inserted {
         Ok(_) => {}
         Err(e) if crate::problem::is_unique_violation(&e) => {
-            return Err(Problem::conflict("username_unavailable", "Username not available").with_detail("That name is taken."));
+            return Err(
+                Problem::conflict("username_unavailable", "Username not available")
+                    .with_detail("That name is taken."),
+            );
         }
         Err(e) => return Err(e.into()),
     }
@@ -242,20 +305,43 @@ pub async fn sign_up(
         .await?;
     crate::social::create_default_settings(&mut tx, user_id, band).await?;
     let (kind, to) = if needs_parent {
-        (EmailKind::ParentConsent, parent_email.clone().unwrap_or_default())
+        (
+            EmailKind::ParentConsent,
+            parent_email.clone().unwrap_or_default(),
+        )
     } else {
         (EmailKind::Verify, email.clone())
     };
-    let token = issue_email_token(&mut tx, user_id, kind, needs_parent.then(|| email_hash(&secrets.hmac_key, &to))).await?;
+    let token = issue_email_token(
+        &mut tx,
+        user_id,
+        kind,
+        needs_parent.then(|| email_hash(&secrets.hmac_key, &to)),
+    )
+    .await?;
     tx.commit().await?;
 
     send_email(&state, kind, &to, &username, &token).await;
     tracing::info!(user_id, age_band = band.as_str(), status, "account created");
 
     let session = create_session(&state, &headers, ip, user_id).await?;
-    let user = UserSummary { id: user_id.to_string(), username: username.clone(), display_name: username, avatar_headshot_url: None };
-    let body = SessionBody { user, csrf_token: session.csrf_token, expires_at: rfc3339(session.expires_at) };
-    Ok((StatusCode::CREATED, [(header::SET_COOKIE, session_cookie(&state, &session.token))], Json(body)).into_response())
+    let user = UserSummary {
+        id: user_id.to_string(),
+        username: username.clone(),
+        display_name: username,
+        avatar_headshot_url: None,
+    };
+    let body = SessionBody {
+        user,
+        csrf_token: session.csrf_token,
+        expires_at: rfc3339(session.expires_at),
+    };
+    Ok((
+        StatusCode::CREATED,
+        [(header::SET_COOKIE, session_cookie(&state, &session.token))],
+        Json(body),
+    )
+        .into_response())
 }
 
 async fn issue_email_token(
@@ -305,7 +391,17 @@ async fn send_email(state: &AppState, kind: EmailKind, to: &str, username: &str,
             ),
         ),
     };
-    if let Err(e) = state.mailer.send(Email { to: to.to_owned(), kind, subject, body, link }).await {
+    if let Err(e) = state
+        .mailer
+        .send(Email {
+            to: to.to_owned(),
+            kind,
+            subject,
+            body,
+            link,
+        })
+        .await
+    {
         tracing::error!(kind = kind.as_str(), error = %e, "email could not be sent");
     }
 }
@@ -329,13 +425,26 @@ pub async fn check_username(
     ApiQuery(q): ApiQuery<UsernameQuery>,
 ) -> ApiResult<Json<UsernameCheck>> {
     let per_hour = state.config.policy.username_checks_per_hour;
-    limit(&state, Limit::per_hour("username_check", per_hour), &ip_key_for(&state, ip)).await?;
+    limit(
+        &state,
+        Limit::per_hour("username_check", per_hour),
+        &ip_key_for(&state, ip),
+    )
+    .await?;
     let username = q.username.unwrap_or_default();
     if username.len() > 64 {
-        return Err(Problem::invalid("username", "too_long", "Use 3 to 20 characters."));
+        return Err(Problem::invalid(
+            "username",
+            "too_long",
+            "Use 3 to 20 characters.",
+        ));
     }
     let reason = names::check(&state.db, &username).await?;
-    Ok(Json(UsernameCheck { username, available: reason.is_none(), reason }))
+    Ok(Json(UsernameCheck {
+        username,
+        available: reason.is_none(),
+        reason,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -356,10 +465,24 @@ pub async fn log_in(
     let login = body.login.unwrap_or_default().trim().to_owned();
     let password = body.password.unwrap_or_default();
     let mut v = Validator::new();
-    v.check(!login.is_empty() && login.len() <= 254, "login", "invalid", "Enter your username or email.");
-    v.check(!password.is_empty() && password.len() <= 128, "password", "invalid", "Enter your password.");
+    v.check(
+        !login.is_empty() && login.len() <= 254,
+        "login",
+        "invalid",
+        "Enter your username or email.",
+    );
+    v.check(
+        !password.is_empty() && password.len() <= 128,
+        "password",
+        "invalid",
+        "Enter your password.",
+    );
     v.finish()?;
-    let login_key = super::auth::short_key(&keyed_hash(&state.secrets.hmac_key, "login", login.to_lowercase().as_bytes()));
+    let login_key = super::auth::short_key(&keyed_hash(
+        &state.secrets.hmac_key,
+        "login",
+        login.to_lowercase().as_bytes(),
+    ));
     limit(&state, LOGIN_NAME_LIMIT, &login_key).await?;
 
     // Up to the per-email account limit can share an address; the password picks the account.
@@ -386,11 +509,19 @@ pub async fn log_in(
             let _ = crypto::verify_password(&password, crypto::dummy_password_hash());
             return None;
         }
-        candidates.into_iter().find(|(_, _, hash)| crypto::verify_password(&password, hash))
+        candidates
+            .into_iter()
+            .find(|(_, _, hash)| crypto::verify_password(&password, hash))
     })
     .await
     .map_err(|_| Problem::internal())?;
-    let invalid = || Problem::new(StatusCode::UNAUTHORIZED, "invalid_credentials", "Sign-in failed");
+    let invalid = || {
+        Problem::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_credentials",
+            "Sign-in failed",
+        )
+    };
     let Some((user_id, status, _)) = checked else {
         return Err(invalid());
     };
@@ -402,19 +533,30 @@ pub async fn log_in(
         "pending_deletion" => return Err(invalid()),
         _ => {}
     }
-    let has_mfa: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM identity.mfa_factors WHERE user_id = $1)")
-        .bind(user_id)
-        .fetch_one(&state.db)
-        .await?;
+    let has_mfa: bool =
+        sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM identity.mfa_factors WHERE user_id = $1)")
+            .bind(user_id)
+            .fetch_one(&state.db)
+            .await?;
     if has_mfa {
         // TOTP and passkeys are not built yet; accounts with a factor cannot finish here.
         return Err(Problem::forbidden("mfa_required", "Second step needed"));
     }
-    let user = super::basic(&state.db, user_id).await?.ok_or_else(invalid)?;
+    let user = super::basic(&state.db, user_id)
+        .await?
+        .ok_or_else(invalid)?;
     let session = create_session(&state, &headers, ip, user_id).await?;
     tracing::info!(user_id, "signed in");
-    let body = SessionBody { user: user.summary(), csrf_token: session.csrf_token, expires_at: rfc3339(session.expires_at) };
-    Ok(([(header::SET_COOKIE, session_cookie(&state, &session.token))], Json(body)).into_response())
+    let body = SessionBody {
+        user: user.summary(),
+        csrf_token: session.csrf_token,
+        expires_at: rfc3339(session.expires_at),
+    };
+    Ok((
+        [(header::SET_COOKIE, session_cookie(&state, &session.token))],
+        Json(body),
+    )
+        .into_response())
 }
 
 /// `logOut`: ends the browser session, or revokes the app's whole token family.
@@ -426,18 +568,33 @@ pub async fn log_out(State(state): State<AppState>, viewer: Viewer) -> ApiResult
                 .execute(&state.db)
                 .await?;
         }
-        AuthKind::Bearer { family_id, .. } => super::oauth::revoke_family(&mut *state.db.acquire().await?, *family_id).await?,
+        AuthKind::Bearer { family_id, .. } => {
+            super::oauth::revoke_family(&mut *state.db.acquire().await?, *family_id).await?
+        }
     }
-    Ok((StatusCode::NO_CONTENT, [(header::SET_COOKIE, clear_session_cookie(&state))]).into_response())
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(header::SET_COOKIE, clear_session_cookie(&state))],
+    )
+        .into_response())
 }
 
 /// `getSession` (website only).
-pub async fn get_session(State(state): State<AppState>, viewer: Viewer) -> ApiResult<Json<SessionBody>> {
+pub async fn get_session(
+    State(state): State<AppState>,
+    viewer: Viewer,
+) -> ApiResult<Json<SessionBody>> {
     require_session(&viewer)?;
-    let AuthKind::Session { session_hash, expires_at } = &viewer.kind else {
+    let AuthKind::Session {
+        session_hash,
+        expires_at,
+    } = &viewer.kind
+    else {
         return Err(Problem::unauthorized());
     };
-    let user = super::basic(&state.db, viewer.user_id).await?.ok_or_else(Problem::unauthorized)?;
+    let user = super::basic(&state.db, viewer.user_id)
+        .await?
+        .ok_or_else(Problem::unauthorized)?;
     Ok(Json(SessionBody {
         user: user.summary(),
         csrf_token: csrf_token(&state.secrets.hmac_key, session_hash),
@@ -459,9 +616,16 @@ pub async fn verify_email(
     limit(&state, VERIFY_LIMIT, &ip_key_for(&state, ip)).await?;
     let token = body.token.unwrap_or_default();
     if !(16..=128).contains(&token.len()) {
-        return Err(Problem::invalid("token", "invalid", "The link is not complete."));
+        return Err(Problem::invalid(
+            "token",
+            "invalid",
+            "The link is not complete.",
+        ));
     }
-    let gone = || Problem::new(StatusCode::GONE, "token_expired", "Link expired").with_detail("Ask for a new email.");
+    let gone = || {
+        Problem::new(StatusCode::GONE, "token_expired", "Link expired")
+            .with_detail("Ask for a new email.")
+    };
     let mut tx = state.db.begin().await?;
     let row: Option<(i64, String, Option<Vec<u8>>)> = sqlx::query_as(
         "SELECT user_id, purpose, target_email_hash FROM identity.email_tokens \
@@ -515,10 +679,12 @@ async fn mark_verified(conn: &mut PgConnection, _state: &AppState, user_id: i64)
     if verified_at.is_some() {
         return Ok(());
     }
-    sqlx::query("UPDATE identity.users SET email_verified_at = now(), delete_after = NULL WHERE id = $1")
-        .bind(user_id)
-        .execute(&mut *conn)
-        .await?;
+    sqlx::query(
+        "UPDATE identity.users SET email_verified_at = now(), delete_after = NULL WHERE id = $1",
+    )
+    .bind(user_id)
+    .execute(&mut *conn)
+    .await?;
     let Some(email_hash) = email_hash else {
         return Ok(());
     };
@@ -557,14 +723,20 @@ async fn mark_verified(conn: &mut PgConnection, _state: &AppState, user_id: i64)
                 .bind(user_id)
                 .execute(&mut *conn)
                 .await?;
-            tracing::warn!(user_id, "account linked to a banned person; banned for ban evasion");
+            tracing::warn!(
+                user_id,
+                "account linked to a banned person; banned for ban evasion"
+            );
         }
     }
     Ok(())
 }
 
 /// `resendVerificationEmail`
-pub async fn resend_verification(State(state): State<AppState>, viewer: Viewer) -> ApiResult<StatusCode> {
+pub async fn resend_verification(
+    State(state): State<AppState>,
+    viewer: Viewer,
+) -> ApiResult<StatusCode> {
     limit(&state, RESEND_LIMIT, &viewer.user_id.to_string()).await?;
     let row: Option<(String, Option<OffsetDateTime>, Option<Vec<u8>>, Option<Vec<u8>>, Option<String>)> = sqlx::query_as(
         "SELECT username::text, email_verified_at, email_ciphertext, parent_email_ciphertext, status_reason \
@@ -581,16 +753,23 @@ pub async fn resend_verification(State(state): State<AppState>, viewer: Viewer) 
     }
     let key = &state.secrets.data_key;
     let (kind, to) = if reason.as_deref() == Some("parent_consent") {
-        (EmailKind::ParentConsent, parent_ct.and_then(|c| crypto::decrypt(key, "parent_email", &c)))
+        (
+            EmailKind::ParentConsent,
+            parent_ct.and_then(|c| crypto::decrypt(key, "parent_email", &c)),
+        )
     } else {
-        (EmailKind::Verify, email_ct.and_then(|c| crypto::decrypt(key, "email", &c)))
+        (
+            EmailKind::Verify,
+            email_ct.and_then(|c| crypto::decrypt(key, "email", &c)),
+        )
     };
     let Some(to) = to.and_then(|b| String::from_utf8(b).ok()) else {
         tracing::error!(user_id = viewer.user_id, "stored email cannot be decrypted");
         return Err(Problem::internal());
     };
     let mut tx = state.db.begin().await?;
-    let target = (kind == EmailKind::ParentConsent).then(|| email_hash(&state.secrets.hmac_key, &to));
+    let target =
+        (kind == EmailKind::ParentConsent).then(|| email_hash(&state.secrets.hmac_key, &to));
     let token = issue_email_token(&mut tx, viewer.user_id, kind, target).await?;
     tx.commit().await?;
     send_email(&state, kind, &to, &username, &token).await;
@@ -622,18 +801,30 @@ pub async fn purge_unverified(state: &AppState) -> ApiResult<u64> {
 pub async fn purge_account(state: &AppState, user_id: i64) -> ApiResult<()> {
     let policy = &state.config.policy;
     let mut tx = state.db.begin().await?;
-    let username: Option<String> = sqlx::query_scalar("SELECT username::text FROM identity.users WHERE id = $1 FOR UPDATE")
-        .bind(user_id)
-        .fetch_optional(&mut *tx)
-        .await?;
+    let username: Option<String> =
+        sqlx::query_scalar("SELECT username::text FROM identity.users WHERE id = $1 FOR UPDATE")
+            .bind(user_id)
+            .fetch_optional(&mut *tx)
+            .await?;
     let Some(username) = username else {
         return Ok(());
     };
-    names::hold(&mut *tx, &username, "deletion", None, policy.name_hold_deletion_days, policy.name_release_jitter_days).await?;
+    names::hold(
+        &mut *tx,
+        &username,
+        "deletion",
+        None,
+        policy.name_hold_deletion_days,
+        policy.name_release_jitter_days,
+    )
+    .await?;
     crate::social::purge_user(&mut tx, user_id).await?;
     crate::games::purge_user(&mut tx, user_id).await?;
     crate::economy::purge_user(&mut tx, user_id).await?;
-    sqlx::query("DELETE FROM identity.users WHERE id = $1").bind(user_id).execute(&mut *tx).await?;
+    sqlx::query("DELETE FROM identity.users WHERE id = $1")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await?;
     tx.commit().await?;
     Ok(())
 }
@@ -644,11 +835,28 @@ mod tests {
 
     #[test]
     fn password_rules() {
-        assert!(password_problem("correct-horse-battery-staple", "kit", "kit@example.com").is_none());
-        assert_eq!(password_problem("short", "kit", "kit@example.com").map(|p| p.0), Some("too_short"));
-        assert_eq!(password_problem("password123", "kit", "kit@example.com").map(|p| p.0), Some("too_common"));
-        assert_eq!(password_problem("aaaaaaaaaaaa", "kit", "kit@example.com").map(|p| p.0), Some("too_common"));
-        assert_eq!(password_problem("my-ferro_kit-pass", "ferro_kit", "x@example.com").map(|p| p.0), Some("contains_username"));
-        assert_eq!(password_problem("ferrokit-is-me-1", "abc", "ferrokit@example.com").map(|p| p.0), Some("contains_email"));
+        assert!(
+            password_problem("correct-horse-battery-staple", "kit", "kit@example.com").is_none()
+        );
+        assert_eq!(
+            password_problem("short", "kit", "kit@example.com").map(|p| p.0),
+            Some("too_short")
+        );
+        assert_eq!(
+            password_problem("password123", "kit", "kit@example.com").map(|p| p.0),
+            Some("too_common")
+        );
+        assert_eq!(
+            password_problem("aaaaaaaaaaaa", "kit", "kit@example.com").map(|p| p.0),
+            Some("too_common")
+        );
+        assert_eq!(
+            password_problem("my-ferro_kit-pass", "ferro_kit", "x@example.com").map(|p| p.0),
+            Some("contains_username")
+        );
+        assert_eq!(
+            password_problem("ferrokit-is-me-1", "abc", "ferrokit@example.com").map(|p| p.0),
+            Some("contains_email")
+        );
     }
 }

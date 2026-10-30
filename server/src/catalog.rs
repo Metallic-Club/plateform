@@ -19,7 +19,20 @@ use crate::{
 };
 
 pub const CATEGORIES: [&str; 14] = [
-    "hat", "hair", "face", "face_accessory", "neck", "shoulder", "back", "waist", "shirt", "pants", "shoes", "body", "emote", "bundle",
+    "hat",
+    "hair",
+    "face",
+    "face_accessory",
+    "neck",
+    "shoulder",
+    "back",
+    "waist",
+    "shirt",
+    "pants",
+    "shoes",
+    "body",
+    "emote",
+    "bundle",
 ];
 /// Accessories stack up to [`MAX_ACCESSORIES`] in total; every other wearable category is one slot.
 const ACCESSORIES: [&str; 6] = ["hat", "face_accessory", "neck", "shoulder", "back", "waist"];
@@ -87,10 +100,16 @@ impl ItemRow {
                 is_first_party: self.creator_first_party,
             },
             thumbnail_url: self.thumbnail_url.clone(),
-            price: self.price.filter(|_| self.on_sale).map(|amount| Price { currency: crate::economy::CURRENCY, amount }),
+            price: self.price.filter(|_| self.on_sale).map(|amount| Price {
+                currency: crate::economy::CURRENCY,
+                amount,
+            }),
             on_sale: self.on_sale && self.price.is_some(),
             limited: match (self.limited_supply, self.limited_remaining) {
-                (Some(total_supply), Some(remaining)) => Some(Limited { total_supply, remaining }),
+                (Some(total_supply), Some(remaining)) => Some(Limited {
+                    total_supply,
+                    remaining,
+                }),
                 _ => None,
             },
         }
@@ -118,20 +137,37 @@ fn category(field: &str, c: Option<String>) -> ApiResult<Option<String>> {
 }
 
 /// `listCatalogItems`
-pub async fn list_items(State(state): State<AppState>, ApiQuery(q): ApiQuery<ListQuery>) -> ApiResult<Json<PageBody<ItemSummary>>> {
+pub async fn list_items(
+    State(state): State<AppState>,
+    ApiQuery(q): ApiQuery<ListQuery>,
+) -> ApiResult<Json<PageBody<ItemSummary>>> {
     let page = Page::parse(q.limit.as_deref(), q.cursor.as_deref())?;
     let offset = page.offset()?;
     let cat = category("category", q.category)?;
-    let text = q.q.map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty());
+    let text =
+        q.q.map(|t| t.trim().to_lowercase())
+            .filter(|t| !t.is_empty());
     if text.as_ref().is_some_and(|t| t.chars().count() > 80) {
-        return Err(Problem::invalid("q", "too_long", "Search with up to 80 characters."));
+        return Err(Problem::invalid(
+            "q",
+            "too_long",
+            "Search with up to 80 characters.",
+        ));
     }
     let creator = match q.creator_id.as_deref().filter(|c| !c.is_empty()) {
         None => None,
-        Some(c) => Some(crate::ids::parse_id(c).ok_or_else(|| Problem::invalid("creatorId", "invalid", "Not an id."))?),
+        Some(c) => Some(
+            crate::ids::parse_id(c)
+                .ok_or_else(|| Problem::invalid("creatorId", "invalid", "Not an id."))?,
+        ),
     };
     let free = parse_flag("free", q.free.as_deref())?;
-    let order = match q.sort.as_deref().filter(|s| !s.is_empty()).unwrap_or("relevance") {
+    let order = match q
+        .sort
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("relevance")
+    {
         "relevance" => {
             if text.is_some() {
                 "(lower(i.name) = $2) DESC, word_similarity($2, lower(i.name)) DESC, i.sales_count DESC, i.id DESC"
@@ -143,7 +179,13 @@ pub async fn list_items(State(state): State<AppState>, ApiQuery(q): ApiQuery<Lis
         "best_selling" => "i.sales_count DESC, i.id DESC",
         "price_low" => "i.price ASC NULLS LAST, i.id DESC",
         "price_high" => "i.price DESC NULLS LAST, i.id DESC",
-        _ => return Err(Problem::invalid("sort", "invalid", "Use relevance, newest, best_selling, price_low or price_high.")),
+        _ => {
+            return Err(Problem::invalid(
+                "sort",
+                "invalid",
+                "Use relevance, newest, best_selling, price_low or price_high.",
+            ));
+        }
     };
     let mut rows: Vec<ItemRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {ITEM_COLUMNS} FROM catalog.items i WHERE i.status = 'active' \
@@ -164,7 +206,10 @@ pub async fn list_items(State(state): State<AppState>, ApiQuery(q): ApiQuery<Lis
     .await?;
     let next_cursor = page.next_offset(offset, rows.len());
     rows.truncate(page.limit as usize);
-    Ok(Json(PageBody { items: rows.iter().map(ItemRow::summary).collect(), next_cursor }))
+    Ok(Json(PageBody {
+        items: rows.iter().map(ItemRow::summary).collect(),
+        next_cursor,
+    }))
 }
 
 #[derive(Serialize)]
@@ -179,12 +224,18 @@ pub struct ItemDetail {
 }
 
 /// `getCatalogItem`
-pub async fn get_item(State(state): State<AppState>, MaybeViewer(viewer): MaybeViewer, IdPath(id): IdPath) -> ApiResult<Json<ItemDetail>> {
-    let item: ItemRow = sqlx::query_as(sqlx::AssertSqlSafe(format!("SELECT {ITEM_COLUMNS} FROM catalog.items i WHERE i.id = $1 AND i.status = 'active'")))
-        .bind(id)
-        .fetch_optional(&state.db)
-        .await?
-        .ok_or_else(Problem::not_found)?;
+pub async fn get_item(
+    State(state): State<AppState>,
+    MaybeViewer(viewer): MaybeViewer,
+    IdPath(id): IdPath,
+) -> ApiResult<Json<ItemDetail>> {
+    let item: ItemRow = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT {ITEM_COLUMNS} FROM catalog.items i WHERE i.id = $1 AND i.status = 'active'"
+    )))
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(Problem::not_found)?;
     let owned = match &viewer {
         Some(v) => Some(
             sqlx::query_scalar::<_, bool>("SELECT EXISTS (SELECT 1 FROM catalog.inventory WHERE user_id = $1 AND item_id = $2)")
@@ -195,7 +246,12 @@ pub async fn get_item(State(state): State<AppState>, MaybeViewer(viewer): MaybeV
         ),
         None => None,
     };
-    Ok(Json(ItemDetail { summary: item.summary(), description: item.description.clone(), created_at: rfc3339(item.created_at), owned }))
+    Ok(Json(ItemDetail {
+        summary: item.summary(),
+        description: item.description.clone(),
+        created_at: rfc3339(item.created_at),
+        owned,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -249,19 +305,31 @@ pub async fn list_inventory(
     .await?;
     let next_cursor = if rows.len() as i64 > page.limit {
         rows.truncate(page.limit as usize);
-        rows.last().map(|r| Cursor::key_for(r.acquired_at, r.inv_id).encode())
+        rows.last()
+            .map(|r| Cursor::key_for(r.acquired_at, r.inv_id).encode())
     } else {
         None
     };
     let items = rows
         .into_iter()
-        .map(|r| InventoryItem { item: r.item.summary(), acquired_at: rfc3339(r.acquired_at), source: r.source, serial: r.serial })
+        .map(|r| InventoryItem {
+            item: r.item.summary(),
+            acquired_at: rfc3339(r.acquired_at),
+            source: r.source,
+            serial: r.serial,
+        })
         .collect();
     Ok(Json(PageBody { items, next_cursor }))
 }
 
 /// Adds one owned copy. Only [`crate::economy::grant_item`] calls this, inside its ledger transaction.
-pub async fn insert_inventory(conn: &mut PgConnection, id: i64, user: i64, item: i64, source: &str) -> Result<(), sqlx::Error> {
+pub async fn insert_inventory(
+    conn: &mut PgConnection,
+    id: i64,
+    user: i64,
+    item: i64,
+    source: &str,
+) -> Result<(), sqlx::Error> {
     // Limited items take the next serial; the row lock on the item keeps serials unique.
     let serial: Option<Option<i32>> = sqlx::query_scalar(
         "UPDATE catalog.items SET limited_remaining = limited_remaining - 1, sales_count = sales_count + 1 \
@@ -320,8 +388,15 @@ async fn avatar_body(db: impl PgExecutor<'_> + Copy, user: i64) -> ApiResult<Ava
     .bind(user)
     .fetch_optional(db)
     .await?;
-    let (colors, inv_ids, headshot, full, updated) =
-        row.unwrap_or_else(|| (default_colors(), Vec::new(), None, None, OffsetDateTime::now_utc()));
+    let (colors, inv_ids, headshot, full, updated) = row.unwrap_or_else(|| {
+        (
+            default_colors(),
+            Vec::new(),
+            None,
+            None,
+            OffsetDateTime::now_utc(),
+        )
+    });
     // Only items still owned count as worn.
     let items: Vec<ItemRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {ITEM_COLUMNS} FROM catalog.inventory v JOIN catalog.items i ON i.id = v.item_id \
@@ -342,15 +417,27 @@ async fn avatar_body(db: impl PgExecutor<'_> + Copy, user: i64) -> ApiResult<Ava
 }
 
 /// `getMyAvatar`
-pub async fn get_my_avatar(State(state): State<AppState>, viewer: Viewer) -> ApiResult<Json<Avatar>> {
+pub async fn get_my_avatar(
+    State(state): State<AppState>,
+    viewer: Viewer,
+) -> ApiResult<Json<Avatar>> {
     Ok(Json(avatar_body(&state.db, viewer.user_id).await?))
 }
 
 /// `getUserAvatar`
-pub async fn get_user_avatar(State(state): State<AppState>, MaybeViewer(viewer): MaybeViewer, IdPath(user): IdPath) -> ApiResult<Json<Avatar>> {
-    crate::identity::basic(&state.db, user).await?.filter(|u| u.is_visible()).ok_or_else(Problem::not_found)?;
+pub async fn get_user_avatar(
+    State(state): State<AppState>,
+    MaybeViewer(viewer): MaybeViewer,
+    IdPath(user): IdPath,
+) -> ApiResult<Json<Avatar>> {
+    crate::identity::basic(&state.db, user)
+        .await?
+        .filter(|u| u.is_visible())
+        .ok_or_else(Problem::not_found)?;
     if let Some(v) = &viewer
-        && crate::social::blocks_between(&state.db, v.user_id, user).await?.1
+        && crate::social::blocks_between(&state.db, v.user_id, user)
+            .await?
+            .1
     {
         return Err(Problem::not_found());
     }
@@ -365,16 +452,26 @@ pub struct AvatarUpdate {
 }
 
 fn hex_color(v: Option<&Value>) -> bool {
-    v.and_then(Value::as_str).is_some_and(|s| s.len() == 7 && s.starts_with('#') && s[1..].bytes().all(|b| b.is_ascii_hexdigit()))
+    v.and_then(Value::as_str).is_some_and(|s| {
+        s.len() == 7 && s.starts_with('#') && s[1..].bytes().all(|b| b.is_ascii_hexdigit())
+    })
 }
 
 /// `setMyAvatar`: every item owned; one per slot except up to 5 accessories.
-pub async fn set_my_avatar(State(state): State<AppState>, viewer: Viewer, ApiJson(body): ApiJson<AvatarUpdate>) -> ApiResult<Json<Avatar>> {
+pub async fn set_my_avatar(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    ApiJson(body): ApiJson<AvatarUpdate>,
+) -> ApiResult<Json<Avatar>> {
     let mut v = Validator::new();
     let colors = body.body_colors.unwrap_or(Value::Null);
     let parts = ["head", "torso", "arms", "legs"];
     if !colors.is_object() || parts.iter().any(|p| !hex_color(colors.get(*p))) {
-        v.add("bodyColors", "invalid", "Give head, torso, arms and legs as #RRGGBB.");
+        v.add(
+            "bodyColors",
+            "invalid",
+            "Give head, torso, arms and legs as #RRGGBB.",
+        );
     }
     let raw_ids = body.equipped_item_ids.unwrap_or_default();
     if raw_ids.len() > 20 {
@@ -406,20 +503,36 @@ pub async fn set_my_avatar(State(state): State<AppState>, viewer: Viewer, ApiJso
     let mut accessories = 0;
     for item in &item_ids {
         let Some((_, inv, cat)) = owned.iter().find(|o| o.0 == *item) else {
-            v.add("equippedItemIds", "not_owned", format!("You do not own item {item}."));
+            v.add(
+                "equippedItemIds",
+                "not_owned",
+                format!("You do not own item {item}."),
+            );
             continue;
         };
         if NOT_WEARABLE.contains(&cat.as_str()) {
-            v.add("equippedItemIds", "not_wearable", format!("Item {item} cannot be worn."));
+            v.add(
+                "equippedItemIds",
+                "not_wearable",
+                format!("Item {item} cannot be worn."),
+            );
         } else if ACCESSORIES.contains(&cat.as_str()) {
             accessories += 1;
         } else if !slots.insert(cat.clone()) {
-            v.add("equippedItemIds", "slot_taken", format!("Only one {cat} at a time."));
+            v.add(
+                "equippedItemIds",
+                "slot_taken",
+                format!("Only one {cat} at a time."),
+            );
         }
         inv_ids.push(*inv);
     }
     if accessories > MAX_ACCESSORIES {
-        v.add("equippedItemIds", "too_many_accessories", "Up to 5 accessories.");
+        v.add(
+            "equippedItemIds",
+            "too_many_accessories",
+            "Up to 5 accessories.",
+        );
     }
     v.finish()?;
     sqlx::query(

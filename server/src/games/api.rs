@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
 use super::{
-    GAME_COLUMNS, GAME_FROM, GameRow, GameSummary, MIN_ACCOUNT_DAYS_TO_VOTE, MIN_PLAY_SECONDS_TO_VOTE, VISIBLE, labels_for,
-    summaries, up_percent, visible_by_ids,
+    GAME_COLUMNS, GAME_FROM, GameRow, GameSummary, MIN_ACCOUNT_DAYS_TO_VOTE,
+    MIN_PLAY_SECONDS_TO_VOTE, VISIBLE, labels_for, summaries, up_percent, visible_by_ids,
 };
 use crate::{
     AppState,
@@ -28,7 +28,8 @@ fn valid_genre(g: &str) -> bool {
     let b = g.as_bytes();
     (2..=32).contains(&b.len())
         && b[0].is_ascii_lowercase()
-        && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_')
+        && b.iter()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_')
 }
 
 fn device_platforms(device: Option<&str>) -> ApiResult<Vec<String>> {
@@ -36,7 +37,13 @@ fn device_platforms(device: Option<&str>) -> ApiResult<Vec<String>> {
         "" | "desktop" => &["windows", "macos", "linux"],
         "mobile" => &["android", "ios"],
         "console" => &[],
-        _ => return Err(Problem::invalid("device", "invalid", "Use desktop, mobile or console.")),
+        _ => {
+            return Err(Problem::invalid(
+                "device",
+                "invalid",
+                "Use desktop, mobile or console.",
+            ));
+        }
     };
     Ok(list.iter().map(|s| (*s).to_owned()).collect())
 }
@@ -54,7 +61,13 @@ fn order_by(sort: &str) -> ApiResult<&'static str> {
         }
         "new" => "g.created_at DESC, g.id DESC",
         "recently_updated" => "g.updated_at DESC, g.id DESC",
-        _ => return Err(Problem::invalid("sort", "invalid", "Use popular, top_rated, trending, new or recently_updated.")),
+        _ => {
+            return Err(Problem::invalid(
+                "sort",
+                "invalid",
+                "Use popular, top_rated, trending, new or recently_updated.",
+            ));
+        }
     })
 }
 
@@ -117,18 +130,43 @@ pub async fn list_games(
     if genre.as_deref().is_some_and(|g| !valid_genre(g)) {
         return Err(Problem::invalid("genre", "invalid", "Unknown genre."));
     }
-    let order = order_by(q.sort.as_deref().filter(|s| !s.is_empty()).unwrap_or("popular"))?;
+    let order = order_by(
+        q.sort
+            .as_deref()
+            .filter(|s| !s.is_empty())
+            .unwrap_or("popular"),
+    )?;
     let first_party = parse_flag("firstParty", q.first_party.as_deref())?;
     let max_players = match q.max_players.as_deref() {
         None | Some("") => None,
-        Some(v) => Some(v.parse::<i32>().ok().filter(|n| (1..=200).contains(n)).ok_or_else(|| Problem::invalid("maxPlayers", "out_of_range", "Use 1 to 200."))?),
+        Some(v) => Some(
+            v.parse::<i32>()
+                .ok()
+                .filter(|n| (1..=200).contains(n))
+                .ok_or_else(|| Problem::invalid("maxPlayers", "out_of_range", "Use 1 to 200."))?,
+        ),
     };
     let platforms = device_platforms(q.device.as_deref())?;
     let band = crate::viewer_band(&state, viewer.as_ref()).await?;
-    let mut rows = query_games(&state, &labels_for(band), genre.as_deref(), first_party, max_players, &platforms, &[], order, page.limit + 1, offset).await?;
+    let mut rows = query_games(
+        &state,
+        &labels_for(band),
+        genre.as_deref(),
+        first_party,
+        max_players,
+        &platforms,
+        &[],
+        order,
+        page.limit + 1,
+        offset,
+    )
+    .await?;
     let next_cursor = page.next_offset(offset, rows.len());
     rows.truncate(page.limit as usize);
-    Ok(Json(PageBody { items: summaries(&state, &rows).await?, next_cursor }))
+    Ok(Json(PageBody {
+        items: summaries(&state, &rows).await?,
+        next_cursor,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -149,7 +187,11 @@ pub async fn search_games(
     let offset = page.offset()?;
     let text = q.q.unwrap_or_default().trim().to_owned();
     if text.is_empty() || text.chars().count() > 80 {
-        return Err(Problem::invalid("q", "invalid", "Search with 1 to 80 characters."));
+        return Err(Problem::invalid(
+            "q",
+            "invalid",
+            "Search with 1 to 80 characters.",
+        ));
     }
     let genre = q.genre.filter(|g| !g.is_empty());
     if genre.as_deref().is_some_and(|g| !valid_genre(g)) {
@@ -181,7 +223,10 @@ pub async fn search_games(
     .await?;
     let next_cursor = page.next_offset(offset, rows.len());
     rows.truncate(page.limit as usize);
-    Ok(Json(PageBody { items: summaries(&state, &rows).await?, next_cursor }))
+    Ok(Json(PageBody {
+        items: summaries(&state, &rows).await?,
+        next_cursor,
+    }))
 }
 
 #[derive(Serialize)]
@@ -194,7 +239,10 @@ pub struct Genre {
 }
 
 /// `listGenres`
-pub async fn list_genres(State(state): State<AppState>, MaybeViewer(viewer): MaybeViewer) -> ApiResult<Json<Items<Genre>>> {
+pub async fn list_genres(
+    State(state): State<AppState>,
+    MaybeViewer(viewer): MaybeViewer,
+) -> ApiResult<Json<Items<Genre>>> {
     let band = crate::viewer_band(&state, viewer.as_ref()).await?;
     let rows: Vec<(String, String, String, i64)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT ge.id, ge.name, ge.description, \
@@ -205,7 +253,15 @@ pub async fn list_genres(State(state): State<AppState>, MaybeViewer(viewer): May
     .fetch_all(&state.db)
     .await?;
     Ok(Json(Items {
-        items: rows.into_iter().map(|(id, name, description, game_count)| Genre { id, name, description, game_count }).collect(),
+        items: rows
+            .into_iter()
+            .map(|(id, name, description, game_count)| Genre {
+                id,
+                name,
+                description,
+                game_count,
+            })
+            .collect(),
     }))
 }
 
@@ -244,24 +300,35 @@ pub async fn get_game(
     IdPath(game_id): IdPath,
 ) -> ApiResult<Json<GameDetail>> {
     let band = crate::viewer_band(&state, viewer.as_ref()).await?;
-    let game = super::viewable(&state.db, game_id, &labels_for(band), viewer.as_ref().map(|v| v.user_id))
-        .await?
-        .ok_or_else(Problem::not_found)?;
+    let game = super::viewable(
+        &state.db,
+        game_id,
+        &labels_for(band),
+        viewer.as_ref().map(|v| v.user_id),
+    )
+    .await?
+    .ok_or_else(Problem::not_found)?;
     let Some(start_place) = game.start_place_id else {
         return Err(Problem::not_found());
     };
-    let summary = summaries(&state, std::slice::from_ref(&game)).await?.remove(0);
+    let summary = summaries(&state, std::slice::from_ref(&game))
+        .await?
+        .remove(0);
     let screenshots: Vec<String> =
         sqlx::query_scalar("SELECT url FROM games.game_media WHERE game_id = $1 AND kind = 'screenshot' ORDER BY position LIMIT 10")
             .bind(game_id)
             .fetch_all(&state.db)
             .await?;
-    let favorites: i64 = sqlx::query_scalar("SELECT count(*) FROM games.favorites WHERE game_id = $1")
-        .bind(game_id)
-        .fetch_one(&state.db)
-        .await?;
+    let favorites: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM games.favorites WHERE game_id = $1")
+            .bind(game_id)
+            .fetch_one(&state.db)
+            .await?;
     let (friends_playing, viewer_state) = match &viewer {
-        Some(v) => (friends_in_game(&state, v.user_id, game_id).await?, Some(viewer_state(&state, v.user_id, game_id).await?)),
+        Some(v) => (
+            friends_in_game(&state, v.user_id, game_id).await?,
+            Some(viewer_state(&state, v.user_id, game_id).await?),
+        ),
         None => (Vec::new(), None),
     };
     Ok(Json(GameDetail {
@@ -281,8 +348,15 @@ pub async fn get_game(
 }
 
 /// Friends of the viewer currently in this game whose presence the viewer may see (at most 10).
-async fn friends_in_game(state: &AppState, viewer: i64, game_id: i64) -> ApiResult<Vec<UserSummary>> {
-    let friends: Vec<i64> = crate::matchmaker::visible_friends(state, viewer).await?.into_iter().collect();
+async fn friends_in_game(
+    state: &AppState,
+    viewer: i64,
+    game_id: i64,
+) -> ApiResult<Vec<UserSummary>> {
+    let friends: Vec<i64> = crate::matchmaker::visible_friends(state, viewer)
+        .await?
+        .into_iter()
+        .collect();
     let presence = state.presence.get_many(&friends).await;
     let playing: Vec<i64> = friends
         .iter()
@@ -321,7 +395,11 @@ fn vote_name(v: Option<i16>) -> Option<&'static str> {
 }
 
 /// Why the user may not vote yet (spec 9.4), or None.
-async fn cannot_vote_reason(state: &AppState, user: i64, game: i64) -> ApiResult<Option<&'static str>> {
+async fn cannot_vote_reason(
+    state: &AppState,
+    user: i64,
+    game: i64,
+) -> ApiResult<Option<&'static str>> {
     let Some(me) = crate::identity::basic(&state.db, user).await? else {
         return Ok(Some("restricted"));
     };
@@ -363,13 +441,23 @@ async fn rating_body(state: &AppState, game: i64, viewer: Option<i64>) -> ApiRes
     .bind(game)
     .fetch_one(&state.db)
     .await?;
-    let mut body = Rating { game_id: game.to_string(), up, down, up_percent: up_percent(up, down), my_vote: None, can_vote: None, cannot_vote_reason: None };
+    let mut body = Rating {
+        game_id: game.to_string(),
+        up,
+        down,
+        up_percent: up_percent(up, down),
+        my_vote: None,
+        can_vote: None,
+        cannot_vote_reason: None,
+    };
     if let Some(user) = viewer {
-        let vote: Option<i16> = sqlx::query_scalar("SELECT vote FROM games.ratings WHERE user_id = $1 AND game_id = $2")
-            .bind(user)
-            .bind(game)
-            .fetch_optional(&state.db)
-            .await?;
+        let vote: Option<i16> = sqlx::query_scalar(
+            "SELECT vote FROM games.ratings WHERE user_id = $1 AND game_id = $2",
+        )
+        .bind(user)
+        .bind(game)
+        .fetch_optional(&state.db)
+        .await?;
         let reason = cannot_vote_reason(state, user, game).await?;
         body.my_vote = Some(vote_name(vote));
         body.can_vote = Some(reason.is_none());
@@ -386,7 +474,9 @@ pub async fn get_rating(
 ) -> ApiResult<Json<Rating>> {
     let band = crate::viewer_band(&state, viewer.as_ref()).await?;
     let user = viewer.as_ref().map(|v| v.user_id);
-    super::viewable(&state.db, game_id, &labels_for(band), user).await?.ok_or_else(Problem::not_found)?;
+    super::viewable(&state.db, game_id, &labels_for(band), user)
+        .await?
+        .ok_or_else(Problem::not_found)?;
     Ok(Json(rating_body(&state, game_id, user).await?))
 }
 
@@ -409,16 +499,20 @@ pub async fn set_rating(
     };
     limit(&state, RATE_LIMIT, &viewer.user_id.to_string()).await?;
     let band = crate::viewer_band(&state, Some(&viewer)).await?;
-    super::viewable(&state.db, game_id, &labels_for(band), Some(viewer.user_id)).await?.ok_or_else(Problem::not_found)?;
+    super::viewable(&state.db, game_id, &labels_for(band), Some(viewer.user_id))
+        .await?
+        .ok_or_else(Problem::not_found)?;
     if let Some(reason) = cannot_vote_reason(&state, viewer.user_id, game_id).await? {
         return Err(Problem::forbidden(reason, "You cannot rate this game yet"));
     }
     let mut tx = state.db.begin().await?;
-    let old: Option<i16> = sqlx::query_scalar("SELECT vote FROM games.ratings WHERE user_id = $1 AND game_id = $2 FOR UPDATE")
-        .bind(viewer.user_id)
-        .bind(game_id)
-        .fetch_optional(&mut *tx)
-        .await?;
+    let old: Option<i16> = sqlx::query_scalar(
+        "SELECT vote FROM games.ratings WHERE user_id = $1 AND game_id = $2 FOR UPDATE",
+    )
+    .bind(viewer.user_id)
+    .bind(game_id)
+    .fetch_optional(&mut *tx)
+    .await?;
     if old != Some(vote) {
         sqlx::query(
             "INSERT INTO games.ratings (user_id, game_id, vote) VALUES ($1, $2, $3) \
@@ -432,17 +526,25 @@ pub async fn set_rating(
         adjust_totals(&mut tx, game_id, old, Some(vote)).await?;
     }
     tx.commit().await?;
-    Ok(Json(rating_body(&state, game_id, Some(viewer.user_id)).await?))
+    Ok(Json(
+        rating_body(&state, game_id, Some(viewer.user_id)).await?,
+    ))
 }
 
 /// `clearRating`
-pub async fn clear_rating(State(state): State<AppState>, viewer: Viewer, IdPath(game_id): IdPath) -> ApiResult<StatusCode> {
+pub async fn clear_rating(
+    State(state): State<AppState>,
+    viewer: Viewer,
+    IdPath(game_id): IdPath,
+) -> ApiResult<StatusCode> {
     let mut tx = state.db.begin().await?;
-    let old: Option<i16> = sqlx::query_scalar("DELETE FROM games.ratings WHERE user_id = $1 AND game_id = $2 RETURNING vote")
-        .bind(viewer.user_id)
-        .bind(game_id)
-        .fetch_optional(&mut *tx)
-        .await?;
+    let old: Option<i16> = sqlx::query_scalar(
+        "DELETE FROM games.ratings WHERE user_id = $1 AND game_id = $2 RETURNING vote",
+    )
+    .bind(viewer.user_id)
+    .bind(game_id)
+    .fetch_optional(&mut *tx)
+    .await?;
     if old.is_some() {
         adjust_totals(&mut tx, game_id, old, None).await?;
     }
@@ -450,7 +552,12 @@ pub async fn clear_rating(State(state): State<AppState>, viewer: Viewer, IdPath(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn adjust_totals(conn: &mut sqlx::PgConnection, game: i64, old: Option<i16>, new: Option<i16>) -> ApiResult<()> {
+async fn adjust_totals(
+    conn: &mut sqlx::PgConnection,
+    game: i64,
+    old: Option<i16>,
+    new: Option<i16>,
+) -> ApiResult<()> {
     let delta = |v: i16| -> (i32, i32) {
         let up = i32::from(new == Some(v) && v == 1) - i32::from(old == Some(v) && v == 1);
         let down = i32::from(new == Some(v) && v == -1) - i32::from(old == Some(v) && v == -1);
@@ -485,7 +592,14 @@ pub async fn list_similar(
     let page = Page::parse(q.limit.as_deref(), None)?;
     let band = crate::viewer_band(&state, viewer.as_ref()).await?;
     let labels = labels_for(band);
-    let game = super::viewable(&state.db, game_id, &labels, viewer.as_ref().map(|v| v.user_id)).await?.ok_or_else(Problem::not_found)?;
+    let game = super::viewable(
+        &state.db,
+        game_id,
+        &labels,
+        viewer.as_ref().map(|v| v.user_id),
+    )
+    .await?
+    .ok_or_else(Problem::not_found)?;
     let rows: Vec<GameRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {GAME_COLUMNS} FROM {GAME_FROM} WHERE {VISIBLE} AND g.id <> $2 AND g.genres && $3 \
          ORDER BY cardinality(ARRAY(SELECT unnest(g.genres) INTERSECT SELECT unnest($3::text[]))) DESC, \
@@ -497,7 +611,10 @@ pub async fn list_similar(
     .bind(page.limit)
     .fetch_all(&state.db)
     .await?;
-    Ok(Json(PageBody { items: summaries(&state, &rows).await?, next_cursor: None }))
+    Ok(Json(PageBody {
+        items: summaries(&state, &rows).await?,
+        next_cursor: None,
+    }))
 }
 
 // ------------------------------------------------------------------ home
@@ -546,9 +663,21 @@ pub async fn get_home(
         .fetch_all(&state.db)
         .await?;
         let rows = visible_by_ids(&state.db, &recent, &labels).await?;
-        push(&state, &mut sections, "continue", "continue", "Continue playing", "You played these recently".into(), rows).await?;
+        push(
+            &state,
+            &mut sections,
+            "continue",
+            "continue",
+            "Continue playing",
+            "You played these recently".into(),
+            rows,
+        )
+        .await?;
 
-        let friends: Vec<i64> = crate::matchmaker::visible_friends(&state, user).await?.into_iter().collect();
+        let friends: Vec<i64> = crate::matchmaker::visible_friends(&state, user)
+            .await?
+            .into_iter()
+            .collect();
         let mut seen = HashSet::new();
         let friend_games: Vec<i64> = state
             .presence
@@ -563,15 +692,34 @@ pub async fn get_home(
             .take(ROW as usize)
             .collect();
         let rows = visible_by_ids(&state.db, &friend_games, &labels).await?;
-        push(&state, &mut sections, "friends_playing", "friends_playing", "Friends are playing", "Your friends are in these games now".into(), rows).await?;
+        push(
+            &state,
+            &mut sections,
+            "friends_playing",
+            "friends_playing",
+            "Friends are playing",
+            "Your friends are in these games now".into(),
+            rows,
+        )
+        .await?;
     }
 
-    let featured: Vec<i64> = sqlx::query_scalar("SELECT game_id FROM discovery.featured ORDER BY position LIMIT $1")
-        .bind(ROW)
-        .fetch_all(&state.db)
-        .await?;
+    let featured: Vec<i64> =
+        sqlx::query_scalar("SELECT game_id FROM discovery.featured ORDER BY position LIMIT $1")
+            .bind(ROW)
+            .fetch_all(&state.db)
+            .await?;
     let rows = visible_by_ids(&state.db, &featured, &labels).await?;
-    push(&state, &mut sections, "featured", "featured", "Featured", "Picked by the Metallic team".into(), rows).await?;
+    push(
+        &state,
+        &mut sections,
+        "featured",
+        "featured",
+        "Featured",
+        "Picked by the Metallic team".into(),
+        rows,
+    )
+    .await?;
 
     if let Some(user) = user {
         // P1 heuristic: popular games in the genres the user plays or favourites, not played yet.
@@ -584,10 +732,11 @@ pub async fn get_home(
         .fetch_all(&state.db)
         .await?;
         if !genres.is_empty() {
-            let played: Vec<i64> = sqlx::query_scalar("SELECT game_id FROM games.play_history WHERE user_id = $1")
-                .bind(user)
-                .fetch_all(&state.db)
-                .await?;
+            let played: Vec<i64> =
+                sqlx::query_scalar("SELECT game_id FROM games.play_history WHERE user_id = $1")
+                    .bind(user)
+                    .fetch_all(&state.db)
+                    .await?;
             let rows: Vec<GameRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
                 "SELECT {GAME_COLUMNS} FROM {GAME_FROM} WHERE {VISIBLE} AND g.genres && $2 AND NOT (g.id = ANY($3)) AND g.platforms && $4 \
                  ORDER BY g.playing_snapshot DESC, g.visits DESC, g.id DESC LIMIT $5"
@@ -599,19 +748,91 @@ pub async fn get_home(
             .bind(ROW)
             .fetch_all(&state.db)
             .await?;
-            push(&state, &mut sections, "recommended", "recommended", "Recommended for you", "Based on the genres you play".into(), rows).await?;
+            push(
+                &state,
+                &mut sections,
+                "recommended",
+                "recommended",
+                "Recommended for you",
+                "Based on the genres you play".into(),
+                rows,
+            )
+            .await?;
         }
     }
 
-    let rows = query_games(&state, &labels, None, Some(true), None, &platforms, &[], "g.playing_snapshot DESC, g.visits DESC, g.id DESC", ROW, 0).await?;
-    push(&state, &mut sections, "first_party", "first_party", "Made by Metallic", "Games from the Metallic team".into(), rows).await?;
+    let rows = query_games(
+        &state,
+        &labels,
+        None,
+        Some(true),
+        None,
+        &platforms,
+        &[],
+        "g.playing_snapshot DESC, g.visits DESC, g.id DESC",
+        ROW,
+        0,
+    )
+    .await?;
+    push(
+        &state,
+        &mut sections,
+        "first_party",
+        "first_party",
+        "Made by Metallic",
+        "Games from the Metallic team".into(),
+        rows,
+    )
+    .await?;
 
-    let rows = query_games(&state, &labels, None, None, None, &platforms, &[], order_by("popular")?, ROW, 0).await?;
-    push(&state, &mut sections, "popular", "popular", "Popular now", "Most players right now".into(), rows).await?;
+    let rows = query_games(
+        &state,
+        &labels,
+        None,
+        None,
+        None,
+        &platforms,
+        &[],
+        order_by("popular")?,
+        ROW,
+        0,
+    )
+    .await?;
+    push(
+        &state,
+        &mut sections,
+        "popular",
+        "popular",
+        "Popular now",
+        "Most players right now".into(),
+        rows,
+    )
+    .await?;
 
     if user.is_some() {
-        let rows = query_games(&state, &labels, None, None, None, &platforms, &[], order_by("trending")?, ROW, 0).await?;
-        push(&state, &mut sections, "trending", "trending", "Trending", "Most played this week".into(), rows).await?;
+        let rows = query_games(
+            &state,
+            &labels,
+            None,
+            None,
+            None,
+            &platforms,
+            &[],
+            order_by("trending")?,
+            ROW,
+            0,
+        )
+        .await?;
+        push(
+            &state,
+            &mut sections,
+            "trending",
+            "trending",
+            "Trending",
+            "Most played this week".into(),
+            rows,
+        )
+        .await?;
         let rows: Vec<GameRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
             "SELECT {GAME_COLUMNS} FROM {GAME_FROM} WHERE {VISIBLE} AND g.created_at > now() - interval '14 days' AND g.platforms && $2 \
              ORDER BY g.playing_snapshot DESC, g.created_at DESC LIMIT $3"
@@ -621,10 +842,22 @@ pub async fn get_home(
         .bind(ROW)
         .fetch_all(&state.db)
         .await?;
-        push(&state, &mut sections, "new_and_rising", "new_and_rising", "New and rising", "New in the last two weeks".into(), rows).await?;
+        push(
+            &state,
+            &mut sections,
+            "new_and_rising",
+            "new_and_rising",
+            "New and rising",
+            "New in the last two weeks".into(),
+            rows,
+        )
+        .await?;
     }
 
-    Ok(Json(HomeFeed { generated_at: rfc3339(OffsetDateTime::now_utc()), sections }))
+    Ok(Json(HomeFeed {
+        generated_at: rfc3339(OffsetDateTime::now_utc()),
+        sections,
+    }))
 }
 
 async fn push(
@@ -639,6 +872,12 @@ async fn push(
     if rows.is_empty() {
         return Ok(());
     }
-    sections.push(HomeSection { id, kind, title, reason, items: summaries(state, &rows).await? });
+    sections.push(HomeSection {
+        id,
+        kind,
+        title,
+        reason,
+        items: summaries(state, &rows).await?,
+    });
     Ok(())
 }
