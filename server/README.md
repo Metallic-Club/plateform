@@ -71,9 +71,12 @@ cargo test -j 4
 ```
 
 The API tests (`tests/api/`) need the dev cluster running (or `METALLIC_TEST_DATABASE_URL` pointing at a server
-whose user may create databases). Each test copies a migrated template database and drops it at the end; leftovers
-from failed runs are dropped at the next run. Every response is validated against the OpenAPI schemas, and
-`contract::every_operation_answers_as_documented` calls all 63 operations.
+whose user may create databases). Each test copies a migrated template database and drops its own database at the
+end. Failed runs retain their databases for inspection. Automatic startup cleanup only considers strictly validated
+current-process names, skips connected databases and never uses FORCE; other process databases and shared templates
+are never swept. No cleanup terminates another connection. See issue #8 for the fixed cross-process hazard.
+Every response is validated against OpenAPI, and `contract::every_operation_answers_as_documented` explicitly calls
+all 63 operations.
 
 ## Security notes
 
