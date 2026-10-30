@@ -151,23 +151,37 @@ async fn create_database() -> (String, String) {
     (with_db(&url, &name), name)
 }
 
-/// Drops test databases left by earlier runs (a failed test keeps its database for inspection until the next run)
-/// and templates of older migration sets.
+/// Only this process's canonical test names may be cleaned automatically. Other processes' databases and shared
+/// templates are retained, including the interval between database creation and the first pool connection (#8).
+fn owns_test_database(name: &str, process: u32) -> bool {
+    let prefix = format!("metallic_t_{process}_");
+    name.strip_prefix(&prefix).is_some_and(|suffix| {
+        suffix
+            .parse::<u32>()
+            .is_ok_and(|sequence| suffix == sequence.to_string())
+    })
+}
+
+/// Removes only unused, strictly validated current-PID test databases. Never terminates another connection.
 async fn sweep(conn: &mut PgConnection) {
-    let tpl = template_name();
+    let process = std::process::id();
+    let prefix = format!("metallic_t_{process}_");
     let names: Vec<String> = sqlx::query_scalar(
-        "SELECT datname FROM pg_database WHERE datname LIKE 'metallic\\_t\\_%' OR (datname LIKE 'metallic\\_tpl\\_%' AND datname <> $1)",
+        "SELECT d.datname FROM pg_database d WHERE starts_with(d.datname, $1) \
+         AND NOT EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.datname = d.datname)",
     )
-    .bind(&tpl)
+    .bind(&prefix)
     .fetch_all(&mut *conn)
     .await
     .expect("list databases");
     for n in names {
-        conn.execute(sqlx::AssertSqlSafe(format!(
-            "DROP DATABASE IF EXISTS \"{n}\" WITH (FORCE)"
-        )))
-        .await
-        .ok();
+        if owns_test_database(&n, process) {
+            conn.execute(sqlx::AssertSqlSafe(format!(
+                "DROP DATABASE IF EXISTS \"{n}\""
+            )))
+            .await
+            .ok();
+        }
     }
 }
 
@@ -242,7 +256,7 @@ impl TestApp {
         db.close().await;
         let mut conn = admin().await;
         conn.execute(sqlx::AssertSqlSafe(format!(
-            "DROP DATABASE IF EXISTS \"{db_name}\" WITH (FORCE)"
+            "DROP DATABASE IF EXISTS \"{db_name}\""
         )))
         .await
         .ok();
@@ -346,6 +360,26 @@ impl TestApp {
             headers,
             body,
         }
+    }
+}
+
+#[test]
+fn automatic_database_cleanup_classifies_only_canonical_current_process_names() {
+    assert!(owns_test_database("metallic_t_42_0", 42));
+    assert!(owns_test_database("metallic_t_42_4294967295", 42));
+    for name in [
+        "metallic_t_43_0",
+        "metallic_t_420_0",
+        "metallic_tpl_42",
+        "metallic_t_42_build",
+        "metallic_t_42_00",
+        "metallic_t_42_-1",
+        "metallic_t_42_4294967296",
+        "metallic_t_42_0\"; DROP DATABASE other; --",
+        "metallic",
+        "postgres",
+    ] {
+        assert!(!owns_test_database(name, 42), "unsafe cleanup candidate");
     }
 }
 

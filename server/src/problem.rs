@@ -234,3 +234,57 @@ impl IntoResponse for Problem {
         response
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn compact_problem_preserves_json_omission_details_and_exact_headers() {
+        println!("Problem layout: {} bytes", std::mem::size_of::<Problem>());
+        assert!(std::mem::size_of::<Problem>() <= 128);
+        let missing = serde_json::to_value(Problem::unauthorized()).expect("problem JSON");
+        assert_eq!(
+            missing["type"],
+            "https://docs.metallic.example/errors/unauthorized"
+        );
+        assert!(missing.get("detail").is_none());
+        assert!(missing.get("errors").is_none());
+        assert!(missing.get("retry_after").is_none());
+        let empty = serde_json::to_value(Problem::bad_request("")).expect("empty detail JSON");
+        assert_eq!(empty["detail"], "");
+        let response = Problem::rate_limited(0)
+            .with_detail("Retry later. Ñ")
+            .into_response();
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(
+            response.headers()[header::CONTENT_TYPE],
+            "application/problem+json"
+        );
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        assert_eq!(response.headers()[header::RETRY_AFTER], "1");
+        let bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("problem body")
+            .to_bytes();
+        let body: serde_json::Value = serde_json::from_slice(&bytes).expect("wire JSON");
+        assert_eq!(body["status"], 429);
+        assert_eq!(body["code"], "rate_limited");
+        assert_eq!(body["detail"], "Retry later. Ñ");
+        assert!(body.get("retry_after").is_none());
+        assert_eq!(
+            Problem::rate_limited(12).into_response().headers()[header::RETRY_AFTER],
+            "12"
+        );
+        assert!(
+            Problem::unauthorized()
+                .into_response()
+                .headers()
+                .get(header::RETRY_AFTER)
+                .is_none()
+        );
+    }
+}

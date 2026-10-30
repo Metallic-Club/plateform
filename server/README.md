@@ -1,6 +1,6 @@
 # Metallic platform server
 
-Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 61 operations implemented, none
+Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 63 operations implemented, none
 answer 501). Design: `../docs/superpowers/specs/2026-10-30-platform-design.md`.
 
 ## Local database (no Docker, no admin rights)
@@ -71,9 +71,12 @@ cargo test -j 4
 ```
 
 The API tests (`tests/api/`) need the dev cluster running (or `METALLIC_TEST_DATABASE_URL` pointing at a server
-whose user may create databases). Each test copies a migrated template database and drops it at the end; leftovers
-from failed runs are dropped at the next run. Every response is validated against the OpenAPI schemas, and
-`contract::every_operation_answers_as_documented` calls all 61 operations.
+whose user may create databases). Each test copies a migrated template database and drops its own database at the
+end. Failed runs retain their databases for inspection. Automatic startup cleanup only considers strictly validated
+current-process names, skips connected databases and never uses FORCE; other process databases and shared templates
+are never swept. No cleanup terminates another connection. See issue #8 for the fixed cross-process hazard.
+Every response is validated against OpenAPI, and `contract::every_operation_answers_as_documented` explicitly calls
+all 63 operations.
 
 ## Security notes
 
@@ -82,7 +85,10 @@ from failed runs are dropped at the next run. Every response is validated agains
 - Session cookie: HttpOnly, Secure, SameSite=Lax. CSRF token = HMAC of the session, checked in constant time on
   unsafe methods; Origin allow-list on unsafe requests.
 - Native apps: device flow (RFC 8628), 15-minute access tokens, rotating 30-day refresh tokens; reuse revokes the
-  whole family. No password ever enters the Player or Studio.
+  whole family. Rotation, replay handling and native sign-out share a transaction-scoped family lock, acquired
+  before refresh-token row locks. Validation runs after waiting; revocation updates both token tables atomically.
+  This prevents concurrent minting from escaping a completed family revocation. Access-token-only revocation
+  retains its narrower effect. No password ever enters the Player or Studio.
 - Rate limits per address and per account (in-memory; Valkey with scale-out). 64 KiB body limit, request timeout,
   security headers, CORS allow-list (never `*`).
 - Logs carry method, route template and status; never emails, IPs, tokens or bodies.

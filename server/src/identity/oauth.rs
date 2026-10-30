@@ -9,7 +9,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::PgExecutor;
+use sqlx::{Connection, PgExecutor};
 use time::{Duration, OffsetDateTime};
 
 use super::auth::{Viewer, ip_key_for, limit, require_session};
@@ -423,6 +423,18 @@ async fn refresh_grant(
 ) -> Result<Response, TokenError> {
     let hash = token_hash(refresh_token);
     let mut tx = state.db.begin().await?;
+    // Family IDs are immutable. Read without a token-row lock so every path acquires family -> token locks.
+    let family_id: Option<i64> = sqlx::query_scalar(
+        "SELECT family_id FROM identity.refresh_tokens WHERE token_hash = $1 AND client_id = $2",
+    )
+    .bind(&hash)
+    .bind(client_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some(family_id) = family_id else {
+        return Err(OAuthError::new("invalid_grant").into());
+    };
+    lock_family(&mut tx, family_id).await?;
     let row: Option<RefreshRow> = sqlx::query_as(
         "SELECT family_id, user_id, client_id, scopes, expires_at, used_at, revoked_at \
              FROM identity.refresh_tokens WHERE token_hash = $1 FOR UPDATE",
@@ -430,17 +442,20 @@ async fn refresh_grant(
     .bind(&hash)
     .fetch_optional(&mut *tx)
     .await?;
-    let Some((family_id, user_id, owner_client, scopes, expires_at, used_at, revoked_at)) = row
+    let Some((row_family_id, user_id, owner_client, scopes, expires_at, used_at, revoked_at)) = row
     else {
         return Err(OAuthError::new("invalid_grant").into());
     };
-    if owner_client != client_id || revoked_at.is_some() || expires_at <= OffsetDateTime::now_utc()
+    if row_family_id != family_id
+        || owner_client != client_id
+        || revoked_at.is_some()
+        || expires_at <= OffsetDateTime::now_utc()
     {
         return Err(OAuthError::new("invalid_grant").into());
     }
     if used_at.is_some() {
         // Reuse of a rotated token: someone else may hold the chain. Revoke all of it.
-        revoke_family(&mut tx, family_id).await?;
+        revoke_family_rows(&mut tx, family_id).await?;
         tx.commit().await?;
         tracing::warn!(
             user_id,
@@ -450,7 +465,7 @@ async fn refresh_grant(
         return Err(OAuthError::new("invalid_grant").into());
     }
     if !user_can_get_tokens(&mut *tx, user_id).await? {
-        revoke_family(&mut tx, family_id).await?;
+        revoke_family_rows(&mut tx, family_id).await?;
         tx.commit().await?;
         return Err(OAuthError::new("invalid_grant").into());
     }
@@ -478,6 +493,8 @@ async fn issue_pair(
     scopes: &[String],
     parent: Option<Vec<u8>>,
 ) -> Result<TokenResponse, sqlx::Error> {
+    // Device grants create an unpublished family; refresh grants already hold this same transaction lock.
+    lock_family(conn, family_id).await?;
     let access = new_token("mat_");
     let refresh = new_token("mrt_");
     let now = OffsetDateTime::now_utc();
@@ -514,8 +531,35 @@ async fn issue_pair(
     })
 }
 
-/// Revokes every access and refresh token of one sign-in.
+/// Lossless split into PostgreSQL's two-int advisory key space, separate from bigint-key advisory locks.
+fn family_lock_key(family_id: i64) -> (i32, i32) {
+    ((family_id >> 32) as i32, family_id as i32)
+}
+
+/// Caller must have an open transaction. Acquire before any refresh-token row lock and validate after waiting.
+async fn lock_family(conn: &mut sqlx::PgConnection, family_id: i64) -> Result<(), sqlx::Error> {
+    let (high, low) = family_lock_key(family_id);
+    sqlx::query("SELECT pg_advisory_xact_lock($1::int, $2::int)")
+        .bind(high)
+        .bind(low)
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+/// Atomically revokes every access and refresh token of one sign-in, serialized against pair issuance.
 pub async fn revoke_family(db: &mut sqlx::PgConnection, family_id: i64) -> Result<(), sqlx::Error> {
+    let mut tx = db.begin().await?;
+    lock_family(&mut tx, family_id).await?;
+    revoke_family_rows(&mut tx, family_id).await?;
+    tx.commit().await
+}
+
+/// Only called with the family lock held in an open transaction. Refresh uses its existing transaction directly.
+async fn revoke_family_rows(
+    db: &mut sqlx::PgConnection,
+    family_id: i64,
+) -> Result<(), sqlx::Error> {
     sqlx::query("UPDATE identity.refresh_tokens SET revoked_at = now() WHERE family_id = $1 AND revoked_at IS NULL")
         .bind(family_id)
         .execute(&mut *db)
@@ -577,6 +621,21 @@ fn no_store(mut r: Response) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn family_lock_keys_preserve_every_bit_without_narrowing_ids() {
+        let halves = [i32::MIN, i32::MIN + 1, -1, 0, 1, i32::MAX - 1, i32::MAX];
+        for high in halves {
+            for low in halves {
+                let id = (i64::from(high) << 32) | i64::from(low as u32);
+                assert_eq!(family_lock_key(id), (high, low));
+            }
+        }
+        for id in [i64::MIN, -1, 0, 1, i64::from(u32::MAX), i64::MAX] {
+            let (high, low) = family_lock_key(id);
+            assert_eq!((i64::from(high) << 32) | i64::from(low as u32), id);
+        }
+    }
 
     #[test]
     fn user_codes_use_the_rfc_alphabet() {
