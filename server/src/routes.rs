@@ -24,7 +24,7 @@ use crate::{
 
 /// Operation ids that have a real handler. The contract test checks every other operation answers 501.
 pub const IMPLEMENTED: &[&str] = &[
-    "getHealth",
+    "getReadiness",
     // auth
     "signUp",
     "checkUsername",
@@ -102,7 +102,7 @@ fn route(
     id: &'static str,
 ) -> MethodRouter<AppState> {
     match id {
-        "getHealth" => entry.on(filter, get_health),
+        "getReadiness" => entry.on(filter, get_readiness),
         "signUp" => entry.on(filter, account::sign_up),
         "checkUsername" => entry.on(filter, account::check_username),
         "logIn" => entry.on(filter, account::log_in),
@@ -202,8 +202,8 @@ struct Health {
     checks: BTreeMap<&'static str, &'static str>,
 }
 
-/// `getHealth`: 503 when the database does not answer within two seconds. The cache is not used yet (`skipped`).
-async fn get_health(State(state): State<AppState>) -> Response {
+/// `getReadiness` (`/v1/readyz`, internal only): 503 when the database does not answer within two seconds. The cache is not used yet (`skipped`).
+async fn get_readiness(State(state): State<AppState>) -> Response {
     let db_ok = tokio::time::timeout(
         Duration::from_secs(2),
         sqlx::query("SELECT 1").execute(&state.db),

@@ -54,11 +54,16 @@ security:
   - bearerAuth: []
 
 paths:
-  /healthz:
+  /v1/readyz:
     get:
       tags: [ops]
-      operationId: getHealth
-      summary: Liveness and readiness
+      operationId: getReadiness
+      summary: Readiness (internal only)
+      description: >-
+        Readiness for load balancers and monitoring, with database and cache checks.
+        Internal only: the gateway never exposes it on the public origin. Public
+        `/healthz` on the site's origin is the website's cheap liveness check, which
+        the desktop Launcher calls before showing the site (plateform #7).
       security: []
       responses:
         '200':

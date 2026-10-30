@@ -259,7 +259,7 @@ async fn every_operation_answers_as_documented() {
     const HAT: &str = "1000000000000202";
 
     // ops and auth
-    ok(&anon.op("getHealth", &[], Value::Null).await, 200);
+    ok(&anon.op("getReadiness", &[], Value::Null).await, 200);
     ok(
         &anon
             .op("checkUsername", &[("?username", "ada_test")], Value::Null)
