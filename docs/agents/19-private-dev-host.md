@@ -17,15 +17,28 @@ Provide a reviewable private Linux/amd64 development-host bundle, not production
 
 Repeated only reviewed issue 8's ownership-safe test cleanup (`server/tests/api/support.rs`, blob `f08cb9da4d07041046a99168692461bfa52badda`) so mandatory backend tests never sweep other processes or shared templates. This duplicates the tracked prerequisite in other open PRs; it adds no production feature. Production Rust, OpenAPI and migrations remain canonical. Do not run the unsafe baseline sweep.
 
-## Evidence so far
+## Validation and exact checkpoints
 
-- Actual Docker registry manifest/tag verification for Rust 1.99.1-bookworm, Debian bookworm-slim and PostgreSQL 18.6-bookworm; digests recorded in the runbook and Dockerfile/Compose.
-- Windows Python unit suite: 20 cases, 18 passed, two POSIX-specific permission/symlink cases explicitly skipped. Compilation of Python source passed. Initial missing-module scaffolding failure was not a product regression. The later foreign-backup-state regression reproduced an unwanted directory creation before the fix and passes afterward.
-- No local Docker executable/daemon is available. Initial remote Linux 18-case run had 17 passes and one fixture failure because inherited umask 077 correctly converted the intended 0755 fixture into 0700; this was a test assumption, not a production permission defect. The fixture now explicitly sets 0755, and CI runs both 077/022 umasks. Fresh Linux execution is pending the next preview archive. Actual Compose config, Linux permission tests, image build/runtime and CI have not run yet. Root is reviewing source before uploading for daemon-free remote validation. Do not claim those checks passed.
-- Local mandatory backend gates are pending the coordinated Studio timing window. Use reviewed 209 Cargo lane guard with exclusive lane116 and `-j4`; safe test harness is already present.
+- Registry tag/manifest verification passed for the three official image pins documented in the runbook.
+- Initial source checkpoint `4d371c16ea6cc9fe4c71ce983ef1810cac0efb13` had 17/18 Linux tests pass: inherited umask 077 changed an intended 0755 test fixture into 0700. This was a fixture assumption, not a production permission bug. The fixture explicitly sets 0755 in the next checkpoint.
+- Reviewed source checkpoint `41526cb20304863031541582971637aa831ec9cd`: all 20 Linux helper tests passed under both 077 and 022 umasks, no failures/skips. Host-local secret preparation and quiet daemon-free Compose configuration passed. Source archive SHA256: `719d071283ba00790ca6400b22a21b15040ad39a8f53938f2ad9250e7c5e5844`.
+- Windows helper suite: 18 passed, two POSIX-only cases explicitly skipped. Python source compilation and Git whitespace checks passed.
+- Mandatory backend suite: 62 tests passed (32 unit + 30 HTTP/database), zero failures or ignored. Contract walkthrough covers all 63 canonical operations. Guarded lane116 rebuilt this checkout's package with Cargo `-j4`, test harness four threads.
+- Strict all-target Clippy, cargo fmt check, cargo deny licenses and Redocly1 passed. License output has existing unmatched-allowance warnings; Redocly reports one configured ignored problem. OpenAPI/production Rust/migrations are byte-unchanged from canonical base. No web directory exists, so web checks are inapplicable.
+- No local Docker executable/daemon is available. A remote owned preview was used only for Linux helper tests, key preparation and daemon-free configuration: no Docker startup, administrator change or runtime deployment occurred. Image/runtime/backup-restore execution is intentionally delegated to the new PR workflow; at initial publication it has not executed. Consult the PR's current checks rather than inferring a CI result from this source note.
 
-## Next
+## Commands and follow-up
 
-Finish source review and daemon-free validation, then mandatory fmt/test/Clippy/license/Redocly gates. Commit with the model trailer, push only this branch and open its PR into `platform/p1-backend`, attach it, and follow the new narrowly scoped CI result. Keep this note and PR evidence current, including any unavailable checks. Administrator launch is a later explicit owner action using the concrete reviewed command; no password capture or persistent Docker-group grant.
+```text
+python -I -m unittest discover -s deploy/dev-host -p test_host.py -v
+python -m py_compile deploy/dev-host/host.py deploy/dev-host/ci_smoke.py deploy/dev-host/test_host.py
+python -I ../../metallic-studio-worktrees/209-build-lane-guard/tools/cargo_lane.py --workspace server --target-dir <exclusive local lane116> -- test --workspace -j 4 -- --test-threads=4
+python -I ../../metallic-studio-worktrees/209-build-lane-guard/tools/cargo_lane.py --workspace server --target-dir <exclusive local lane116> -- clippy --workspace --all-targets -j 4 -- -D warnings
+cargo fmt --manifest-path server/Cargo.toml --all -- --check
+cargo deny --manifest-path server/Cargo.toml check licenses
+pnpm dlx --package=@redocly/cli@1 redocly lint api/openapi.yaml
+```
 
-Primary sources and exact image pins are in `deploy/dev-host/README.md`. Runtime build uses Cargo `--release --locked -j4`. There is no web directory in this base. The new workflow is part of this issue; prior base verification correctly reported no existing CI workflow.
+The complete runbook lives in `deploy/dev-host/README.md`. No feature implementation is imported from PR11/13/16/18; only issue 8's separately tracked safe test-cleanup prerequisite is duplicated. The new narrow workflow is part of this host issue; earlier base verification correctly reported no existing workflow.
+
+After publication, review the actual Linux Docker smoke result and fix any failure before an operator launches. The administrator's concrete one-command launch is documented, but requires a later explicit owner action on their terminal. No password capture, persistent Docker-group grant, aggregate feature merge or production/multiplayer acceptance is part of this work.
