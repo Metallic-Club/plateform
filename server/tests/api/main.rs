@@ -2,4 +2,7 @@
 
 mod auth;
 mod contract;
+mod games;
+mod ledger;
+mod social;
 mod support;
