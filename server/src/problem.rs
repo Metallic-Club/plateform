@@ -5,6 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::Serialize;
+use std::num::NonZeroU64;
 
 const ERROR_DOCS: &str = "https://docs.metallic.example/errors/";
 
@@ -24,13 +25,14 @@ pub struct Problem {
     pub status: u16,
     /// Stable machine-readable code; clients switch on this.
     pub code: &'static str,
+    /// Optional detail, omitted from JSON when absent. Boxed text keeps the shared error representation compact.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub detail: Option<String>,
+    pub detail: Option<Box<str>>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<FieldError>,
-    /// Seconds for `Retry-After` on 429. Not part of the body.
+    /// Positive seconds for `Retry-After` on 429. Not part of the body; the builder normalizes zero to one.
     #[serde(skip)]
-    pub retry_after: Option<u64>,
+    pub retry_after: Option<NonZeroU64>,
 }
 
 /// Result type for handlers.
@@ -50,7 +52,7 @@ impl Problem {
     }
 
     pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
-        self.detail = Some(detail.into());
+        self.detail = Some(detail.into().into_boxed_str());
         self
     }
 
@@ -101,7 +103,7 @@ impl Problem {
 
     pub fn rate_limited(retry_after: u64) -> Self {
         let mut p = Self::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", "Slow down");
-        p.retry_after = Some(retry_after.max(1));
+        p.retry_after = NonZeroU64::new(retry_after.max(1));
         p
     }
 
@@ -209,8 +211,57 @@ impl IntoResponse for Problem {
         );
         headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
         if let Some(secs) = retry_after {
-            headers.insert(header::RETRY_AFTER, HeaderValue::from(secs));
+            headers.insert(header::RETRY_AFTER, HeaderValue::from(secs.get()));
         }
         response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn compact_problem_preserves_json_omission_details_and_exact_headers() {
+        println!("Problem layout: {} bytes", std::mem::size_of::<Problem>());
+        let missing = serde_json::to_value(Problem::unauthorized()).expect("problem JSON");
+        assert!(missing.get("detail").is_none());
+        assert!(missing.get("errors").is_none());
+        assert!(missing.get("retry_after").is_none());
+        let empty = serde_json::to_value(Problem::bad_request("")).expect("empty detail JSON");
+        assert_eq!(empty["detail"], "");
+        let response = Problem::rate_limited(0)
+            .with_detail("Retry later. Ñ")
+            .into_response();
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(
+            response.headers()[header::CONTENT_TYPE],
+            "application/problem+json"
+        );
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        assert_eq!(response.headers()[header::RETRY_AFTER], "1");
+        let bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("problem body")
+            .to_bytes();
+        let body: serde_json::Value = serde_json::from_slice(&bytes).expect("wire JSON");
+        assert_eq!(body["status"], 429);
+        assert_eq!(body["code"], "rate_limited");
+        assert_eq!(body["detail"], "Retry later. Ñ");
+        assert!(body.get("retry_after").is_none());
+        assert_eq!(
+            Problem::rate_limited(12).into_response().headers()[header::RETRY_AFTER],
+            "12"
+        );
+        assert!(
+            Problem::unauthorized()
+                .into_response()
+                .headers()
+                .get(header::RETRY_AFTER)
+                .is_none()
+        );
     }
 }

@@ -128,7 +128,7 @@ async fn unverified_accounts_cannot_add_friends() {
     app.finish().await;
 }
 
-async fn device_tokens(app: &TestApp, user: &Client<'_>) -> Value {
+pub(super) async fn device_tokens(app: &TestApp, user: &Client<'_>) -> Value {
     let anon = app.anon();
     let r = anon
         .op(

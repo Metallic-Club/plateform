@@ -321,7 +321,8 @@ paths:
       description: |
         Grants: `urn:ietf:params:oauth:grant-type:device_code` (RFC 8628), `authorization_code` with PKCE
         (RFC 7636, loopback redirect per RFC 8252) and `refresh_token`. Refresh tokens rotate on every use; reusing an
-        old one revokes the whole chain.
+        old one revokes the whole chain. Rotation and family revocation serialize: a concurrent rotation cannot
+        leave a usable descendant after replay detection or native sign-out has completed.
       security: []
       requestBody:
         required: true
@@ -358,6 +359,9 @@ paths:
       tags: [auth]
       operationId: revokeToken
       summary: Revoke a refresh or access token (RFC 7009)
+      description: |
+        Refresh-token revocation atomically ends the entire sign-in family, including a rotation already in flight.
+        Access-token revocation ends only that access token. Invalid or already-revoked tokens still return 200.
       security: []
       requestBody:
         required: true
