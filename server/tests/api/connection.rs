@@ -452,7 +452,7 @@ async fn privileged_redemption_uses_existing_minor_band_without_changing_private
         .op("getUser", &[("userId", &child.id_str())], Value::Null)
         .await;
     assert!(public.body.get("ageBand").is_none());
-    assert_eq!(public.id(), child.user_id());
+    assert_eq!(public.body["id"], child.id_str());
     app.finish().await;
 }
 

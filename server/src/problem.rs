@@ -5,7 +5,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::Serialize;
-use std::num::NonZeroU64;
 
 const ERROR_DOCS: &str = "https://docs.metallic.example/errors/";
 
@@ -17,22 +16,37 @@ pub struct FieldError {
     pub message: String,
 }
 
-#[derive(Debug, Serialize)]
+/// Serialised by hand (below) so the `type` URI is built from `code` instead of stored:
+/// that keeps `Problem` small enough to return by value in `Result` (clippy `result_large_err`).
+#[derive(Debug)]
 pub struct Problem {
-    #[serde(rename = "type")]
-    pub type_uri: String,
     pub title: String,
     pub status: u16,
     /// Stable machine-readable code; clients switch on this.
     pub code: &'static str,
-    /// Optional detail, omitted from JSON when absent. Boxed text keeps the shared error representation compact.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub detail: Option<Box<str>>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub detail: Option<String>,
     pub errors: Vec<FieldError>,
-    /// Positive seconds for `Retry-After` on 429. Not part of the body; the builder normalizes zero to one.
-    #[serde(skip)]
-    pub retry_after: Option<NonZeroU64>,
+    /// Seconds for `Retry-After` on 429. Not part of the body.
+    pub retry_after: Option<u64>,
+}
+
+impl Serialize for Problem {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let len = 4 + usize::from(self.detail.is_some()) + usize::from(!self.errors.is_empty());
+        let mut st = serializer.serialize_struct("Problem", len)?;
+        st.serialize_field("type", &self.type_uri())?;
+        st.serialize_field("title", &self.title)?;
+        st.serialize_field("status", &self.status)?;
+        st.serialize_field("code", self.code)?;
+        if let Some(detail) = &self.detail {
+            st.serialize_field("detail", detail)?;
+        }
+        if !self.errors.is_empty() {
+            st.serialize_field("errors", &self.errors)?;
+        }
+        st.end()
+    }
 }
 
 /// Result type for handlers.
@@ -41,7 +55,6 @@ pub type ApiResult<T> = Result<T, Problem>;
 impl Problem {
     pub fn new(status: StatusCode, code: &'static str, title: impl Into<String>) -> Self {
         Self {
-            type_uri: format!("{ERROR_DOCS}{}", code.replace('_', "-")),
             title: title.into(),
             status: status.as_u16(),
             code,
@@ -51,8 +64,13 @@ impl Problem {
         }
     }
 
+    /// The RFC 9457 `type` URI: the error's docs page, derived from `code`.
+    pub fn type_uri(&self) -> String {
+        format!("{ERROR_DOCS}{}", self.code.replace('_', "-"))
+    }
+
     pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
-        self.detail = Some(detail.into().into_boxed_str());
+        self.detail = Some(detail.into());
         self
     }
 
@@ -103,7 +121,7 @@ impl Problem {
 
     pub fn rate_limited(retry_after: u64) -> Self {
         let mut p = Self::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", "Slow down");
-        p.retry_after = NonZeroU64::new(retry_after.max(1));
+        p.retry_after = Some(retry_after.max(1));
         p
     }
 
@@ -211,7 +229,7 @@ impl IntoResponse for Problem {
         );
         headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
         if let Some(secs) = retry_after {
-            headers.insert(header::RETRY_AFTER, HeaderValue::from(secs.get()));
+            headers.insert(header::RETRY_AFTER, HeaderValue::from(secs));
         }
         response
     }
@@ -225,7 +243,12 @@ mod tests {
     #[tokio::test]
     async fn compact_problem_preserves_json_omission_details_and_exact_headers() {
         println!("Problem layout: {} bytes", std::mem::size_of::<Problem>());
+        assert!(std::mem::size_of::<Problem>() <= 128);
         let missing = serde_json::to_value(Problem::unauthorized()).expect("problem JSON");
+        assert_eq!(
+            missing["type"],
+            "https://docs.metallic.example/errors/unauthorized"
+        );
         assert!(missing.get("detail").is_none());
         assert!(missing.get("errors").is_none());
         assert!(missing.get("retry_after").is_none());

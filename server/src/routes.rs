@@ -16,7 +16,7 @@ use crate::{
     AppState, catalog,
     contract::OPERATIONS,
     economy, games,
-    identity::{account, oauth},
+    identity::{account, oauth, web_session},
     matchmaker::{self, internal},
     problem::Problem,
     social, users,
@@ -24,7 +24,7 @@ use crate::{
 
 /// Operation ids that have a real handler. The contract test checks every other operation answers 501.
 pub const IMPLEMENTED: &[&str] = &[
-    "getHealth",
+    "getReadiness",
     // auth
     "signUp",
     "checkUsername",
@@ -37,6 +37,8 @@ pub const IMPLEMENTED: &[&str] = &[
     "approveDeviceAuthorization",
     "exchangeToken",
     "revokeToken",
+    "createWebSessionCode",
+    "redeemWebSessionCode",
     // users
     "getMe",
     "updateMe",
@@ -103,7 +105,7 @@ fn route(
     id: &'static str,
 ) -> MethodRouter<AppState> {
     match id {
-        "getHealth" => entry.on(filter, get_health),
+        "getReadiness" => entry.on(filter, get_readiness),
         "signUp" => entry.on(filter, account::sign_up),
         "checkUsername" => entry.on(filter, account::check_username),
         "logIn" => entry.on(filter, account::log_in),
@@ -115,6 +117,8 @@ fn route(
         "approveDeviceAuthorization" => entry.on(filter, oauth::approve_device),
         "exchangeToken" => entry.on(filter, oauth::token),
         "revokeToken" => entry.on(filter, oauth::revoke),
+        "createWebSessionCode" => entry.on(filter, web_session::create_code),
+        "redeemWebSessionCode" => entry.on(filter, web_session::redeem_code),
         "getMe" => entry.on(filter, users::get_me),
         "updateMe" => entry.on(filter, users::update_me),
         "getSettings" => entry.on(filter, users::get_settings),
@@ -204,8 +208,8 @@ struct Health {
     checks: BTreeMap<&'static str, &'static str>,
 }
 
-/// `getHealth`: 503 when the database does not answer within two seconds. The cache is not used yet (`skipped`).
-async fn get_health(State(state): State<AppState>) -> Response {
+/// `getReadiness` (`/v1/readyz`, internal only): 503 when the database does not answer within two seconds. The cache is not used yet (`skipped`).
+async fn get_readiness(State(state): State<AppState>) -> Response {
     let db_ok = tokio::time::timeout(
         Duration::from_secs(2),
         sqlx::query("SELECT 1").execute(&state.db),

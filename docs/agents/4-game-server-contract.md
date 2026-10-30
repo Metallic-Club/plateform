@@ -6,11 +6,32 @@ OpenAPI-first, additive connection facts and owner-authenticated ticket resoluti
 redemption identity metadata. Branch `platform/4-game-server-contract` from the issue-specified
 `origin/platform/p1-backend` at `7b0f69b`; main does not exist and is not created. No web folder on this base.
 
+## Current canonical refresh
+
+Normal merge of canonical `c12b8c044ebd86f95b73ce810075066db425e91c` is resolved in this same feature branch;
+the original published head was `11d402c`. No rebase or force push. Canonical catalog,
+account and OAuth files win completely because their old feature-branch differences were obsolete #10 lint
+prerequisites. Canonical Problem production code/serializer/builders also win; only the existing wire/header
+regression is retained, now checking the supported <=128-byte compact bound and the derived error type URI.
+
+Canonical's removed unused Resp::id helper stays removed; the new connection test compares its response ID
+directly instead. The unmerged connection migration moves from version 000006 to 000007 because canonical now
+owns 000006_web_session_codes.sql. No canonical migration is edited, and earlier isolated test databases are not
+upgraded or deleted. The connection feature, #8 safe cleanup and #9 fresh expiry guards remain. Current contract
+has 64 operations; readiness and handoff code/policy from canonical are unchanged. Fresh gates passed **74 tests**
+(33 unit + 41 API), including all 64 operations, strict Clippy, fmt, licenses, Redocly and whitespace checks.
+The focused wire/header regression also passed with measured canonical Problem layout **112 bytes**. Pre-push
+read-only review found no blocking resolution issue. Canonical migration version 000007 availability is rechecked
+before publication. Logs: `metallic-platform11-refreshed-full.log`, `metallic-platform11-refreshed-clippy.log`.
+
+The original implementation and validation below are historical evidence for base `7b0f69b` / head `11d402c`;
+in particular the old Box/NonZero representation and measured 120-byte layout are not the refreshed implementation.
+
 ## Implemented
 
 - OpenAPI 0.1.2 defines native bearer + play-scope `connectJoinTicket`, request `{ticket}`, response registered
   serverId/host/port/certSha256/protocol/engineVersion/buildId/original expiresAt. Runtime routes are generated from
-  the contract; IMPLEMENTED/dispatch and the every-operation walkthrough include the new operation (62 total).
+  the contract; IMPLEMENTED/dispatch and the every-operation walkthrough include the new operation (originally 62).
 - Register accepts the six optional connection fields all-or-none, including rejection of explicit nulls. DNS/IP
   syntax, port range, certificate DER SHA-256 hex, positive PG integer protocol and bounded ASCII labels validate
   before writes. Legacy registrations still work; endpoint facts are immutable through the API and rotate with a
@@ -48,7 +69,7 @@ redemption identity metadata. Branch `platform/4-game-server-contract` from the 
   no-store, unchanged expiry, public-list/URI endpoint omission, concurrent binding/single redemption, preserved
   minor defaults, and bounded lock observation across expiry/staleness.
 
-## Local validation and safety
+## Original-base validation and safety
 
 - Existing local PostgreSQL cluster was inspected and started through the existing script only. No setup, download,
   account deployment or URL/password printing. Every API test uses its own copied database.

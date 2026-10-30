@@ -730,7 +730,9 @@ async fn mark_verified(conn: &mut PgConnection, _state: &AppState, user_id: i64)
     Ok(())
 }
 
-type VerificationDeliveryRow = (
+/// `identity.users` row for resending the verification mail: username, email_verified_at,
+/// email_ciphertext, parent_email_ciphertext, status_reason.
+type ResendRow = (
     String,
     Option<OffsetDateTime>,
     Option<Vec<u8>>,
@@ -744,7 +746,7 @@ pub async fn resend_verification(
     viewer: Viewer,
 ) -> ApiResult<StatusCode> {
     limit(&state, RESEND_LIMIT, &viewer.user_id.to_string()).await?;
-    let row: Option<VerificationDeliveryRow> = sqlx::query_as(
+    let row: Option<ResendRow> = sqlx::query_as(
         "SELECT username::text, email_verified_at, email_ciphertext, parent_email_ciphertext, status_reason \
          FROM identity.users WHERE id = $1",
     )

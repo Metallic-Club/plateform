@@ -1,6 +1,6 @@
 # Metallic platform server
 
-Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 62 operations implemented, none
+Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 64 operations implemented, none
 answer 501). Design: `../docs/superpowers/specs/2026-10-30-platform-design.md`.
 
 ## Local database (no Docker, no admin rights)
@@ -99,7 +99,7 @@ end. Failed runs retain their databases for inspection. Automatic startup cleanu
 current-process names, skips connected databases and never uses FORCE; other process databases and shared templates
 are never swept. No cleanup terminates another connection. See issue #8 for the fixed cross-process hazard.
 Every response is validated against OpenAPI, and `contract::every_operation_answers_as_documented` explicitly calls
-all 62 operations. Connection tests include native scope/ownership, non-consuming/unchanged-expiry resolution,
+all 64 operations. Connection tests include native scope/ownership, non-consuming/unchanged-expiry resolution,
 legacy compatibility, exact eligibility, concurrent single-use admission and deterministic row-lock expiry races.
 
 ## Security notes

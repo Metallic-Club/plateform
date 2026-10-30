@@ -259,7 +259,7 @@ async fn every_operation_answers_as_documented() {
     const HAT: &str = "1000000000000202";
 
     // ops and auth
-    ok(&anon.op("getHealth", &[], Value::Null).await, 200);
+    ok(&anon.op("getReadiness", &[], Value::Null).await, 200);
     ok(
         &anon
             .op("checkUsername", &[("?username", "ada_test")], Value::Null)
@@ -339,6 +339,17 @@ async fn every_operation_answers_as_documented() {
         .to_owned();
     let ada_app = ada.with_bearer(&access);
     ok(&ada_app.op("getMe", &[], Value::Null).await, 200);
+
+    // web-session handoff (the Launcher's web view)
+    let r = ada_app.op("createWebSessionCode", &[], Value::Null).await;
+    ok(&r, 200);
+    let wsc = r.body["code"].as_str().expect("code").to_owned();
+    let redeem = json!({ "code": wsc });
+    ok(
+        &anon.op("redeemWebSessionCode", &[], redeem.clone()).await,
+        200,
+    );
+    ok(&anon.op("redeemWebSessionCode", &[], redeem).await, 400);
 
     // users
     ok(&ada.op("getMe", &[], Value::Null).await, 200);
