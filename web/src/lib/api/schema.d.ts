@@ -228,6 +228,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/oauth/web-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One-time code that signs the website in as this app's user (Launcher web view)
+         * @description A first-party app (bearer token with the `profile` scope) asks for a code, then opens
+         *     `/auth/launcher-handoff?code=...` on the website, which redeems it server-side. The code is single use,
+         *     lives 60 seconds and is stored only as a hash. Browser sessions cannot ask for one.
+         */
+        post: operations["createWebSessionCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/web-session/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trade a web-session code for a website session (called by the website's server)
+         * @description Answers like `logIn`: the session and `Set-Cookie`. A wrong, used or expired code is always the same 400
+         *     (`invalid_code`).
+         */
+        post: operations["redeemWebSessionCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/users/me": {
         parameters: {
             query?: never;
@@ -1040,6 +1083,19 @@ export interface components {
              * @enum {string|null}
              */
             reason: "taken" | "reserved" | "released_recently" | "not_allowed" | "invalid" | null;
+        };
+        /**
+         * @example {
+         *       "code": "wsc_4f1a9cE7bQ2kLm0X",
+         *       "expiresAt": "2026-10-30T18:01:00Z"
+         *     }
+         */
+        WebSessionCode: {
+            code: string;
+            expiresAt: components["schemas"]["Timestamp"];
+        };
+        WebSessionRedeemRequest: {
+            code: string;
         };
         DeviceCodeRequest: {
             client_id: components["schemas"]["ClientId"];
@@ -2032,6 +2088,79 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["OAuthBadRequest"];
+        };
+    };
+    createWebSessionCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Code issued. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebSessionCode"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    redeemWebSessionCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "code": "wsc_4f1a9cE7bQ2kLm0X"
+                 *     }
+                 */
+                "application/json": components["schemas"]["WebSessionRedeemRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in. Sets the `metallic_session` cookie. */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetSessionCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description The code is wrong, used or expired. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "https://docs.metallic.example/errors/invalid-code",
+                     *       "title": "This sign-in link has expired",
+                     *       "status": 400,
+                     *       "code": "invalid_code",
+                     *       "detail": "Sign in again from the Metallic app."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getMe: {
