@@ -409,7 +409,8 @@ paths:
       summary: Trade a web-session code for a website session (called by the website's server)
       description: |
         Answers like `logIn`: the session and `Set-Cookie`. A wrong, used or expired code is always the same 400
-        (`invalid_code`).
+        (`invalid_code`). Codes must still be valid when claimed after any database-lock wait; invalid redemption
+        does not create a session or set a session cookie.
       security: []
       requestBody:
         required: true

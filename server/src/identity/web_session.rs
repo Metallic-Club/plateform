@@ -87,17 +87,31 @@ pub async fn redeem_code(
         .map(str::trim)
         .filter(|c| c.starts_with(CODE_PREFIX) && c.len() <= 128)
         .ok_or_else(invalid_code)?;
-    // Marking it used and reading the user is one statement, so two redeems of one code cannot both win.
+    let hash = token_hash(code);
+    let mut claim = state.db.begin().await?;
+    // The predicate of a blocked UPDATE can be evaluated before its row lock is available.
+    // Lock without a time predicate, then claim against the database's actual clock while we own the row.
+    let found: Option<i32> = sqlx::query_scalar(
+        "SELECT 1 FROM identity.web_session_codes WHERE code_hash = $1 FOR UPDATE",
+    )
+    .bind(&hash)
+    .fetch_optional(&mut *claim)
+    .await?;
+    if found.is_none() {
+        return Err(invalid_code());
+    }
     let user_id: Option<i64> = sqlx::query_scalar(
-        "UPDATE identity.web_session_codes c SET used_at = now() FROM identity.users u \
-         WHERE c.code_hash = $1 AND c.used_at IS NULL AND c.expires_at > now() \
+        "UPDATE identity.web_session_codes c SET used_at = clock_timestamp() FROM identity.users u \
+         WHERE c.code_hash = $1 AND c.used_at IS NULL AND c.expires_at > clock_timestamp() \
            AND u.id = c.user_id AND u.status IN ('active', 'limited', 'suspended') \
          RETURNING c.user_id",
     )
-    .bind(token_hash(code))
-    .fetch_optional(&state.db)
+    .bind(&hash)
+    .fetch_optional(&mut *claim)
     .await?;
     let user_id = user_id.ok_or_else(invalid_code)?;
+    // Preserve the single-use claim boundary, releasing its connection before session creation uses the pool.
+    claim.commit().await?;
     let user = super::basic(&state.db, user_id)
         .await?
         .ok_or_else(invalid_code)?;
