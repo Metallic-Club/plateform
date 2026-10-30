@@ -1,0 +1,159 @@
+.item {
+  display: grid;
+  gap: var(--s-4);
+  padding-top: var(--s-4);
+}
+
+.back {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.back::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-right: var(--s-2);
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  rotate: 45deg;
+}
+
+.back:hover {
+  color: var(--ink);
+}
+
+.layout {
+  display: grid;
+  gap: var(--s-6);
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr);
+    gap: var(--s-7);
+    align-items: start;
+  }
+}
+
+.pictures {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: var(--s-3);
+}
+
+.art {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 18%;
+  background: var(--surface-1);
+}
+
+.art svg {
+  width: 100%;
+  height: 100%;
+}
+
+.tryOn {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-4) var(--s-3) var(--s-3);
+  background: var(--surface-2);
+}
+
+.tryFigure {
+  height: 100%;
+  max-height: 340px;
+  width: auto;
+}
+
+.tryOn figcaption {
+  font-size: var(--t-meta);
+  color: var(--ink-2);
+}
+
+.info {
+  display: grid;
+  gap: var(--s-4);
+  justify-items: start;
+}
+
+.title {
+  font-size: var(--t-title);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.by {
+  color: var(--ink-2);
+  margin-top: calc(-1 * var(--s-2));
+}
+
+.by strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.price {
+  font-size: var(--t-lead);
+  font-weight: 800;
+}
+
+.owned {
+  display: grid;
+  gap: var(--s-2);
+  justify-items: start;
+}
+
+.description {
+  max-width: 52ch;
+  line-height: 1.6;
+}
+
+.facts {
+  display: flex;
+  gap: var(--s-6);
+}
+
+.facts dt {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+}
+
+.facts dd {
+  font-weight: 600;
+}
+
+.receipt {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.receipt div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+.receipt div:last-child {
+  padding-top: var(--s-2);
+  font-weight: 700;
+}
+
+.receipt dt {
+  color: var(--ink-2);
+}
+
+.dialogActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
