@@ -46,3 +46,11 @@ After publication, review the actual Linux Docker smoke result and fix any failu
 ## Final bootstrap-copy robustness change
 
 The reviewed preview's checkout SQL was 0644; no permission failure was observed on that host. To support legitimate 0600 private checkouts, preparation now installs a checksum-bound nonsecret 0444 bootstrap copy under 0700 state and mounts that file individually. Existing foreign/symlink copies are refused before mutation; secrets remain unchanged. The workflow explicitly makes the source 0600 before preparation. The three added cases are locally green where applicable; fresh Linux execution/configuration of this final helper is pending the published-head preview/CI. Runtime Rust, OpenAPI and migrations still exactly match canonical 653, so no backend rerun is needed for this Python/Compose-only change.
+
+## First actual Docker CI result and fix
+
+Run 41117343343 on b7e23c1 passed both 23-case Linux helper runs/configuration, built the locked release image successfully and started the official database. Migration then failed application-role authentication, so runtime/restore assertions were not executed. Scoped ephemeral cleanup passed.
+
+Confirmed bootstrap defect: PostgreSQL `trim(text)` defaults to trimming spaces, not LF. Generated password files end in LF; shell command substitution strips that LF but the role initialization had retained it. A bounded read-only SQL check with a synthetic 64-character value plus LF returned lengths 65 for default trim and 64 for explicit CR/LF rtrim. No real password was printed or modified.
+
+The initialization SQL now trims explicit trailing CR/LF and its reviewed checksum is updated. Local 23-case tests/source compilation pass where applicable. The old protected bootstrap copy is intentionally refused as stale; preserve/rename only that nonsecret file and rerun prepare, retaining every secret byte. No private-host database/container was started, and no production Rust/API/migration changed. The next exact-head Docker workflow is the regression rerun; no runtime success is claimed yet.

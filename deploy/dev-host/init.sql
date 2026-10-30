@@ -2,7 +2,7 @@
 -- Keep a failing generated password statement out of client/server error context.
 DO $$ BEGIN
   BEGIN
-    EXECUTE format('CREATE ROLE metallic LOGIN PASSWORD %L', trim(pg_read_file('/run/secrets/db_password')));
+    EXECUTE format('CREATE ROLE metallic LOGIN PASSWORD %L', rtrim(pg_read_file('/run/secrets/db_password'), E'\r\n'));
   EXCEPTION WHEN OTHERS THEN
     RAISE EXCEPTION 'Application role initialization failed';
   END;

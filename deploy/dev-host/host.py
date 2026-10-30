@@ -19,7 +19,7 @@ import urllib.request
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 SECRET_NAMES = ("db_password", "pg_admin_password", "hmac_key", "data_key", "server_secret")
-INIT_SHA256 = "aa53101795acf8322f48ce495b7960bbeb4f01586cb9d05d900b5af92d6a148e"
+INIT_SHA256 = "c7d3831b5c59ab0a65df64d88289ac3927a024078b853585a2e222fbe9a38206"
 
 
 class HostError(Exception):
