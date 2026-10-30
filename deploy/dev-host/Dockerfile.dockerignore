@@ -1,0 +1,14 @@
+**
+!api
+!api/openapi.yaml
+!server
+!server/Cargo.toml
+!server/Cargo.lock
+!server/build.rs
+!server/src
+!server/src/**
+!server/migrations
+!server/migrations/**
+!deploy
+!deploy/dev-host
+!deploy/dev-host/entrypoint.sh
