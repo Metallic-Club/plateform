@@ -50,10 +50,16 @@ export function LauncherSignIn() {
           setPhase({ kind: "stopped", text: "Sign-in did not finish. Try again." });
           break;
         default:
-          // "pending", or a newer state: keep showing the code.
+          // "pending" (or a newer state) carries the device code. A second signIn
+          // while one is pending re-sends the same code.
           if (typeof e.userCode === "string") {
             const userCode = e.userCode;
-            setPhase((p) => (p.kind === "code" ? { ...p, userCode } : p));
+            const verificationUri = httpsOnly(e.verificationUri);
+            setPhase((p) =>
+              p.kind === "starting" || p.kind === "code"
+                ? { kind: "code", userCode, verificationUri: verificationUri ?? (p.kind === "code" ? p.verificationUri : null) }
+                : p,
+            );
           }
       }
     });
@@ -62,8 +68,9 @@ export function LauncherSignIn() {
   async function start() {
     setPhase({ kind: "starting" });
     try {
-      const r = await invoke("signIn");
-      setPhase({ kind: "code", userCode: r.userCode, verificationUri: httpsOnly(r.verificationUri) });
+      // The reply only says the sign-in started; the code comes in the `signIn`
+      // event (possibly before this resolves), so the phase is set there.
+      await invoke("signIn");
     } catch (e) {
       setPhase({ kind: "stopped", text: describeBridgeError(e instanceof BridgeError ? e.code : "failed") });
     }
@@ -127,6 +134,12 @@ export function LauncherSignIn() {
       {phase.kind === "stopped" ? (
         <p className={styles.banner} data-tone="error" role="alert">
           {phase.text}
+        </p>
+      ) : null}
+      {phase.kind === "starting" ? (
+        <p className={styles.waiting} role="status" aria-live="polite">
+          <span className={styles.waitingDot} aria-hidden="true" />
+          Getting your code
         </p>
       ) : null}
       <div className={styles.row}>

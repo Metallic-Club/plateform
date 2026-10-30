@@ -55,7 +55,8 @@ export interface BridgeCommands {
   openStudio: [{ place?: string } | undefined, Empty];
   getSettings: [undefined, LauncherSettings];
   setSettings: [{ patch: { closeToTray: boolean } }, LauncherSettings];
-  signIn: [undefined, { userCode: string; verificationUri: string }];
+  /** Answers `{ state: "pending" }` at once; the code arrives in the `signIn` event. */
+  signIn: [undefined, { state: "pending" }];
   signOut: [undefined, Empty];
   /** Restarts the Launcher into a downloaded update (studio launcher-l1, Task 4). */
   restartToUpdate: [undefined, Empty];
@@ -81,7 +82,7 @@ export type SignInState = "pending" | "signedIn" | "denied" | "expired" | "faile
 export interface BridgeEvents {
   installProgress: { product: string; percent: number };
   installFinished: { product: string; ok: boolean };
-  signIn: { state: SignInState | (string & {}); userCode?: string };
+  signIn: { state: SignInState | (string & {}); userCode?: string; verificationUri?: string };
   updateReady: { version: string; required: boolean };
   siteStatus: { up: boolean };
 }
