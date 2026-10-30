@@ -551,7 +551,9 @@ async fn every_operation_answers_as_documented() {
         .op(
             "registerGameServer",
             &[],
-            json!({ "gameId": SKYLINE, "placeId": PLACE, "region": "us-east", "maxPlayers": 10 }),
+            json!({ "gameId": SKYLINE, "placeId": PLACE, "region": "us-east", "maxPlayers": 10,
+                "host": "game.metallic.example", "port": 4433, "certSha256": "ab".repeat(32),
+                "protocolMajor": 1, "engineVersion": "0.1.0-dev", "buildId": "fixture-build-1" }),
         )
         .await;
     ok(&r, 201);
@@ -577,6 +579,12 @@ async fn every_operation_answers_as_documented() {
         .await;
     assert!(r.status.is_success(), "join: {}", r.body);
     let ticket = r.body["ticket"].as_str().expect("ticket").to_owned();
+    ok(
+        &ada_app
+            .op("connectJoinTicket", &[], json!({ "ticket": ticket }))
+            .await,
+        200,
+    );
     let r = server
         .op(
             "redeemJoinTicket",

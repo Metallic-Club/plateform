@@ -1,6 +1,6 @@
 # Metallic platform server
 
-Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 61 operations implemented, none
+Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 62 operations implemented, none
 answer 501). Design: `../docs/superpowers/specs/2026-10-30-platform-design.md`.
 
 ## Local database (no Docker, no admin rights)
@@ -64,6 +64,29 @@ header (`METALLIC_SERVER_SECRET`, compared in constant time): register, heartbea
 list, stop, and redeem join tickets. Servers silent for 30 s stop counting and are stopped by the job loop. The
 gateway must not expose `/internal/` to the internet.
 
+Registration may include `host`, `port`, `certSha256`, `protocolMajor`, `engineVersion` and `buildId`, all together
+or all omitted. Host is a bounded ASCII DNS name or unbracketed IP literal; port is 1-65535; certificate is the
+64-digit SHA-256 hex digest of the complete DER certificate; protocol major is a positive PostgreSQL integer.
+Version/build labels are bounded ASCII, with no backend version negotiation. Certificates are normalized to
+lowercase. Register a new server process to rotate connection facts; metadata is not mutable through heartbeat.
+Legacy P1 registrations remain valid for existing callers, but their connection metadata cannot resolve.
+
+The Player uses `POST /v1/join-tickets/connect` with its bearer token (`play` scope) and `{ticket}` to get the
+registered `serverId`, `host`, `port`, `certSha256`, `protocol` (QUIC ALPN `metallic/<major>`), `engineVersion`,
+`buildId` and original `expiresAt`. Cookie sessions are refused for this native-only operation. All responses are
+`no-store`; endpoints never appear in public server lists or the `metallic://play?place=...&ticket=...` URI.
+Resolution does not consume or extend a ticket. An unbound ticket selects a live, joinable server for its exact
+game/place with the existing region/friend/fill/block policy, then binds atomically; a bound ticket never redirects.
+Unavailable, full, draining, stale or metadata-less bound servers return 409 `server_unavailable`; unknown, expired,
+redeemed and wrongly owned tickets share 410 `ticket_invalid`. A later attempt can retry an unbound ticket until
+its original expiry. There is no capacity reservation or host-process provisioning in this endpoint.
+
+Ticket/server row locks protect selection and binding. Fresh database-clock predicates after lock acquisition and
+in final writes prevent a lock wait from reviving an expired ticket or stale heartbeat. Redemption remains single
+use, with the same place/server binding and wrong-server errors. Its privileged response adds the current identity
+`ageBand` and explicit `partyId: null`; it adds no chat/voice permission or party membership. This age-band output
+requires the lead's review under the Children rule. Existing minor defaults and content/social policy are unchanged.
+
 ## Tests
 
 ```sh
@@ -71,9 +94,13 @@ cargo test -j 4
 ```
 
 The API tests (`tests/api/`) need the dev cluster running (or `METALLIC_TEST_DATABASE_URL` pointing at a server
-whose user may create databases). Each test copies a migrated template database and drops it at the end; leftovers
-from failed runs are dropped at the next run. Every response is validated against the OpenAPI schemas, and
-`contract::every_operation_answers_as_documented` calls all 61 operations.
+whose user may create databases). Each test copies a migrated template database and drops its own database at the
+end. Failed runs retain their databases for inspection. Automatic startup cleanup only considers strictly validated
+current-process names, skips connected databases and never uses FORCE; other process databases and shared templates
+are never swept. No cleanup terminates another connection. See issue #8 for the fixed cross-process hazard.
+Every response is validated against OpenAPI, and `contract::every_operation_answers_as_documented` explicitly calls
+all 62 operations. Connection tests include native scope/ownership, non-consuming/unchanged-expiry resolution,
+legacy compatibility, exact eligibility, concurrent single-use admission and deterministic row-lock expiry races.
 
 ## Security notes
 

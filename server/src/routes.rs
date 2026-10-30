@@ -73,6 +73,7 @@ pub const IMPLEMENTED: &[&str] = &[
     "listRegions",
     "listServers",
     "createJoinTicket",
+    "connectJoinTicket",
     // library
     "listFavorites",
     "addFavorite",
@@ -146,6 +147,7 @@ fn route(
         "listRegions" => entry.on(filter, matchmaker::list_regions),
         "listServers" => entry.on(filter, matchmaker::list_servers),
         "createJoinTicket" => entry.on(filter, matchmaker::create_join_ticket),
+        "connectJoinTicket" => entry.on(filter, matchmaker::connection::connect_join_ticket),
         "listFavorites" => entry.on(filter, games::library::list_favorites),
         "addFavorite" => entry.on(filter, games::library::add_favorite),
         "removeFavorite" => entry.on(filter, games::library::remove_favorite),

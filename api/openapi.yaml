@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Metallic Platform API
-  version: 0.1.1
+  version: 0.1.2
   summary: Public HTTP API for the Metallic website, Launcher, Player and Studio (milestone P1).
   description: |
     The platform API behind the Metallic website, the desktop Launcher, the Metallic player and Metallic Studio.
@@ -1153,6 +1153,51 @@ paths:
                 status: 409
                 code: server_full
 
+  /v1/join-tickets/connect:
+    post:
+      tags: [servers]
+      operationId: connectJoinTicket
+      summary: Resolve an owned join ticket to its game-server connection metadata
+      description: |
+        Native clients only: a bearer access token with the `play` scope must belong to the ticket owner.
+        Resolution does not consume or extend the ticket. An unbound ticket is atomically bound to one eligible
+        live server for the same game and place; later calls never redirect an already bound ticket. Only servers
+        registered with complete connection metadata can resolve. A full, draining, stale or metadata-less bound
+        server produces `server_unavailable`; an unknown, expired, redeemed or differently owned ticket produces
+        the same `ticket_invalid` response. Connection facts are never included in launch URIs or public server lists.
+        Responses use `Cache-Control: no-store`. Redeem the ticket only after connecting to the selected server.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket]
+              properties:
+                ticket: { type: string, minLength: 4, maxLength: 128, pattern: '^jt_[A-Za-z0-9_-]+$' }
+      responses:
+        '200':
+          description: Connection metadata for the ticket's server; the ticket remains unconsumed.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store }, description: Never cache endpoint or ticket state. }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameServerConnection' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: The bound server is unavailable, or no eligible server can bind the ticket yet.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '410':
+          description: Unknown, expired, already redeemed or not owned by the caller; no distinction is exposed.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
   # ---------------------------------------------------------------- library
   /v1/me/favorites:
     get:
@@ -1424,7 +1469,13 @@ paths:
       tags: [internal]
       operationId: registerGameServer
       summary: A game server announces itself
-      description: Called once at start. The server then sends a heartbeat every `heartbeatIntervalSecs`.
+      description: |
+        Called once at start. The server then sends a heartbeat every `heartbeatIntervalSecs`.
+        Connection fields are optional as a group for old P1 servers; supply all six or none. Legacy registrations
+        remain valid but cannot resolve connection metadata. Register a new process with complete metadata for new
+        joins; an existing ticket bound to a legacy server is never redirected to that new process.
+        The certificate hash is SHA-256 of the complete DER certificate (not its public key). Neither endpoint
+        fields nor credentials belong in logs. Register a new server process to rotate its certificate/endpoint.
       x-internal: true
       security: [{ gameServerSecret: [] }]
       requestBody:
@@ -1439,6 +1490,19 @@ paths:
                 placeId: { $ref: '#/components/schemas/Id' }
                 region: { type: string, pattern: '^[a-z]{2,8}-[a-z]{2,12}$' }
                 maxPlayers: { type: integer, minimum: 1, maximum: 200 }
+                host: { $ref: '#/components/schemas/GameServerHost' }
+                port: { type: integer, minimum: 1, maximum: 65535 }
+                certSha256: { $ref: '#/components/schemas/CertificateSha256' }
+                protocolMajor: { type: integer, minimum: 1, maximum: 2147483647 }
+                engineVersion: { $ref: '#/components/schemas/EngineVersion' }
+                buildId: { $ref: '#/components/schemas/GameServerBuildId' }
+              dependentRequired:
+                host: [port, certSha256, protocolMajor, engineVersion, buildId]
+                port: [host, certSha256, protocolMajor, engineVersion, buildId]
+                certSha256: [host, port, protocolMajor, engineVersion, buildId]
+                protocolMajor: [host, port, certSha256, engineVersion, buildId]
+                engineVersion: [host, port, certSha256, protocolMajor, buildId]
+                buildId: [host, port, certSha256, protocolMajor, engineVersion]
       responses:
         '201':
           description: Registered.
@@ -1502,7 +1566,11 @@ paths:
       tags: [internal]
       operationId: redeemJoinTicket
       summary: Check a player's join ticket when they connect
-      description: Single use, 60 seconds, bound to the user, the place and (once chosen) the server.
+      description: |
+        Single use, 60 seconds, bound to the user, the place and (once chosen) the server. The privileged response
+        includes the existing identity age band for admission decisions; it does not grant voice/chat permissions
+        or change minor defaults. `partyId` is explicitly null until party membership is implemented.
+        Age-band output requires lead review under the repository's Children rule.
       x-internal: true
       security: [{ gameServerSecret: [] }]
       requestBody:
@@ -1522,13 +1590,19 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [userId, username, displayName, gameId, placeId]
+                required: [userId, username, displayName, gameId, placeId, ageBand, partyId]
                 properties:
                   userId: { $ref: '#/components/schemas/Id' }
                   username: { type: string }
                   displayName: { type: string }
                   gameId: { $ref: '#/components/schemas/Id' }
                   placeId: { $ref: '#/components/schemas/Id' }
+                  ageBand: { $ref: '#/components/schemas/AgeBand' }
+                  partyId:
+                    anyOf:
+                      - { $ref: '#/components/schemas/Id' }
+                      - { type: 'null' }
+                    description: Always null in P1; no party membership is inferred or created.
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409':
@@ -1919,7 +1993,8 @@ components:
       enum: [under_13, '13_15', '16_17', adult, unknown]
       description: |
         From the self-declared birth date until age assurance runs; `unknown` for accounts created before age bands.
-        Visible only to the account itself.
+          Visible to the account itself and, on privileged internal join-ticket redemption, the admitting game
+          server. Never included in public profiles. This metadata alone grants no chat or voice permission.
     Me:
       allOf:
         - $ref: '#/components/schemas/UserProfile'
@@ -2236,6 +2311,44 @@ components:
           type: string
           pattern: '^metallic://play\?'
         placeId: { $ref: '#/components/schemas/Id' }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+
+    GameServerHost:
+      type: string
+      minLength: 1
+      maxLength: 253
+      pattern: '^[A-Za-z0-9.:-]+$'
+      description: A well-formed ASCII DNS hostname or unbracketed IPv4/IPv6 literal; no URL, user info or port.
+    CertificateSha256:
+      type: string
+      pattern: '^[A-Fa-f0-9]{64}$'
+      description: SHA-256 of the complete DER certificate, 64 hexadecimal digits; returned as lowercase.
+    EngineVersion:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: '^[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}$'
+      description: Bounded ASCII engine version label; the backend performs no version negotiation.
+    GameServerBuildId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'
+      description: Opaque ASCII build identifier, for example a release label or revision id.
+    GameServerConnection:
+      type: object
+      required: [serverId, host, port, certSha256, protocol, engineVersion, buildId, expiresAt]
+      properties:
+        serverId: { $ref: '#/components/schemas/Id' }
+        host: { $ref: '#/components/schemas/GameServerHost' }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        certSha256: { $ref: '#/components/schemas/CertificateSha256' }
+        protocol:
+          type: string
+          pattern: '^metallic/[1-9][0-9]{0,9}$'
+          description: Exact QUIC ALPN, derived from the registered positive protocolMajor.
+        engineVersion: { $ref: '#/components/schemas/EngineVersion' }
+        buildId: { $ref: '#/components/schemas/GameServerBuildId' }
         expiresAt: { $ref: '#/components/schemas/Timestamp' }
 
     # ---- library

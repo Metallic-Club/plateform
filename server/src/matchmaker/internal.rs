@@ -60,6 +60,8 @@ pub struct RegisterRequest {
     place_id: Option<String>,
     region: Option<String>,
     max_players: Option<i32>,
+    #[serde(flatten)]
+    connection: super::connection::ConnectionFields,
 }
 
 #[derive(Serialize)]
@@ -73,10 +75,14 @@ pub struct Registered {
 pub async fn register(
     State(state): State<AppState>,
     _: GameServer,
-    ApiJson(req): ApiJson<RegisterRequest>,
+    ApiJson(raw): ApiJson<serde_json::Value>,
 ) -> ApiResult<(StatusCode, Json<Registered>)> {
+    // Deserialize sensitive fields without returning serde's input-bearing type error text.
+    let req: RegisterRequest = serde_json::from_value(raw)
+        .map_err(|_| Problem::bad_request("Registration fields are not valid."))?;
     let game_id = id_field("gameId", &req.game_id)?;
     let place_id = id_field("placeId", &req.place_id)?;
+    let connection = req.connection.validate()?;
     let region = req
         .region
         .filter(|r| valid_region_code(r))
@@ -106,12 +112,19 @@ pub async fn register(
         ));
     }
     let id = state.ids.next();
-    sqlx::query("INSERT INTO matchmaker.servers (id, game_id, place_id, region, max_players) VALUES ($1, $2, $3, $4, $5)")
+    sqlx::query("INSERT INTO matchmaker.servers (id, game_id, place_id, region, max_players, host, port, cert_sha256, protocol_major, engine_version, build_id) \
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
         .bind(id)
         .bind(game_id)
         .bind(place_id)
         .bind(&region)
         .bind(max_players)
+        .bind(connection.as_ref().map(|c| c.host.as_str()))
+        .bind(connection.as_ref().map(|c| c.port))
+        .bind(connection.as_ref().map(|c| c.cert_sha256.as_str()))
+        .bind(connection.as_ref().map(|c| c.protocol_major))
+        .bind(connection.as_ref().map(|c| c.engine_version.as_str()))
+        .bind(connection.as_ref().map(|c| c.build_id.as_str()))
         .execute(&state.db)
         .await?;
     tracing::info!(
@@ -309,6 +322,8 @@ pub struct Redeemed {
     display_name: String,
     game_id: String,
     place_id: String,
+    age_band: &'static str,
+    party_id: Option<String>,
 }
 
 /// `POST /internal/v1/join-tickets/redeem`: single use, bound to user, place and server.
@@ -332,12 +347,16 @@ pub async fn redeem(
     let mut tx = state.db.begin().await?;
     let row: Option<(i64, i64, i64, Option<i64>)> = sqlx::query_as(
         "SELECT user_id, game_id, place_id, server_id FROM matchmaker.join_tickets \
-         WHERE ticket_hash = $1 AND redeemed_at IS NULL AND expires_at > now() FOR UPDATE",
+         WHERE ticket_hash = $1 AND redeemed_at IS NULL AND expires_at > clock_timestamp() FOR UPDATE",
     )
     .bind(token_hash(&ticket))
     .fetch_optional(&mut *tx)
     .await?;
     let (user_id, game_id, place_id, bound) = row.ok_or_else(invalid)?;
+    let hash = token_hash(&ticket);
+    if !super::connection::current_ticket(&mut tx, &hash, user_id).await? {
+        return Err(invalid());
+    }
     let server: Option<(i64, i64)> = sqlx::query_as(
         "SELECT game_id, place_id FROM matchmaker.servers WHERE id = $1 AND status <> 'stopped'",
     )
@@ -349,21 +368,30 @@ pub async fn redeem(
         (Some((g, p)), b) if g == game_id && p == place_id && b.is_none_or(|b| b == server_id) => {}
         _ => return Err(wrong()),
     }
-    sqlx::query("UPDATE matchmaker.join_tickets SET redeemed_at = now(), server_id = $2 WHERE ticket_hash = $1")
-        .bind(token_hash(&ticket))
-        .bind(server_id)
-        .execute(&mut *tx)
-        .await?;
+    let redeemed = sqlx::query(
+        "UPDATE matchmaker.join_tickets SET redeemed_at = clock_timestamp(), server_id = $2 \
+        WHERE ticket_hash = $1 AND redeemed_at IS NULL AND expires_at > clock_timestamp()",
+    )
+    .bind(&hash)
+    .bind(server_id)
+    .execute(&mut *tx)
+    .await?;
+    if redeemed.rows_affected() != 1 {
+        return Err(invalid());
+    }
     tx.commit().await?;
     let user = crate::identity::basic(&state.db, user_id)
         .await?
         .filter(|u| u.is_visible())
         .ok_or_else(invalid)?;
+    let age_band = user.band().as_str();
     Ok(Json(Redeemed {
         user_id: user_id.to_string(),
         username: user.username,
         display_name: user.display_name,
         game_id: game_id.to_string(),
         place_id: place_id.to_string(),
+        age_band,
+        party_id: None,
     }))
 }

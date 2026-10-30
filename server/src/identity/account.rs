@@ -93,9 +93,7 @@ fn password_problem(
         return Some(("too_long", "Use at most 128 characters."));
     }
     let lower = password.to_lowercase();
-    if COMMON_PASSWORDS.contains(&lower.as_str())
-        || lower.chars().all(|c| Some(c) == lower.chars().next())
-    {
+    if COMMON_PASSWORDS.contains(&lower.as_str()) || lower.chars().all(|c| lower.starts_with(c)) {
         return Some(("too_common", "This password is too easy to guess."));
     }
     if !username.is_empty() && lower.contains(&username.to_lowercase()) {
@@ -732,13 +730,21 @@ async fn mark_verified(conn: &mut PgConnection, _state: &AppState, user_id: i64)
     Ok(())
 }
 
+type VerificationDeliveryRow = (
+    String,
+    Option<OffsetDateTime>,
+    Option<Vec<u8>>,
+    Option<Vec<u8>>,
+    Option<String>,
+);
+
 /// `resendVerificationEmail`
 pub async fn resend_verification(
     State(state): State<AppState>,
     viewer: Viewer,
 ) -> ApiResult<StatusCode> {
     limit(&state, RESEND_LIMIT, &viewer.user_id.to_string()).await?;
-    let row: Option<(String, Option<OffsetDateTime>, Option<Vec<u8>>, Option<Vec<u8>>, Option<String>)> = sqlx::query_as(
+    let row: Option<VerificationDeliveryRow> = sqlx::query_as(
         "SELECT username::text, email_verified_at, email_ciphertext, parent_email_ciphertext, status_reason \
          FROM identity.users WHERE id = $1",
     )

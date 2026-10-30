@@ -421,7 +421,12 @@ in-game menu (same API): friends' servers first, then by sort; filters for regio
 region probes (`/v1/regions`); join a specific server, join a friend (respecting their join setting), or quick join.
 Quick join scores servers by region ping, friends present, and fill (prefers 60-90% full so games feel alive), and asks
 the host agent for a new process when none fits. Private servers for friends come in P3. Server addresses never
-appear in the API: joining is by a single-use 60-second ticket.
+appear in public server lists or launch URIs. Joining uses a single-use 60-second ticket; its owner can resolve
+registered endpoint/certificate/protocol/build facts through the native bearer-only `POST /v1/join-tickets/connect`
+with the `play` scope and `Cache-Control: no-store` (issue #4). Resolution binds once without consuming or extending
+the ticket; privileged server redemption consumes it. The redemption response includes the existing identity age
+band and a nullable party id (explicitly null in P1). This metadata adds no voice/chat permission, changes no minor
+defaults and requires lead review under the Children rule.
 
 ### 9.8 Community and Discord
 

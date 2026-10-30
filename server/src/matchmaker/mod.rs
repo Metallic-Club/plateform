@@ -1,6 +1,7 @@
 //! matchmaker: regions, live servers and counts, the server browser and join tickets (spec 9.7).
 //! Game servers report through the internal endpoints in [`internal`]; counts come only from those heartbeats.
 
+pub mod connection;
 pub mod internal;
 
 use std::collections::{HashMap, HashSet};
