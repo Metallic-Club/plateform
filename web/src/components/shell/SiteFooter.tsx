@@ -1,8 +1,9 @@
 import Link from "next/link";
+import type { Shell } from "@/lib/prefs";
 import { Emblem } from "../Emblem";
 import styles from "./Shell.module.css";
 
-export function SiteFooter() {
+export function SiteFooter({ shell }: { shell: Shell }) {
   return (
     <footer className={styles.footer}>
       <div className={`page ${styles.footerInner}`}>
@@ -12,7 +13,8 @@ export function SiteFooter() {
         </p>
         <ul role="list" className={styles.footerLinks}>
           <li>
-            <Link href="/download">Get Metallic</Link>
+            {/* Inside the app there is nothing to download it from. */}
+            {shell === "launcher" ? <Link href="/downloads">Downloads</Link> : <Link href="/download">Get Metallic</Link>}
           </li>
           <li>
             <Link href="/create">Create with Studio</Link>

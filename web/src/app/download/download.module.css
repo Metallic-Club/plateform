@@ -1,19 +1,19 @@
 .download {
   display: grid;
-  gap: var(--s-8);
-  padding-top: var(--s-7);
+  gap: var(--gap-section);
+  padding-top: var(--s11);
 }
 
 .app {
   display: grid;
-  gap: var(--s-6);
+  gap: var(--s9);
   align-items: start;
 }
 
 @media (min-width: 900px) {
   .app {
     grid-template-columns: 280px 1fr;
-    gap: var(--s-8);
+    gap: var(--gap-section);
   }
 }
 
@@ -22,9 +22,9 @@
   place-items: center;
   aspect-ratio: 1;
   width: min(100%, 280px);
-  background: var(--surface-1);
-  color: var(--ink);
-  --mill: 28px;
+  background: var(--bg-panel);
+  color: var(--text-1);
+  --cut-md: 28px;
 }
 
 .mark svg {
@@ -34,7 +34,7 @@
 
 .text {
   display: grid;
-  gap: var(--s-4);
+  gap: var(--s6);
   justify-items: start;
 }
 
@@ -51,8 +51,8 @@
 }
 
 .status {
-  padding: var(--s-4);
-  background: var(--surface-2);
+  padding: var(--s6);
+  background: var(--bg-raised);
   max-width: 56ch;
   font-weight: 600;
 }
@@ -60,11 +60,11 @@
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3);
+  gap: var(--s5);
 }
 
 .hint {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
 }
 
@@ -74,7 +74,7 @@
 
 .studio {
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s4);
   max-width: 60ch;
 }
 

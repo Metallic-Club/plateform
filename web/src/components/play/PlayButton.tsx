@@ -1,13 +1,12 @@
 import { joinHref } from "@/lib/links";
 import type { Shell } from "@/lib/prefs";
-import { Icon } from "../Icon";
-import { button, type ButtonSize, type ButtonVariant } from "../ui/button";
+import type { ButtonSize, ButtonVariant } from "../ui/button";
 import { GetMetallicButton } from "./GetMetallicButton";
+import { LauncherPlayButton } from "./LauncherPlayButton";
 
 /**
- * Play or Join. Inside the launcher it is a plain link to /play, which
- * redirects to the metallic:// launch link; in a browser it opens the
- * "Get Metallic" flow first.
+ * Play or Join. Inside the Launcher it calls the bridge's `play` (falling back
+ * to the /play redirect); in a browser it opens the "Get Metallic" flow first.
  */
 export function PlayButton({
   game,
@@ -32,10 +31,16 @@ export function PlayButton({
   const href = joinHref(game.id, { serverId, followUserId });
   if (shell === "launcher") {
     return (
-      <a href={href} rel="nofollow" className={button(variant, size, block)}>
-        <Icon name="play" size={size === "large" ? 20 : 16} />
-        {label}
-      </a>
+      <LauncherPlayButton
+        gameId={game.id}
+        href={href}
+        serverId={serverId}
+        followUserId={followUserId}
+        size={size}
+        label={label}
+        block={block}
+        variant={variant}
+      />
     );
   }
   return <GetMetallicButton gameName={game.name} href={href} size={size} label={label} block={block} variant={variant} />;

@@ -1,25 +1,25 @@
 .wrap {
   display: grid;
-  gap: var(--s-6);
-  padding-top: var(--s-5);
+  gap: var(--s9);
+  padding-top: var(--s8);
   min-height: 70vh;
 }
 
 .label {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
 }
 
 /* A slow fade on loading blocks shows work is happening. It stops as soon as
    content arrives and is removed under reduced motion. */
 .block {
-  background: var(--surface-1);
-  animation: breathe 1.6s var(--ease) infinite alternate;
+  background: var(--bg-panel);
+  animation: breathe 1.6s var(--ease-out) infinite alternate;
 }
 
 @keyframes breathe {
   to {
-    background: var(--surface-2);
+    background: var(--bg-raised);
   }
 }
 
@@ -32,7 +32,7 @@
 .home,
 .detail {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s8);
 }
 
 @media (min-width: 1000px) {
@@ -50,7 +50,7 @@
 
 .side {
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s5);
   align-content: start;
 }
 
@@ -78,7 +78,7 @@
 
 .profile {
   display: flex;
-  gap: var(--s-5);
+  gap: var(--s8);
   align-items: center;
 }
 
@@ -95,13 +95,13 @@
 
 .list {
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s-5) var(--s-4);
+  gap: var(--s8) var(--s6);
 }
 
 @media (min-width: 900px) {
@@ -118,7 +118,7 @@
 
 .tile {
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 .art {

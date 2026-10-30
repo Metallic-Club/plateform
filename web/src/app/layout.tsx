@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo } from "next/font/google";
+import { Archivo, JetBrains_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { SiteFooter } from "@/components/shell/SiteFooter";
 import { SiteHeader } from "@/components/shell/SiteHeader";
@@ -8,6 +8,8 @@ import { TvNavigation } from "@/components/shell/TvNavigation";
 import { getApi } from "@/lib/api";
 import type { Viewer } from "@/lib/api/types";
 import { getPrefs } from "@/lib/prefs.server";
+// The shared tokens first (once, here), then the site's themes and base styles.
+import "@/styles/metallic-tokens.css";
 import "./globals.css";
 
 /*
@@ -22,6 +24,14 @@ const archivo = Archivo({
   display: "swap",
 });
 
+/* JetBrains Mono, the token mono face: versions and codes people read back. */
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+  preload: false,
+});
+
 export const metadata: Metadata = {
   title: { default: "Metallic", template: "%s | Metallic" },
   description: "Play games made by the Metallic community, dress your avatar and find friends.",
@@ -30,8 +40,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#18191c" },
-    { media: "(prefers-color-scheme: light)", color: "#e6e7ea" },
+    // bg.base of Graphite and Light (metallic-tokens.css, globals.css).
+    { media: "(prefers-color-scheme: dark)", color: "#16151b" },
+    { media: "(prefers-color-scheme: light)", color: "#eceaf0" },
   ],
 };
 
@@ -48,7 +59,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={archivo.variable}
+      className={`${archivo.variable} ${jetbrainsMono.variable}`}
       data-theme={prefs.theme}
       data-display={prefs.display}
       data-shell={prefs.shell}
@@ -63,7 +74,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <main id="main" tabIndex={-1}>
           {children}
         </main>
-        <SiteFooter />
+        <SiteFooter shell={prefs.shell} />
         <TabBar />
         {prefs.display === "tv" ? <TvNavigation /> : null}
       </body>

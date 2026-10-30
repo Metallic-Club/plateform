@@ -5,26 +5,15 @@ import { button } from "@/components/ui/button";
 import styles from "../auth.module.css";
 
 /*
- * Sign-in form. UI only: real sign-in arrives with browser and device
+ * Browser sign-in form. UI only: real sign-in arrives with browser and device
  * sign-in. Submitting validates the fields and says plainly that nothing
- * was sent.
+ * was sent. Inside the Launcher the page shows LauncherSignIn instead, which
+ * has no password field.
  * TODO(auth): replace with the browser/device sign-in flow.
  */
-export function SignInForm({ launcher }: { launcher: boolean }) {
+export function SignInForm() {
   const [errors, setErrors] = useState<{ id?: string; password?: string }>({});
   const [sent, setSent] = useState(false);
-
-  if (launcher) {
-    return (
-      <div className={styles.form}>
-        {/* TODO(launcher): the launcher should open target=_blank links in the system browser. */}
-        <a href="/signin" target="_blank" rel="noopener" className={button("primary", "large")}>
-          Continue in your browser
-        </a>
-        <p className={styles.hint}>Your browser opens. When you finish there, come back to the app.</p>
-      </div>
-    );
-  }
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

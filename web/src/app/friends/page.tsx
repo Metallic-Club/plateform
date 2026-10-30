@@ -34,7 +34,7 @@ export default async function FriendsPage({ searchParams }: PageProps<"/friends"
 
   if (!viewer) {
     return (
-      <div className="page" style={{ paddingBlock: "var(--s-7)" }}>
+      <div className="page" style={{ paddingBlock: "var(--s11)" }}>
         <StateMessage
           headingLevel={1}
           title="Sign in to see your friends"

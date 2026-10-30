@@ -31,9 +31,6 @@ export type MockScenario = (typeof MOCK_SCENARIOS)[number];
 export function parseTheme(v: string | undefined | null): Theme {
   return THEMES.some((t) => t.id === v) ? (v as Theme) : "graphite";
 }
-export function parseShell(v: string | undefined | null): Shell {
-  return v === "launcher" ? "launcher" : "browser";
-}
 export function parseDisplay(v: string | undefined | null): Display {
   return v === "tv" ? "tv" : "standard";
 }

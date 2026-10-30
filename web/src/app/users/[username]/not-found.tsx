@@ -4,7 +4,7 @@ import { button } from "@/components/ui/button";
 
 export default function UserNotFound() {
   return (
-    <div className="page" style={{ paddingBlock: "var(--s-7)" }}>
+    <div className="page" style={{ paddingBlock: "var(--s11)" }}>
       <StateMessage
         headingLevel={1}
         title="No player has this username"

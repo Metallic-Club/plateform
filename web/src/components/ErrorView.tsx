@@ -20,7 +20,7 @@ export function ErrorView({
   }, [error]);
 
   return (
-    <div className="page" style={{ paddingBlock: "var(--s-7)" }}>
+    <div className="page" style={{ paddingBlock: "var(--s11)" }}>
       <StateMessage
         tone="error"
         headingLevel={1}

@@ -1,7 +1,7 @@
 .create {
   display: grid;
-  gap: var(--s-9);
-  padding-top: var(--s-6);
+  gap: var(--gap-hero);
+  padding-top: var(--s9);
 }
 
 .h2 {
@@ -9,12 +9,12 @@
 }
 
 .sub {
-  color: var(--ink-2);
+  color: var(--text-2);
 }
 
 .intro {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s8);
   justify-items: start;
 }
 
@@ -35,36 +35,36 @@
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3);
+  gap: var(--s5);
 }
 
 .templates {
   display: grid;
-  gap: var(--s-6);
+  gap: var(--s9);
 }
 
 .templatesHead {
   display: grid;
-  gap: var(--s-1);
+  gap: var(--s2);
 }
 
 /* The first template gets the full width: it is the one most people start with. */
 .lead {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s8);
   align-items: center;
 }
 
 @media (min-width: 900px) {
   .lead {
     grid-template-columns: 1.4fr 1fr;
-    gap: var(--s-7);
+    gap: var(--s11);
   }
 }
 
 .leadArt {
   aspect-ratio: 16 / 9;
-  background: var(--surface-2);
+  background: var(--bg-raised);
 }
 
 .leadArt svg,
@@ -75,7 +75,7 @@
 
 .leadText {
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s5);
   max-width: 44ch;
 }
 
@@ -86,13 +86,13 @@
 }
 
 .includes {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
 }
 
 .list {
   display: grid;
-  gap: var(--s-5) var(--s-6);
+  gap: var(--s8) var(--s9);
 }
 
 @media (min-width: 760px) {
@@ -104,7 +104,7 @@
 .item {
   display: grid;
   grid-template-columns: 140px 1fr;
-  gap: var(--s-4);
+  gap: var(--s6);
   align-items: start;
 }
 
@@ -116,12 +116,12 @@
 
 .itemArt {
   aspect-ratio: 16 / 10;
-  background: var(--surface-2);
+  background: var(--bg-raised);
 }
 
 .itemText {
   display: grid;
-  gap: var(--s-1);
+  gap: var(--s2);
 }
 
 .itemName {
@@ -130,14 +130,14 @@
 
 .next {
   display: grid;
-  gap: var(--s-4);
-  padding: var(--s-6);
-  background: var(--surface-1);
+  gap: var(--s6);
+  padding: var(--s9);
+  background: var(--bg-panel);
 }
 
 .nextList {
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s5);
   max-width: 64ch;
   padding-left: 1.2em;
   margin: 0;

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LauncherDownloads } from "@/components/launcher/LauncherDownloads";
 import { StateMessage } from "@/components/StateMessage";
 import { button } from "@/components/ui/button";
 import { getShell } from "@/lib/prefs.server";
@@ -7,27 +8,18 @@ import { getShell } from "@/lib/prefs.server";
 export const metadata: Metadata = { title: "Downloads" };
 
 /*
- * Launcher-only page: game downloads and updates in progress.
- * TODO(launcher): read the queue from the launcher bridge (window.metallicLauncher).
+ * Downloads: Studio (Get / Open), the Player and the app's own updates, read
+ * from the Launcher bridge. In a browser it points to the app instead.
  */
 export default async function DownloadsPage() {
   const shell = await getShell();
   return (
-    <div className="page" style={{ display: "grid", gap: "var(--s-5)", paddingBlock: "var(--s-6)" }}>
+    <div className="page" style={{ display: "grid", gap: "var(--s8)", paddingBlock: "var(--s9)" }}>
       <h1 className="wide" style={{ fontSize: "var(--t-title)", fontWeight: 800 }}>
         Downloads
       </h1>
       {shell === "launcher" ? (
-        <StateMessage
-          title="Nothing is downloading"
-          actions={
-            <Link href="/explore" className={button("secondary")}>
-              Find a game
-            </Link>
-          }
-        >
-          <p>Games download the first time you press Play, and update here when their creators publish changes.</p>
-        </StateMessage>
+        <LauncherDownloads />
       ) : (
         <StateMessage
           title="Downloads live in the Metallic app"
@@ -37,7 +29,7 @@ export default async function DownloadsPage() {
             </Link>
           }
         >
-          <p>This page shows game downloads and updates when you open it inside the app.</p>
+          <p>This page shows installs and updates when you open it inside the app.</p>
         </StateMessage>
       )}
     </div>

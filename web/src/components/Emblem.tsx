@@ -19,11 +19,11 @@ export function Emblem({ size = 28, title }: { size?: number; title?: string }) 
       {/* skull */}
       <path d="M9 7.5 18.5 4 27 10.5 25 22 15.5 28 11 20.5z" fill="currentColor" />
       {/* crown facet */}
-      <path d="M9 7.5 18.5 4 20.5 10.5 13 13z" fill="var(--accent-fill)" />
+      <path d="M9 7.5 18.5 4 20.5 10.5 13 13z" fill="var(--accent)" />
       {/* beak */}
       <path d="M11 20.5 13 13 2.5 16.5z" fill="currentColor" opacity="0.62" />
       {/* eye */}
-      <path d="M19.2 12.6h2.6v2.6h-2.6z" fill="var(--ground)" />
+      <path d="M19.2 12.6h2.6v2.6h-2.6z" fill="var(--bg-base)" />
     </svg>
   );
 }

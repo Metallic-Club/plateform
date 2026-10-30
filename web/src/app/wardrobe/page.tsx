@@ -13,7 +13,7 @@ export default async function WardrobePage() {
   const viewer = await api.getViewer();
   if (!viewer) {
     return (
-      <div className="page" style={{ paddingBlock: "var(--s-7)" }}>
+      <div className="page" style={{ paddingBlock: "var(--s11)" }}>
         <StateMessage
           headingLevel={1}
           title="Sign in to dress your avatar"

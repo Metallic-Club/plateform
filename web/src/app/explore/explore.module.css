@@ -1,12 +1,12 @@
 .explore {
   display: grid;
-  gap: var(--s-6);
-  padding-top: var(--s-5);
+  gap: var(--s9);
+  padding-top: var(--s8);
 }
 
 .head {
   display: grid;
-  gap: var(--s-4);
+  gap: var(--s6);
 }
 
 @media (min-width: 900px) {
@@ -25,46 +25,46 @@
 
 .search {
   display: flex;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 .searchInput {
   flex: 1;
   min-width: 0;
   height: 44px;
-  padding: 0 var(--s-3);
+  padding: 0 var(--s5);
   border: 0;
-  border-radius: 2px;
-  background: var(--surface-2);
+  border-radius: var(--r-xs);
+  background: var(--bg-raised);
 }
 
 .searchInput::placeholder {
-  color: var(--ink-2);
+  color: var(--text-2);
 }
 
 .body {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s8);
 }
 
 @media (min-width: 900px) {
   .body {
     grid-template-columns: 220px minmax(0, 1fr);
-    gap: var(--s-7);
+    gap: var(--s11);
     align-items: start;
   }
 }
 
 /* Filters: a drawer on phones, a plain column on wide screens. */
 .filterDrawer {
-  background: var(--surface-1);
+  background: var(--bg-panel);
 }
 
 .filterSummary {
   display: flex;
   align-items: center;
   min-height: 48px;
-  padding: 0 var(--s-4);
+  padding: 0 var(--s6);
   font-weight: 650;
   cursor: pointer;
   list-style: none;
@@ -92,8 +92,8 @@
 
 .filterInner {
   display: grid;
-  gap: var(--s-5);
-  padding: var(--s-2) var(--s-4) var(--s-5);
+  gap: var(--s8);
+  padding: var(--s4) var(--s6) var(--s8);
 }
 
 .filterStatic {
@@ -106,15 +106,15 @@
   }
   .filterStatic {
     display: grid;
-    gap: var(--s-6);
+    gap: var(--s9);
     position: sticky;
-    top: calc(var(--header-h) + var(--s-4));
+    top: calc(var(--header-h) + var(--s6));
   }
 }
 
 .group {
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 .groupTitle {
@@ -125,7 +125,7 @@
 .groupList {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-1);
+  gap: var(--s2);
 }
 
 @media (min-width: 900px) {
@@ -139,34 +139,34 @@
   display: flex;
   align-items: center;
   min-height: 36px;
-  padding: 0 var(--s-3);
-  color: var(--ink-2);
-  background: var(--surface-2);
+  padding: 0 var(--s5);
+  color: var(--text-2);
+  background: var(--bg-raised);
 }
 
 @media (min-width: 900px) {
   .filter {
     min-height: 34px;
-    padding: 0 var(--s-2);
-    margin-inline: calc(-1 * var(--s-2));
+    padding: 0 var(--s4);
+    margin-inline: calc(-1 * var(--s4));
     background: transparent;
   }
 }
 
 .filter:hover {
-  color: var(--ink);
-  background: var(--surface-2);
+  color: var(--text-1);
+  background: var(--bg-raised);
 }
 
 .filter[aria-current="true"] {
-  color: var(--ground);
-  background: var(--ink);
+  color: var(--bg-base);
+  background: var(--text-1);
   font-weight: 650;
 }
 
 .results {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s8);
   align-content: start;
 }
 
@@ -175,52 +175,52 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s-3);
+  gap: var(--s5);
 }
 
 .count {
-  color: var(--ink-2);
+  color: var(--text-2);
 }
 
 .clear {
-  color: var(--ink);
+  color: var(--text-1);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
-  margin-left: var(--s-2);
+  margin-left: var(--s4);
 }
 
 .sorts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-1);
+  gap: var(--s2);
 }
 
 .sort {
   display: inline-flex;
   align-items: center;
   min-height: 40px;
-  padding: 0 var(--s-3);
-  color: var(--ink-2);
+  padding: 0 var(--s5);
+  color: var(--text-2);
   font-weight: 500;
-  background: var(--surface-1);
+  background: var(--bg-panel);
 }
 
 .sort:hover {
-  color: var(--ink);
-  background: var(--surface-2);
+  color: var(--text-1);
+  background: var(--bg-raised);
 }
 
 .sort[aria-current="true"] {
-  color: var(--ink);
-  background: var(--surface-3);
+  color: var(--text-1);
+  background: var(--bg-active);
   font-weight: 650;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s-5) var(--s-4);
+  gap: var(--s8) var(--s6);
 }
 
 @media (min-width: 700px) {
@@ -236,7 +236,7 @@
 }
 
 .searchNote {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
   max-width: 32ch;
 }

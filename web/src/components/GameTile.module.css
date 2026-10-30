@@ -1,15 +1,15 @@
 .tile {
   display: grid;
   align-content: start;
-  gap: var(--s-1);
+  gap: var(--s2);
   min-width: 0;
 }
 
 .art {
   display: block;
   aspect-ratio: 16 / 10;
-  background: var(--surface-2);
-  margin-bottom: var(--s-2);
+  background: var(--bg-raised);
+  margin-bottom: var(--s4);
 }
 
 .art svg,
@@ -30,13 +30,13 @@
 .meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 var(--s-3);
-  color: var(--ink-2);
+  gap: 0 var(--s5);
+  color: var(--text-2);
   font-size: var(--t-meta);
 }
 
 .note {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
 }
 
@@ -56,9 +56,9 @@
   display: grid;
   grid-template-columns: auto 88px 1fr;
   align-items: center;
-  gap: var(--s-3);
+  gap: var(--s5);
   min-height: 64px;
-  padding-block: var(--s-1);
+  padding-block: var(--s2);
 }
 
 .row:not(:has(.rank)) {
@@ -70,14 +70,14 @@
   font-size: var(--t-lead);
   font-weight: 800;
   font-variation-settings: "wdth" 125;
-  color: var(--ink-2);
+  color: var(--text-2);
   text-align: right;
 }
 
 .rowArt {
   display: block;
   aspect-ratio: 16 / 10;
-  background: var(--surface-2);
+  background: var(--bg-raised);
 }
 
 .rowText {

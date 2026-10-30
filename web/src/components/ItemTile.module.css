@@ -10,8 +10,8 @@
   place-items: center;
   aspect-ratio: 1;
   padding: 20%;
-  margin-bottom: var(--s-2);
-  background: var(--surface-1);
+  margin-bottom: var(--s4);
+  background: var(--bg-panel);
 }
 
 .art svg {
@@ -20,7 +20,7 @@
 }
 
 .tile:hover .art {
-  background: var(--surface-2);
+  background: var(--bg-raised);
 }
 
 .name {
@@ -36,7 +36,7 @@
 }
 
 .creator {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
 }
 

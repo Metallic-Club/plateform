@@ -11,7 +11,7 @@ export function RequestActions({ name }: { name: string }) {
   const [answer, setAnswer] = useState<"accepted" | "declined" | null>(null);
   if (answer) {
     return (
-      <p role="status" style={{ color: "var(--ink-2)", minHeight: 36, display: "flex", alignItems: "center" }}>
+      <p role="status" style={{ color: "var(--text-2)", minHeight: 36, display: "flex", alignItems: "center" }}>
         {answer === "accepted" ? `You and ${name} are now friends.` : "Request declined."}
         <button type="button" className={button("quiet", "small")} onClick={() => setAnswer(null)}>
           Undo

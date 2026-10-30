@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { SESSION_COOKIE } from "@/lib/launcher-handoff";
 import { COOKIES, MOCK_SCENARIOS, type MockScenario } from "@/lib/prefs";
 import type { MetallicApi } from "./client";
 import { createHttpApi } from "./http";
@@ -16,6 +17,9 @@ export async function getMockScenario(): Promise<MockScenario> {
 /** The API for the current request. Server code only. */
 export async function getApi(): Promise<MetallicApi> {
   const base = process.env.METALLIC_API_URL;
-  if (base) return createHttpApi(base);
+  if (base) {
+    const session = (await cookies()).get(SESSION_COOKIE)?.value;
+    return createHttpApi(base, session ? `${SESSION_COOKIE}=${session}` : undefined);
+  }
   return createMockApi(await getMockScenario());
 }

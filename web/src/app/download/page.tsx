@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Emblem } from "@/components/Emblem";
 import { button } from "@/components/ui/button";
+import { getShell } from "@/lib/prefs.server";
 import styles from "./download.module.css";
 
 export const metadata: Metadata = { title: "Get Metallic" };
@@ -11,7 +13,9 @@ export const metadata: Metadata = { title: "Get Metallic" };
  * offering a dead button.
  * TODO(release): link real installers per platform when they are published.
  */
-export default function DownloadPage() {
+export default async function DownloadPage() {
+  // Inside the app, "download the app" makes no sense: show its Downloads instead.
+  if ((await getShell()) === "launcher") redirect("/downloads");
   return (
     <div className={`page ${styles.download}`}>
       <section className={styles.app} aria-labelledby="app-title">

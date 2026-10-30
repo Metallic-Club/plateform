@@ -3,18 +3,18 @@
   max-height: calc(100dvh - 2 * var(--gutter));
   padding: 0;
   border: 0;
-  background: var(--surface-2);
-  color: var(--ink);
-  box-shadow: var(--shadow-float);
-  clip-path: polygon(0 0, calc(100% - var(--mill)) 0, 100% var(--mill), 100% 100%, 0 100%);
+  background: var(--bg-raised);
+  color: var(--text-1);
+  box-shadow: var(--shadow-pop);
+  clip-path: polygon(0 0, calc(100% - var(--cut-md)) 0, 100% var(--cut-md), 100% 100%, 0 100%);
 }
 
 .dialog::backdrop {
-  background: rgb(8 8 10 / 0.6);
+  background: var(--backdrop);
 }
 
 .dialog[open] {
-  animation: rise 180ms var(--ease);
+  animation: rise 180ms var(--ease-out);
 }
 
 @keyframes rise {
@@ -26,15 +26,15 @@
 
 .body {
   display: grid;
-  gap: var(--s-4);
-  padding: var(--s-5);
+  gap: var(--s6);
+  padding: var(--s8);
 }
 
 .head {
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: var(--s-4);
+  gap: var(--s6);
 }
 
 .title {
@@ -51,10 +51,10 @@
   margin: -10px -10px 0 0;
   border: 0;
   background: transparent;
-  color: var(--ink-2);
+  color: var(--text-2);
 }
 
 .close:hover {
-  background: var(--surface-3);
-  color: var(--ink);
+  background: var(--bg-active);
+  color: var(--text-1);
 }

@@ -1,14 +1,14 @@
 .state {
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s5);
   justify-items: start;
-  padding: var(--s-6);
-  background: var(--surface-1);
-  clip-path: polygon(0 0, calc(100% - var(--mill)) 0, 100% var(--mill), 100% 100%, 0 100%);
+  padding: var(--s9);
+  background: var(--bg-panel);
+  clip-path: polygon(0 0, calc(100% - var(--cut-md)) 0, 100% var(--cut-md), 100% 100%, 0 100%);
 }
 
 .state[data-tone="error"] {
-  background: var(--surface-2);
+  background: var(--bg-raised);
 }
 
 .title {
@@ -18,14 +18,14 @@
 
 .body {
   max-width: 60ch;
-  color: var(--ink-2);
+  color: var(--text-2);
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3);
-  margin-top: var(--s-2);
+  gap: var(--s5);
+  margin-top: var(--s4);
 }

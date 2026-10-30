@@ -1,7 +1,7 @@
 .friends {
   display: grid;
-  gap: var(--s-6);
-  padding-top: var(--s-5);
+  gap: var(--s9);
+  padding-top: var(--s8);
 }
 
 .friends > * {
@@ -10,7 +10,7 @@
 
 .head {
   display: grid;
-  gap: var(--s-4);
+  gap: var(--s6);
 }
 
 .title {
@@ -21,7 +21,7 @@
 
 .tabs {
   display: flex;
-  gap: var(--s-1);
+  gap: var(--s2);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -30,22 +30,22 @@
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s4);
   min-height: 44px;
-  padding: 0 var(--s-4);
-  background: var(--surface-1);
-  color: var(--ink-2);
+  padding: 0 var(--s6);
+  background: var(--bg-panel);
+  color: var(--text-2);
   font-weight: 600;
 }
 
 .tab:hover {
-  color: var(--ink);
-  background: var(--surface-2);
+  color: var(--text-1);
+  background: var(--bg-raised);
 }
 
 .tab[aria-current="page"] {
-  background: var(--ink);
-  color: var(--ground);
+  background: var(--text-1);
+  color: var(--bg-base);
 }
 
 .tabCount {
@@ -55,12 +55,12 @@
 
 .groups {
   display: grid;
-  gap: var(--s-6);
+  gap: var(--s9);
 }
 
 .group {
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s5);
 }
 
 .groupTitle {
@@ -69,7 +69,7 @@
 }
 
 .groupCount {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-weight: 400;
 }
 
@@ -82,15 +82,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s-3);
-  padding: var(--s-3) var(--s-4);
-  background: var(--surface-1);
+  gap: var(--s5);
+  padding: var(--s5) var(--s6);
+  background: var(--bg-panel);
 }
 
 .who {
   display: flex;
   align-items: center;
-  gap: var(--s-3);
+  gap: var(--s5);
   min-width: 0;
 }
 
@@ -109,7 +109,7 @@
 }
 
 .sub {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -119,17 +119,17 @@
 .rowActions {
   flex: none;
   display: flex;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 .find {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s8);
 }
 
 .search {
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s4);
   max-width: 520px;
 }
 
@@ -139,20 +139,20 @@
 
 .searchRow {
   display: flex;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 .searchRow input {
   flex: 1;
   min-width: 0;
   height: 44px;
-  padding: 0 var(--s-3);
+  padding: 0 var(--s5);
   border: 0;
-  border-radius: 2px;
-  background: var(--surface-2);
+  border-radius: var(--r-xs);
+  background: var(--bg-raised);
 }
 
 .hint {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
 }

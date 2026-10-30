@@ -8,6 +8,7 @@ import type { Theme } from "@/lib/prefs";
 import { Avatar } from "../Avatar";
 import { ThemePicker } from "../ThemePicker";
 import styles from "./Shell.module.css";
+import { SignOutButton } from "./SignOutButton";
 
 export function AccountMenu({ user, credits, theme }: { user: UserSummary; credits: number; theme: Theme }) {
   const [open, setOpen] = useState(false);
@@ -83,9 +84,7 @@ export function AccountMenu({ user, credits, theme }: { user: UserSummary; credi
         <div className={styles.menuTheme}>
           <ThemePicker initial={theme} variant="compact" />
         </div>
-        <Link href="/signin" className={styles.menuSignOut}>
-          Sign out
-        </Link>
+        <SignOutButton className={styles.menuSignOut} />
       </div>
     </div>
   );

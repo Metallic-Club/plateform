@@ -1,128 +1,185 @@
 /*
- * Metallic web: tokens and base styles.
- * Every component reads these tokens. Themes only redefine tokens.
+ * Metallic web: themes, site-only tokens and base styles.
+ *
+ * Colours, spacing, radii, the cut and motion come from the shared tokens in
+ * src/styles/metallic-tokens.css (imported once, before this file, in app/layout.tsx).
+ * Components use the token names directly: --bg-*, --text-*, --accent*, --s2..--s11,
+ * --r-*, --cut-*, --t-fast/--t-base/--t-slow, --ease-out.
+ *
+ * This file adds only what the token file does not have yet:
+ *   - the Titanium, Light and System theme blocks (the token file only defines
+ *     Graphite; studio#196 will generate one [data-theme] block per theme, and
+ *     these blocks go away then),
+ *   - web-only layout values (gutter, header height, section gaps),
+ *   - the web type scale, which uses the token sizes where they exist.
  * See web/docs/DESIGN.md for the reasons behind each value.
  */
 
+/* Graphite: the token file's :root values. On a nested [data-theme] (the
+   theme picker's swatches) the surface and accent roles are set again from
+   the ramp, so a Graphite swatch looks right inside a Light page. */
 :root,
 [data-theme="graphite"],
 [data-theme="system"] {
   color-scheme: dark;
-  --ground: #18191c;
-  --surface-1: #202125;
-  --surface-2: #292a2f;
-  --surface-3: #34353b;
-  --ink: #ececef;
-  --ink-2: #b4b6be;
-  --ink-3: #9a9ca5;
-  --accent-fill: #5d49d8;
-  --accent-fill-hover: #6b58e4;
-  --on-accent: #ffffff;
-  --accent-ink: #ab9eff;
-  --online: #5cc88a;
-  --danger: #ff8a80;
-  --focus: #c9c0ff;
-  --art-scrim: rgb(14 15 17 / 0.72);
-  --shadow-float: 0 18px 48px rgb(0 0 0 / 0.45);
+  --art-scrim: rgb(12 11 15 / 0.74);
+  --backdrop: rgb(12 11 15 / 0.6);
+}
+[data-theme="graphite"],
+[data-theme="system"] {
+  --bg-deep: var(--g-900);
+  --bg-base: var(--g-850);
+  --bg-panel: var(--g-800);
+  --bg-raised: var(--g-750);
+  --bg-hover: var(--g-700);
+  --bg-active: var(--g-650);
+  --accent: var(--v-400);
+  --accent-hover: var(--v-300);
+  --accent-press: var(--v-500);
+  --on-accent: var(--g-900);
+  --focus: var(--v-300);
 }
 
-/* Light ("Aluminium" in the picker). The spec calls this theme `light`. */
+/* Titanium: a lighter dark, for screens where Graphite feels too deep.
+   The same graphite ramp, two steps up. */
+[data-theme="titanium"] {
+  color-scheme: dark;
+  --bg-deep: #1c1b22;
+  --bg-base: #24222b;
+  --bg-panel: #2c2a34;
+  --bg-raised: #35323e;
+  --bg-hover: #3c3946;
+  --bg-active: #43404d;
+  --select: #3a3354;
+  --select-weak: #2f2b3b;
+  --line: #3a3744;
+  --line-strong: #5f5b6b;
+  --line-control: #8a8695;
+  --text-1: #f4f3f7;
+  --text-2: #c3c0ca;
+  --text-3: #b3afbd;
+  --text-off: #6c6878;
+  --icon: #cfccd6;
+  --accent-text: #c2b6f0;
+  --highlight: rgba(255, 255, 255, 0.07);
+  --error: #f2948c;
+  --warning: #e8bb6a;
+  --success: #74cc9f;
+  --info: #95bfee;
+  --art-scrim: rgb(18 17 22 / 0.76);
+  --backdrop: rgb(12 11 15 / 0.55);
+}
+
+/* Light ("Aluminium" in the picker; the spec's id is `light`).
+   Keep in sync with the `system` block below. */
 [data-theme="light"] {
   color-scheme: light;
-  --ground: #e6e7ea;
-  --surface-1: #f2f2f4;
-  --surface-2: #fafafb;
-  --surface-3: #d8d9de;
-  --ink: #131417;
-  --ink-2: #41434b;
-  --ink-3: #575a63;
-  --accent-fill: #5541d0;
-  --accent-fill-hover: #4835bf;
+  --bg-deep: #ffffff;
+  --bg-base: #eceaf0;
+  --bg-panel: #f4f3f7;
+  --bg-raised: #ffffff;
+  --bg-hover: #e3e1e8;
+  --bg-active: #d8d5de;
+  --select: #e4def8;
+  --select-weak: #f3f0fc;
+  --line: #d8d5de;
+  --line-strong: #c3c0ca;
+  --line-control: #7a7685;
+  --text-1: #16151b;
+  --text-2: #43404d;
+  --text-3: #57535f;
+  --text-off: #a3a0ad;
+  --icon: #43404d;
+  --accent: #6f5cb6;
+  --accent-hover: #584993;
+  --accent-press: #4d4082;
+  --accent-text: #584993;
   --on-accent: #ffffff;
-  --accent-ink: #4a36c4;
-  --online: #1e8a50;
+  --focus: #584993;
+  --highlight: rgba(255, 255, 255, 0.7);
+  --error: #b3261e;
+  --error-bg: #fbe9e7;
+  --warning: #7a5200;
+  --warning-bg: #fbf0d9;
+  --success: #1d7048;
+  --success-bg: #e2f2e9;
+  --info: #1f5c9e;
+  --info-bg: #e3edf8;
   --danger: #b3261e;
-  --focus: #4a36c4;
-  --art-scrim: rgb(14 15 17 / 0.72);
-  --shadow-float: 0 18px 48px rgb(20 22 30 / 0.22);
+  --danger-hover: #96201a;
+  --shadow-pop: 0 8px 24px rgba(22, 21, 27, 0.16);
+  --art-scrim: rgb(12 11 15 / 0.74);
+  --backdrop: rgb(22 21 27 / 0.4);
 }
 
-/* `system` follows the device: Graphite unless the device asks for light. */
+/* System: Graphite (above) unless the device asks for light, then the Light values. */
 @media (prefers-color-scheme: light) {
   [data-theme="system"] {
     color-scheme: light;
-    --ground: #e6e7ea;
-    --surface-1: #f2f2f4;
-    --surface-2: #fafafb;
-    --surface-3: #d8d9de;
-    --ink: #131417;
-    --ink-2: #41434b;
-    --ink-3: #575a63;
-    --accent-fill: #5541d0;
-    --accent-fill-hover: #4835bf;
+    --bg-deep: #ffffff;
+    --bg-base: #eceaf0;
+    --bg-panel: #f4f3f7;
+    --bg-raised: #ffffff;
+    --bg-hover: #e3e1e8;
+    --bg-active: #d8d5de;
+    --select: #e4def8;
+    --select-weak: #f3f0fc;
+    --line: #d8d5de;
+    --line-strong: #c3c0ca;
+    --line-control: #7a7685;
+    --text-1: #16151b;
+    --text-2: #43404d;
+    --text-3: #57535f;
+    --text-off: #a3a0ad;
+    --icon: #43404d;
+    --accent: #6f5cb6;
+    --accent-hover: #584993;
+    --accent-press: #4d4082;
+    --accent-text: #584993;
     --on-accent: #ffffff;
-    --accent-ink: #4a36c4;
-    --online: #1e8a50;
+    --focus: #584993;
+    --highlight: rgba(255, 255, 255, 0.7);
+    --error: #b3261e;
+    --error-bg: #fbe9e7;
+    --warning: #7a5200;
+    --warning-bg: #fbf0d9;
+    --success: #1d7048;
+    --success-bg: #e2f2e9;
+    --info: #1f5c9e;
+    --info-bg: #e3edf8;
     --danger: #b3261e;
-    --focus: #4a36c4;
-    --art-scrim: rgb(14 15 17 / 0.72);
-    --shadow-float: 0 18px 48px rgb(20 22 30 / 0.22);
+    --danger-hover: #96201a;
+    --shadow-pop: 0 8px 24px rgba(22, 21, 27, 0.16);
+    --art-scrim: rgb(12 11 15 / 0.74);
+    --backdrop: rgb(22 21 27 / 0.4);
   }
 }
 
-/* Titanium: a lighter dark, for screens where Graphite feels too deep. */
-[data-theme="titanium"] {
-  color-scheme: dark;
-  --ground: #2a2c31;
-  --surface-1: #323439;
-  --surface-2: #3b3d43;
-  --surface-3: #46484f;
-  --ink: #f1f2f4;
-  --ink-2: #c8cad1;
-  --ink-3: #b3b5bd;
-  --accent-fill: #5d49d8;
-  --accent-fill-hover: #6b58e4;
-  --on-accent: #ffffff;
-  --accent-ink: #bcb2ff;
-  --online: #66d197;
-  --danger: #ffa197;
-  --focus: #d3cbff;
-  --art-scrim: rgb(20 21 24 / 0.74);
-  --shadow-float: 0 18px 48px rgb(0 0 0 / 0.4);
-}
-
 :root {
+  /* The token file names the families; these point them at the self-hosted
+     next/font files (no third-party font requests). */
   --font: var(--font-archivo), system-ui, sans-serif;
+  --mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 
-  /* Type: five sizes do all the work. */
-  --t-meta: 0.8125rem; /* 13px: meta lines, captions */
-  --t-body: 0.9375rem; /* 15px: UI and running text */
+  /* Type. The small steps are the token sizes (small 12, body 13, body-lg 14).
+     The large steps are web-only: pages need fluid headlines that the desktop
+     scale does not have, and they start at the token title (24) and display (30). */
+  --t-small: 0.75rem; /* 12px, token small */
+  --t-meta: 0.8125rem; /* 13px, token body: meta lines, captions */
+  --t-body: 0.875rem; /* 14px, token body-lg: UI and running text */
   --t-lead: 1.25rem; /* 20px: section headings */
-  --t-title: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem); /* page titles */
-  --t-display: clamp(2.5rem, 1.2rem + 4.4vw, 5.25rem); /* featured game name */
+  --t-title: clamp(1.5rem, 1.1rem + 1.4vw, 2.5rem); /* page titles, from token title 24 */
+  --t-display: clamp(1.875rem, 1rem + 4.2vw, 5.25rem); /* featured game name, from token display 30 */
 
-  /* Space scale (4px base). Section gaps are clearly larger than gaps inside. */
-  --s-1: 4px;
-  --s-2: 8px;
-  --s-3: 12px;
-  --s-4: 16px;
-  --s-5: 24px;
-  --s-6: 32px;
-  --s-7: 48px;
-  --s-8: 72px;
-  --s-9: 104px;
+  /* Spacing is the token scale (--s2 4px ... --s11 48px). Two larger web-only
+     steps separate page sections. */
+  --gap-section: 72px;
+  --gap-hero: 104px;
 
   --gutter: 16px;
   --page-max: 1400px;
   --header-h: 60px;
   --tabbar-h: 64px;
-
-  /* The milled corner: the one identity motif. */
-  --mill: 10px;
-  --mill-sm: 6px;
-
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --dur: 140ms;
 }
 
 @media (min-width: 768px) {
@@ -138,10 +195,24 @@
   }
 }
 
+/* Inside the desktop Launcher: the window is at least 960 x 600, so the
+   chrome stays compact and the content gets the height. */
+[data-shell="launcher"] {
+  --header-h: 56px;
+  --gap-section: 48px;
+  --gap-hero: 72px;
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  [data-shell="launcher"] {
+    --gutter: 24px;
+  }
+}
+
 /* 10-foot / controller layout: larger type and targets, heavier focus. */
 [data-display="tv"] {
   font-size: 125%;
-  --mill: 14px;
+  --cut-md: var(--cut-lg);
 }
 
 *,
@@ -158,8 +229,8 @@ html {
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--ground);
-  color: var(--ink);
+  background: var(--bg-base);
+  color: var(--text-1);
   font-family: var(--font);
   font-size: var(--t-body);
   line-height: 1.5;
@@ -224,19 +295,15 @@ button {
   cursor: pointer;
 }
 
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
+/* The focus ring itself (2px --focus, 2px outside) comes from the token file. */
 [data-display="tv"] :focus-visible {
   outline-width: 4px;
   outline-offset: 4px;
 }
 
 ::selection {
-  background: var(--accent-fill);
-  color: var(--on-accent);
+  background: var(--select);
+  color: var(--text-1);
 }
 
 .visually-hidden {
@@ -256,20 +323,27 @@ button {
   left: var(--gutter);
   top: -100px;
   z-index: 100;
-  padding: var(--s-3) var(--s-4);
-  background: var(--accent-fill);
+  padding: var(--s5) var(--s6);
+  border-radius: var(--r-sm);
+  background: var(--accent);
   color: var(--on-accent);
   font-weight: 600;
 }
 
 .skip-link:focus {
-  top: var(--s-2);
+  top: var(--s4);
 }
 
 /* Display width: Archivo stretched wide, like stamped metal plates. */
 .wide {
   font-variation-settings: "wdth" 125;
   letter-spacing: -0.01em;
+}
+
+/* Numbers that change and codes people type: the token mono face. */
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: normal;
 }
 
 .page {
@@ -279,24 +353,13 @@ button {
   padding-inline: var(--gutter);
 }
 
+/* The cut: the token file's .cut-md / .cut-sm, under the site's older names. */
 .milled {
-  clip-path: polygon(
-    0 0,
-    calc(100% - var(--mill)) 0,
-    100% var(--mill),
-    100% 100%,
-    0 100%
-  );
+  clip-path: polygon(0 0, calc(100% - var(--cut-md)) 0, 100% var(--cut-md), 100% 100%, 0 100%);
 }
 
 .milled-sm {
-  clip-path: polygon(
-    0 0,
-    calc(100% - var(--mill-sm)) 0,
-    100% var(--mill-sm),
-    100% 100%,
-    0 100%
-  );
+  clip-path: polygon(0 0, calc(100% - var(--cut-sm)) 0, 100% var(--cut-sm), 100% 100%, 0 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {

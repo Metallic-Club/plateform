@@ -1,19 +1,24 @@
+/*
+ * Buttons, after the token spec (visual-language.md, section 4): radius sm,
+ * fills carry hover, 1px press shift, no glow. Heights are taller than the
+ * desktop spec (44 instead of 32) because the site is also used on touch screens.
+ */
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--s-2);
+  gap: var(--s4);
   min-height: 44px;
-  padding: 0 var(--s-5);
+  padding: 0 var(--s8);
   border: 0;
-  border-radius: 0;
-  font-weight: 650;
+  border-radius: var(--r-sm);
+  font-weight: 560;
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
   transition:
-    background-color var(--dur) var(--ease),
-    transform var(--dur) var(--ease);
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
 }
 
 .button:active {
@@ -23,50 +28,68 @@
 .button:disabled,
 .button[aria-disabled="true"] {
   cursor: not-allowed;
-  opacity: 0.55;
+  background: var(--bg-raised);
+  color: var(--text-off);
+  box-shadow: none;
+  clip-path: none;
   transform: none;
 }
 
-/* Primary: the accent's main home. Play, buy, save. One per view. */
+/* Primary: the accent's one home per view (Play, buy, save), with the cut. */
 .primary {
-  background: var(--accent-fill);
+  background: var(--accent);
   color: var(--on-accent);
-  clip-path: polygon(0 0, calc(100% - var(--mill-sm)) 0, 100% var(--mill-sm), 100% 100%, 0 100%);
+  clip-path: polygon(0 0, calc(100% - var(--cut-sm)) 0, 100% var(--cut-sm), 100% 100%, 0 100%);
 }
 
 .primary:hover:not(:disabled) {
-  background: var(--accent-fill-hover);
+  background: var(--accent-hover);
 }
 
+.primary:active:not(:disabled) {
+  background: var(--accent-press);
+}
+
+/* Secondary: raised metal with a 1px top highlight. */
 .secondary {
-  background: var(--surface-3);
-  color: var(--ink);
+  background: var(--bg-raised);
+  color: var(--text-1);
+  box-shadow: inset 0 1px 0 var(--highlight), inset 0 0 0 1px var(--line);
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 2px var(--surface-3);
+  background: var(--bg-hover);
 }
 
+.secondary:active:not(:disabled) {
+  background: var(--bg-active);
+}
+
+/* Quiet is the spec's ghost button. */
 .quiet {
   background: transparent;
-  color: var(--ink);
-  padding-inline: var(--s-3);
+  color: var(--text-2);
+  padding-inline: var(--s5);
 }
 
 .quiet:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.quiet:active:not(:disabled) {
+  background: var(--bg-active);
 }
 
 .large {
-  min-height: 56px;
-  padding-inline: var(--s-6);
-  font-size: 1.0625rem;
+  min-height: 52px;
+  padding-inline: var(--s9);
+  font-size: 1rem;
 }
 
 .small {
   min-height: 36px;
-  padding-inline: var(--s-3);
+  padding-inline: var(--s5);
   font-size: var(--t-meta);
 }
 

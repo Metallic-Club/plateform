@@ -1,10 +1,11 @@
 import { ApiError, type MetallicApi } from "./client";
+import { SESSION_COOKIE } from "../launcher-handoff";
 import type { Me, Problem, StudioTemplate, Wallet } from "./types";
 
 /**
  * HTTP implementation of the spec, used when METALLIC_API_URL is set.
- * Runs on the server; `cookie` forwards the visitor's metallic_session.
- * TODO(auth): forward the session cookie from the incoming request.
+ * Runs on the server; `cookie` forwards the visitor's metallic_session
+ * (getApi passes it from the incoming request).
  */
 export function createHttpApi(baseUrl: string, cookie?: string): MetallicApi {
   const root = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
@@ -33,6 +34,16 @@ export function createHttpApi(baseUrl: string, cookie?: string): MetallicApi {
   }
 
   const get = <T>(path: string, params?: object) => call<T>("GET", path, params);
+
+  /** A body-less call with extra headers; only the status matters. */
+  async function callWith(method: string, path: string, headers: Record<string, string>): Promise<void> {
+    const res = await fetch(new URL(path.replace(/^\//, ""), root), {
+      method,
+      headers: { accept: "application/json", ...(cookie ? { cookie } : {}), ...headers },
+      cache: "no-store",
+    });
+    if (!res.ok) throw new ApiError(`Request failed (${res.status})`, res.status, "http_error");
+  }
 
   /** 404 becomes null, for detail lookups. */
   async function find<T>(path: string): Promise<T | null> {
@@ -67,6 +78,41 @@ export function createHttpApi(baseUrl: string, cookie?: string): MetallicApi {
         return { user, credits: wallet.balances.find((b) => b.currency === "credits")?.available ?? 0 };
       }),
     checkUsername: (username) => get("/v1/auth/username-check", { username }),
+
+    logOut: async () => {
+      if (!cookie) return;
+      try {
+        // Unsafe methods need the session's CSRF token (api/openapi.yaml, conventions).
+        const { csrfToken } = await get<{ csrfToken: string }>("/v1/auth/session");
+        await callWith("POST", "/v1/auth/logout", { "x-csrf-token": csrfToken });
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) return;
+        throw e;
+      }
+    },
+
+    redeemWebSession: async (code) => {
+      let res: Response;
+      try {
+        res = await fetch(new URL("v1/oauth/web-session/redeem", root), {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ code }),
+          cache: "no-store",
+          redirect: "error",
+        });
+      } catch {
+        return { ok: false, reason: "unavailable" };
+      }
+      if (res.status === 400 || res.status === 404 || res.status === 410) return { ok: false, reason: "invalid" };
+      if (!res.ok) return { ok: false, reason: "unavailable" };
+      // Like /v1/auth/login, the API answers with Set-Cookie: metallic_session=...
+      const set = res.headers.getSetCookie().find((c) => c.startsWith(`${SESSION_COOKIE}=`));
+      const session = set?.slice(SESSION_COOKIE.length + 1).split(";")[0];
+      if (!session) return { ok: false, reason: "unavailable" };
+      const maxAge = Number(/;\s*max-age=(\d+)/i.exec(set!)?.[1]);
+      return { ok: true, session, maxAge: Number.isFinite(maxAge) ? maxAge : undefined };
+    },
 
     getHome: () => get("/v1/home"),
     listGenres: () => items("/v1/genres"),

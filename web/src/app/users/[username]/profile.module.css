@@ -1,7 +1,7 @@
 .profile {
   display: grid;
-  gap: var(--s-8);
-  padding-top: var(--s-5);
+  gap: var(--gap-section);
+  padding-top: var(--s8);
 }
 
 .h2 {
@@ -9,19 +9,19 @@
 }
 
 .quiet {
-  color: var(--ink-2);
+  color: var(--text-2);
 }
 
 .more {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  color: var(--ink-2);
+  color: var(--text-2);
   font-weight: 600;
 }
 
 .more:hover {
-  color: var(--ink);
+  color: var(--text-1);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -35,7 +35,7 @@
 /* The avatar stands full height beside the name: a person, not a thumbnail. */
 .head {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s8);
   grid-template-columns: 120px 1fr;
   align-items: start;
 }
@@ -43,7 +43,7 @@
 @media (min-width: 760px) {
   .head {
     grid-template-columns: minmax(220px, 320px) 1fr;
-    gap: var(--s-7);
+    gap: var(--s11);
   }
 }
 
@@ -51,15 +51,15 @@
   display: grid;
   place-items: end center;
   aspect-ratio: 3 / 4;
-  padding: var(--s-3) var(--s-3) 0;
-  background: var(--surface-1);
-  box-shadow: inset 0 -18% 0 var(--surface-2);
+  padding: var(--s5) var(--s5) 0;
+  background: var(--bg-panel);
+  box-shadow: inset 0 -18% 0 var(--bg-raised);
 }
 
 @media (min-width: 760px) {
   .stage {
-    padding: var(--s-6) var(--s-6) 0;
-    box-shadow: inset 0 -48px 0 var(--surface-2);
+    padding: var(--s9) var(--s9) 0;
+    box-shadow: inset 0 -48px 0 var(--bg-raised);
   }
 }
 
@@ -70,7 +70,7 @@
 
 .identity {
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s5);
   align-content: start;
   min-width: 0;
 }
@@ -89,15 +89,15 @@
 }
 
 .handle {
-  color: var(--ink-2);
-  margin-top: calc(-1 * var(--s-2));
+  color: var(--text-2);
+  margin-top: calc(-1 * var(--s4));
 }
 
 .team {
-  margin-left: var(--s-3);
-  padding: 2px var(--s-2);
-  background: var(--surface-2);
-  color: var(--ink);
+  margin-left: var(--s5);
+  padding: 2px var(--s4);
+  background: var(--bg-raised);
+  color: var(--text-1);
   font-size: var(--t-meta);
   font-weight: 600;
 }
@@ -105,7 +105,7 @@
 .presence {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s4);
   font-weight: 600;
 }
 
@@ -114,23 +114,23 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--surface-3);
+  background: var(--bg-active);
 }
 
 .presence[data-status="online"]::before {
-  background: var(--online);
+  background: var(--success);
 }
 
 .presence[data-status="in_game"]::before {
-  background: var(--accent-fill);
+  background: var(--accent);
 }
 
 .presence[data-status="in_studio"]::before {
-  background: var(--ink-2);
+  background: var(--text-2);
 }
 
 .presence[data-status="offline"] {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-weight: 400;
 }
 
@@ -143,21 +143,21 @@
 .links {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-2);
+  gap: var(--s4);
   grid-column: 1 / -1;
 }
 
 .link {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s4);
   min-height: 44px;
-  padding: 0 var(--s-3);
-  background: var(--surface-1);
+  padding: 0 var(--s5);
+  background: var(--bg-panel);
 }
 
 .link:hover {
-  background: var(--surface-2);
+  background: var(--bg-raised);
 }
 
 .linkKind {
@@ -165,24 +165,24 @@
 }
 
 .linkHandle {
-  color: var(--ink-2);
+  color: var(--text-2);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3);
+  gap: var(--s5);
 }
 
 .stats {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-6);
-  margin-top: var(--s-3);
+  gap: var(--s9);
+  margin-top: var(--s5);
 }
 
 .stats dt {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
 }
 
@@ -193,20 +193,20 @@
 
 .friends {
   display: grid;
-  gap: var(--s-4);
+  gap: var(--s6);
 }
 
 .friendGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: var(--s-4);
+  gap: var(--s6);
 }
 
 .friend {
   display: grid;
   justify-items: center;
-  gap: var(--s-2);
-  padding: var(--s-2);
+  gap: var(--s4);
+  padding: var(--s4);
   text-align: center;
 }
 

@@ -254,6 +254,9 @@ const GENRE_LINES: Record<string, string> = {
 
 /* ----------------------------------------------------------------- API */
 
+/** Web-session codes already redeemed in this server process (codes are single-use). */
+const redeemedCodes = new Set<string>();
+
 export function createMockApi(scenario: MockScenario = "normal"): MetallicApi {
   const empty = scenario === "empty";
   const signedIn = scenario !== "guest";
@@ -320,6 +323,18 @@ export function createMockApi(scenario: MockScenario = "normal"): MetallicApi {
         },
         credits: empty ? 0 : 1240,
       };
+    },
+
+    async logOut() {
+      await gate();
+    },
+
+    async redeemWebSession(code) {
+      // Mirrors the API: single use; "expired" in the code stands in for a code past its 60 seconds.
+      if (scenario === "error") return { ok: false, reason: "unavailable" };
+      if (redeemedCodes.has(code) || code.includes("expired")) return { ok: false, reason: "invalid" };
+      redeemedCodes.add(code);
+      return { ok: true, session: `mock_session_${Math.random().toString(36).slice(2, 14)}`, maxAge: 2_592_000 };
     },
 
     async checkUsername(username) {

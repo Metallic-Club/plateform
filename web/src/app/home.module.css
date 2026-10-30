@@ -1,13 +1,13 @@
 .home {
   display: grid;
-  gap: var(--s-8);
-  padding-top: var(--s-4);
+  gap: var(--gap-section);
+  padding-top: var(--s6);
 }
 
 @media (min-width: 900px) {
   .home {
-    gap: var(--s-9);
-    padding-top: var(--s-5);
+    gap: var(--gap-hero);
+    padding-top: var(--s8);
   }
 }
 
@@ -17,12 +17,12 @@
 }
 
 .quiet {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
 }
 
 .inlineLink {
-  color: var(--ink);
+  color: var(--text-1);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -32,12 +32,12 @@
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  color: var(--ink-2);
+  color: var(--text-2);
   font-weight: 600;
 }
 
 .more:hover {
-  color: var(--ink);
+  color: var(--text-1);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -46,13 +46,13 @@
 
 .lead {
   display: grid;
-  gap: var(--s-7);
+  gap: var(--s11);
 }
 
 @media (min-width: 1100px) {
   .lead {
     grid-template-columns: minmax(0, 1fr) 340px;
-    gap: var(--s-6);
+    gap: var(--s9);
     align-items: start;
   }
 }
@@ -67,7 +67,7 @@
   aspect-ratio: 16 / 10;
   margin-inline: calc(-1 * var(--gutter));
   clip-path: none;
-  background: var(--surface-2);
+  background: var(--bg-raised);
 }
 
 .featureArt svg {
@@ -80,29 +80,29 @@
 .plate {
   position: relative;
   display: grid;
-  gap: var(--s-3);
-  margin-top: calc(-1 * var(--s-7));
-  margin-right: var(--s-5);
-  padding: var(--s-5) var(--s-5) var(--s-5) var(--s-5);
+  gap: var(--s5);
+  margin-top: calc(-1 * var(--s11));
+  margin-right: var(--s8);
+  padding: var(--s8) var(--s8) var(--s8) var(--s8);
   margin-left: calc(-1 * var(--gutter));
   padding-left: var(--gutter);
-  background: var(--ground);
-  --mill: 18px;
+  background: var(--bg-base);
+  --cut-md: 18px;
 }
 
 @media (min-width: 600px) {
   .featureArt {
     aspect-ratio: 16 / 8;
     margin-inline: 0;
-    clip-path: polygon(0 0, calc(100% - var(--mill)) 0, 100% var(--mill), 100% 100%, 0 100%);
+    clip-path: polygon(0 0, calc(100% - var(--cut-md)) 0, 100% var(--cut-md), 100% 100%, 0 100%);
   }
   .plate {
     margin-left: 0;
     padding-left: 0;
-    padding-top: var(--s-5);
+    padding-top: var(--s8);
     width: min(640px, 82%);
     margin-top: -96px;
-    padding-right: var(--s-6);
+    padding-right: var(--s9);
   }
 }
 
@@ -128,57 +128,57 @@
 .featureMeta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-1) var(--s-4);
-  color: var(--ink-2);
+  gap: var(--s2) var(--s6);
+  color: var(--text-2);
 }
 
 .featureMeta strong {
-  color: var(--ink);
+  color: var(--text-1);
   font-weight: 700;
 }
 
 .featureActions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3);
-  margin-top: var(--s-2);
+  gap: var(--s5);
+  margin-top: var(--s4);
 }
 
 .side {
   display: grid;
-  gap: var(--s-7);
+  gap: var(--s11);
   align-content: start;
 }
 
 .continue {
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s5);
   align-content: start;
 }
 
 @media (min-width: 1100px) {
   .side {
-    gap: var(--s-6);
-    padding: var(--s-5);
-    background: var(--surface-1);
+    gap: var(--s9);
+    padding: var(--s8);
+    background: var(--bg-panel);
     min-height: 100%;
   }
 }
 
 .rows {
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 /* ---------------------------------------------------------------- friends band */
 
 .friends {
   display: grid;
-  gap: var(--s-3);
-  padding-block: var(--s-5);
+  gap: var(--s5);
+  padding-block: var(--s8);
   margin-inline: calc(-1 * var(--gutter));
   padding-inline: var(--gutter);
-  background: var(--surface-1);
+  background: var(--bg-panel);
 }
 
 .friendsHead {
@@ -191,25 +191,25 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(260px, 1fr);
-  gap: var(--s-3);
+  gap: var(--s5);
   overflow-x: auto;
   scrollbar-width: thin;
-  padding-bottom: var(--s-1);
+  padding-bottom: var(--s2);
 }
 
 .friend {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s-3);
-  padding: var(--s-3);
-  background: var(--surface-2);
+  gap: var(--s5);
+  padding: var(--s5);
+  background: var(--bg-raised);
 }
 
 .friendWho {
   display: flex;
   align-items: center;
-  gap: var(--s-3);
+  gap: var(--s5);
   min-width: 0;
 }
 
@@ -223,7 +223,7 @@
 }
 
 .friendGame {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -239,12 +239,12 @@
 
 .chart {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s8);
 }
 
 .chartHead {
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 .chartTitle {
@@ -258,7 +258,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--s-2) var(--s-6);
+  gap: var(--s4) var(--s9);
 }
 
 @media (min-width: 760px) {
@@ -279,12 +279,12 @@
 
 .firstParty {
   display: grid;
-  gap: var(--s-4);
+  gap: var(--s6);
 }
 
 .fpList {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s8);
 }
 
 @media (min-width: 900px) {
@@ -295,7 +295,7 @@
 
 .fpItem {
   display: grid;
-  gap: var(--s-4);
+  gap: var(--s6);
   align-items: center;
 }
 
@@ -308,7 +308,7 @@
 .fpArt {
   display: block;
   aspect-ratio: 4 / 3;
-  background: var(--surface-2);
+  background: var(--bg-raised);
 }
 
 .fpArt svg {
@@ -318,7 +318,7 @@
 
 .fpText {
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s4);
 }
 
 .fpName {
@@ -337,13 +337,13 @@
 
 .genres {
   display: grid;
-  gap: var(--s-4);
+  gap: var(--s6);
 }
 
 .genreList {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-1) var(--s-5);
+  gap: var(--s2) var(--s8);
 }
 
 .genre {
@@ -351,12 +351,12 @@
   font-size: clamp(1.5rem, 0.9rem + 2.4vw, 3rem);
   font-weight: 800;
   line-height: 1.15;
-  color: var(--ink-2);
-  transition: color var(--dur) var(--ease);
+  color: var(--text-2);
+  transition: color var(--t-base) var(--ease-out);
 }
 
 .genre:hover {
-  color: var(--ink);
+  color: var(--text-1);
   text-decoration: underline;
   text-decoration-thickness: 3px;
   text-underline-offset: 6px;

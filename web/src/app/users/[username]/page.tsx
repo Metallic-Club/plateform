@@ -11,6 +11,7 @@ import { button } from "@/components/ui/button";
 import { getApi } from "@/lib/api";
 import type { SocialPlatform } from "@/lib/api/types";
 import { formatDate, presenceText } from "@/lib/format";
+import { externalHref } from "@/lib/links";
 import { getShell } from "@/lib/prefs.server";
 import { AddFriendButton } from "./AddFriendButton";
 import styles from "./profile.module.css";
@@ -87,8 +88,8 @@ export default async function ProfilePage({ params }: PageProps<"/users/[usernam
             <ul role="list" className={styles.links} aria-label="Linked accounts">
               {user.socialLinks.map((l) => (
                 <li key={l.platform}>
-                  {l.url ? (
-                    <a href={l.url} rel="me noopener noreferrer" target="_blank" className={styles.link}>
+                  {externalHref(l.url) ? (
+                    <a href={externalHref(l.url)!} rel="me noopener noreferrer" target="_blank" className={styles.link}>
                       <span className={styles.linkKind}>{SOCIAL_LABEL[l.platform]}</span>
                       <span className={styles.linkHandle}>{l.handle}</span>
                       <Icon name="external" size={16} />

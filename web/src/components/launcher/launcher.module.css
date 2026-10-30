@@ -1,0 +1,157 @@
+/* Launcher-only panels: Downloads and the Launcher section in Settings. */
+
+.downloads {
+  display: grid;
+  gap: var(--s6);
+}
+
+@media (min-width: 900px) {
+  .downloads {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .studio {
+    grid-column: 1 / -1;
+  }
+}
+
+.card {
+  display: grid;
+  gap: var(--s6);
+  align-content: start;
+  padding: var(--s8);
+  border-radius: var(--r-md);
+  background: var(--bg-panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* The one cut on the page: Studio is the thing to act on. */
+.studio {
+  background: var(--bg-raised);
+  box-shadow: inset 0 1px 0 var(--highlight);
+  clip-path: polygon(0 0, calc(100% - var(--cut-md)) 0, 100% var(--cut-md), 100% 100%, 0 100%);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s6);
+}
+
+.cardHead > svg {
+  flex: none;
+  color: var(--icon);
+}
+
+.cardTitle {
+  font-size: 1rem;
+  font-weight: 620;
+  font-variation-settings: "wdth" 112.5;
+  line-height: 1.25;
+}
+
+.cardMeta {
+  color: var(--text-2);
+  font-size: var(--t-meta);
+}
+
+.cardText {
+  color: var(--text-2);
+  max-width: 60ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s5);
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+}
+
+.track {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--r-xs);
+  background: var(--bg-deep);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--t-slow) var(--ease-out);
+}
+
+.pct {
+  min-width: 4ch;
+  text-align: right;
+  font-size: var(--t-meta);
+  color: var(--text-2);
+}
+
+.notice {
+  padding: var(--s5) var(--s6);
+  border-radius: var(--r-md);
+  background: var(--select-weak);
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--text-1);
+}
+
+.notice[data-tone="warning"] {
+  background: var(--warning-bg);
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.error {
+  padding: var(--s5) var(--s6);
+  border-radius: var(--r-md);
+  background: var(--error-bg);
+  box-shadow: inset 3px 0 0 var(--error);
+  color: var(--text-1);
+  font-size: var(--t-meta);
+}
+
+.loading {
+  color: var(--text-2);
+}
+
+.settings {
+  display: grid;
+  gap: var(--s6);
+  max-width: 60ch;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s5);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.check:has(input:disabled) {
+  cursor: default;
+}
+
+.checkLabel {
+  display: block;
+  font-weight: 560;
+}
+
+.checkNote {
+  display: block;
+  color: var(--text-2);
+  font-size: var(--t-meta);
+}

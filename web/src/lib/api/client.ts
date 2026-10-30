@@ -31,6 +31,7 @@ import type {
   UsernameCheck,
   Viewer,
 } from "./types";
+import type { WebSessionRedemption } from "../launcher-handoff";
 
 /**
  * Everything the website reads from the platform. Pages depend on this
@@ -42,6 +43,14 @@ export interface MetallicApi {
   /** The signed-in account, or null when signed out. */
   getViewer(): Promise<Viewer | null>;
   checkUsername(username: string): Promise<UsernameCheck>;
+  /** Ends the website session (POST /v1/auth/logout). Already signed out is not an error. */
+  logOut(): Promise<void>;
+  /**
+   * Redeems a Launcher web-session code for a website session
+   * (POST /v1/oauth/web-session/redeem, proposed in plateform #7). Never throws:
+   * a used, expired or unknown code is `invalid`, anything else `unavailable`.
+   */
+  redeemWebSession(code: string): Promise<WebSessionRedemption>;
 
   getHome(): Promise<HomeFeed>;
   listGenres(): Promise<Genre[]>;

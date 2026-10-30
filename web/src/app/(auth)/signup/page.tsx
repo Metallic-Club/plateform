@@ -1,11 +1,28 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getShell } from "@/lib/prefs.server";
 import styles from "../auth.module.css";
+import { LauncherSignIn } from "../signin/LauncherSignIn";
 import { SignUpForm } from "./SignUpForm";
 
 export const metadata: Metadata = { title: "Create an account" };
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  if ((await getShell()) === "launcher") {
+    // No password fields inside the Launcher: the account is made in the browser
+    // during the same device sign-in, then this window signs in by itself.
+    return (
+      <div className={`page ${styles.auth}`}>
+        <div className={styles.column}>
+          <h1 className={`wide ${styles.title}`}>Create an account</h1>
+          <p className={styles.lede}>
+            Metallic opens your browser, where you make the account. When you finish, this window signs in.
+          </p>
+          <LauncherSignIn />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={`page ${styles.auth}`}>
       <div className={styles.column}>

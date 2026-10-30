@@ -3,12 +3,13 @@ import Link from "next/link";
 import { GameArt } from "@/components/GameArt";
 import { button } from "@/components/ui/button";
 import { getApi } from "@/lib/api";
+import { getShell } from "@/lib/prefs.server";
 import styles from "./create.module.css";
 
 export const metadata: Metadata = { title: "Create" };
 
 export default async function CreatePage() {
-  const templates = await (await getApi()).listStudioTemplates();
+  const [templates, shell] = await Promise.all([(await getApi()).listStudioTemplates(), getShell()]);
   const [lead, ...rest] = templates;
 
   return (
@@ -22,8 +23,9 @@ export default async function CreatePage() {
           then publish to Explore when it is ready.
         </p>
         <div className={styles.actions}>
-          <Link href="/download#studio" className={button("primary", "large")}>
-            Get Metallic Studio
+          {/* Inside the app, Studio is installed and opened from Downloads. */}
+          <Link href={shell === "launcher" ? "/downloads" : "/download#studio"} className={button("primary", "large")}>
+            {shell === "launcher" ? "Get or open Studio" : "Get Metallic Studio"}
           </Link>
           <a href="#templates" className={button("secondary", "large")}>
             See the templates

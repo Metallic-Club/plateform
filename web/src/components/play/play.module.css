@@ -1,15 +1,59 @@
 .dialogText {
-  color: var(--ink);
+  color: var(--text-1);
   max-width: 52ch;
 }
 
 .dialogActions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3);
+  gap: var(--s5);
 }
 
 .dialogNote {
-  color: var(--ink-2);
+  color: var(--text-2);
   font-size: var(--t-meta);
+}
+
+/* Launcher Play: the status floats under the button so rows do not jump. */
+.launchWrap,
+.launchWrapBlock {
+  position: relative;
+  display: inline-flex;
+}
+
+.launchWrapBlock {
+  display: flex;
+  width: 100%;
+}
+
+.launchStatus {
+  position: absolute;
+  top: calc(100% + var(--s3));
+  right: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: min(32ch, 80vw);
+  padding: var(--s3) var(--s5);
+  border-radius: var(--r-md);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-pop), inset 0 1px 0 var(--highlight);
+  color: var(--text-1);
+  font-size: var(--t-meta);
+  font-weight: 500;
+  white-space: normal;
+}
+
+.launchWrapBlock .launchStatus {
+  left: 0;
+  right: auto;
+}
+
+.launchStatus[data-tone="error"] {
+  background: var(--error-bg);
+  color: var(--text-1);
+  box-shadow: var(--shadow-pop), inset 3px 0 0 var(--error);
+}
+
+.launchStatus[hidden] {
+  display: none;
 }

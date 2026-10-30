@@ -1,8 +1,8 @@
 .wrap {
   display: grid;
-  gap: var(--s-4);
+  gap: var(--s6);
   justify-items: start;
-  padding-block: var(--s-8);
+  padding-block: var(--gap-section);
   min-height: 60vh;
   align-content: center;
 }
@@ -13,7 +13,7 @@
   font-weight: 800;
   line-height: 0.8;
   letter-spacing: -0.04em;
-  color: var(--surface-3);
+  color: var(--bg-active);
 }
 
 .title {
@@ -22,12 +22,12 @@
 
 .text {
   max-width: 56ch;
-  color: var(--ink-2);
+  color: var(--text-2);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3);
-  margin-top: var(--s-2);
+  gap: var(--s5);
+  margin-top: var(--s4);
 }

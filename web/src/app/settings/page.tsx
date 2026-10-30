@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LauncherSettings } from "@/components/launcher/LauncherSettings";
 import { ThemePicker } from "@/components/ThemePicker";
 import { getApi, getMockScenario } from "@/lib/api";
 import { getPrefs } from "@/lib/prefs.server";
@@ -29,6 +30,7 @@ export default async function SettingsPage() {
         {viewer ? <a href="#account">Account and privacy</a> : null}
         <a href="#appearance">Appearance</a>
         <a href="#display">Display</a>
+        {prefs.shell === "launcher" ? <a href="#launcher">Metallic app</a> : null}
         {usingMock ? <a href="#preview">Preview tools</a> : null}
       </nav>
 
@@ -94,6 +96,15 @@ export default async function SettingsPage() {
         />
       </section>
 
+      {prefs.shell === "launcher" ? (
+        <section id="launcher" className={styles.section} aria-labelledby="launcher-title">
+          <h2 id="launcher-title" className={styles.h2}>
+            Metallic app
+          </h2>
+          <LauncherSettings />
+        </section>
+      ) : null}
+
       {usingMock ? (
         <section id="preview" className={styles.section} aria-labelledby="preview-title">
           <h2 id="preview-title" className={styles.h2}>
@@ -121,7 +132,11 @@ export default async function SettingsPage() {
             current={prefs.shell}
             options={[
               { value: "browser", label: "Web browser", note: "Play opens the Get Metallic flow." },
-              { value: "launcher", label: "Metallic app", note: "Play opens games directly, as inside the launcher." },
+              {
+                value: "launcher",
+                label: "Metallic app",
+                note: "The layout the app shows. The app itself is detected from its user agent; this only previews it.",
+              },
             ]}
           />
         </section>

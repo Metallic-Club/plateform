@@ -1,6 +1,6 @@
 # Metallic web: design notes
 
-Why the site looks the way it does, one line per decision. Tokens live in `src/app/globals.css`.
+Why the site looks the way it does, one line per decision. Colours, spacing, radii, the cut and motion are the shared Metallic tokens in `src/styles/metallic-tokens.css` (a copy of studio's `docs/design/visual-language/assets/tokens.css`, from studio PR #199, until studio#196 generates it). `src/app/globals.css` adds the Titanium and Light theme blocks and the web-only values.
 
 ## Reading of the brief
 
@@ -30,7 +30,8 @@ The design is set low on all three: ENERGY 2, RHYTHM 2, MOTION 1.
 
 - **Colour**
   - Graphite ground with three steps of surface, plus silver ink, because the brand names graphite, titanium and silver.
-  - Violet is used only on the primary action of a screen and on the "in a game" presence dot. It appears nowhere else, so it always means "go".
+  - Violet is used only on the primary action of a screen, selection, focus and the "in a game" presence dot. It appears nowhere else, so it always means "go".
+  - Text on violet is dark graphite in the dark themes (white on violet-400 fails contrast), white in Light.
   - There are no gradients, glows, glass or neon. The brand rules them out, and they would compete with the game art.
 - **Themes**
   - The theme ids are Graphite (default), Titanium (a lighter dark), Light (shown as "Aluminium") and System. These ids match the spec's `Settings.theme`, so the choice can be saved to the account later.
@@ -68,3 +69,13 @@ The design is set low on all three: ENERGY 2, RHYTHM 2, MOTION 1.
 ## Swapping the emblem
 
 The emblem is a placeholder and is drawn in `src/components/Emblem.tsx` only. To change it, replace that file. The favicon is `src/app/icon.png`.
+
+## Inside the desktop Launcher
+
+- The `launcher` shell is chosen from the user-agent suffix ` MetallicLauncher/<version> bridge/<n>` (`src/lib/launcher-ua.ts`). The `metallic_shell` cookie (`?shell=`, Settings, Preview tools) overrides it for previews. Neither is a security boundary; they only change the layout.
+- The page talks to the Launcher only through `src/lib/launcher-bridge.ts`, which feature-checks `window.metallic`, allows exactly the commands and events of plateform #7 and falls back to the plain site without a bridge.
+- In the Launcher: Play calls the bridge's `play`; there are no "get the app" prompts; the header shows a status chip only when something needs attention ("Restart to update", an update or Studio install in progress); Downloads has Get Studio / Open Studio and the app's update state; Settings has the close-to-tray switch; sign-in and sign-up use the device flow and never show a password field.
+- The layout is checked at the Launcher's minimum window, 960 x 600: the game page goes two-column from 900px, and the header search folds into its icon below 1200px.
+- Every page gets a nonce-based CSP from `src/proxy.ts` and HSTS from `next.config.ts`. No third-party scripts, fonts or frames.
+- `/healthz` belongs to the API (`api/openapi.yaml`, same origin), not to this app.
+- Screenshots: `docs/screenshots/launcher/` (before and after, browser at 1440 and Launcher at 960 x 600 with a stand-in bridge).
