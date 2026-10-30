@@ -1,0 +1,4 @@
+# Health checks are for load balancers and have no 4xx response by design.
+api/openapi.yaml:
+  operation-4xx-response:
+    - '#/paths/~1healthz/get/responses'
