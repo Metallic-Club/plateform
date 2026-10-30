@@ -38,13 +38,22 @@ and is not created. The rules and canonical signup/login/OpenAPI predicates were
 Targeted red/green runs used lane116's guard after its worktree ownership cleanup; output confirms this new server
 source path. Only local workspace artifacts were removed. Existing PostgreSQL was used without setup/download or
 credential printing. The unsafe baseline sweep was never run. Full guarded backend checks passed: **67 tests**,
-32 unit + 35 API, including all 61 current-base operations and all six new cases. Fmt, licenses, OpenAPI lint and
-whitespace checks passed; strict Clippy is finishing. Existing unused-license allowances and the health-route
+32 unit + 35 API, including all 61 operations on that earlier base and all six new cases. Fmt, licenses, OpenAPI lint,
+whitespace and strict Clippy checks passed. Existing unused-license allowances and the health-route
 lint ignore remain. Independent read-only review found no blocking issue. No web directory or CI workflow exists
 on this base, so no web build or CI result is claimed. No dependency, Cargo.lock or migration changed.
 
+Pre-publication fetch then found canonical `c12b8c044ebd86f95b73ce810075066db425e91c`, adding the lead's web-session
+handoff. It was brought into this unpublished branch with normal merge `e39c3a1`; no rebase or force push. The
+handoff code/policy is unchanged by this task, and the PR diff still contains only this fix/docs/tests/safe cleanup.
+The 67-test results above apply to the earlier base. Fresh checks on the merged final base passed **68 tests**
+(32 unit + 36 API), including all **63** current operations and the new canonical handoff walkthrough. Fresh
+strict all-targets Clippy, fmt, licenses, Redocly and whitespace checks also passed. Independent review of this
+task's source/tests found no blocking issue. This verifies the stated inputs, not repository lead acceptance.
+
 Logs in `%TEMP%`: `metallic-platform15-red.log`, `metallic-platform15-red-contract-aligned.log`,
-`metallic-platform15-green.log`, `metallic-platform15-full.log`, `metallic-platform15-clippy.log`.
+`metallic-platform15-green.log`, `metallic-platform15-full.log`, `metallic-platform15-clippy.log`,
+`metallic-platform15-final-base-full.log`, `metallic-platform15-final-base-clippy.log`.
 
 The prior [integration issue 14](https://github.com/Metallic-Club/plateform/issues/14) remains historical evidence
 for exact old base `7b0f69b`, PR 11 `11d402c` and PR 13 `3637db2`; it is not acceptance of the updated canonical base.
