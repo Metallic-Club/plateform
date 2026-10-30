@@ -227,6 +227,47 @@ class PreparationTests(unittest.TestCase):
                 smoke.smoke(self.state)
             engine.assert_not_called()
 
+    def test_private_source_sql_gets_a_readable_protected_bootstrap_copy(self):
+        source = self.parent / "private checkout"
+        source.mkdir(mode=0o700)
+        sql = source / "init.sql"
+        sql.write_bytes((host.HERE / "init.sql").read_bytes())
+        sql.chmod(0o600)
+        with patch.object(host, "HERE", source):
+            host.prepare(self.state)
+            mounted = self.state / "init.sql"
+            self.assertEqual(mounted.read_bytes(), sql.read_bytes())
+            if os.name == "posix":
+                self.assertEqual(mounted.stat().st_mode & 0o777, 0o444)
+                self.assertEqual(self.state.stat().st_mode & 0o777, 0o700)
+                self.assertEqual(sql.stat().st_mode & 0o777, 0o600)
+            before = {p.name: p.read_bytes() for p in (self.state / "secrets").iterdir()}
+            host.prepare(self.state)
+            self.assertTrue(before == {p.name: p.read_bytes() for p in (self.state / "secrets").iterdir()}, "Bootstrap preparation must preserve secret bytes")
+
+    def test_foreign_bootstrap_is_not_overwritten_or_allowed_by_compose(self):
+        host.prepare(self.state)
+        mounted = self.state / "init.sql"
+        mounted.chmod(0o600)
+        mounted.write_bytes(b"foreign SQL fixture")
+        mounted.chmod(0o444)
+        for action in [lambda: host.prepare(self.state), lambda: host.compose(self.state, 18080)]:
+            with self.assertRaises(host.HostError):
+                action()
+        self.assertEqual(mounted.read_bytes(), b"foreign SQL fixture")
+
+    @unittest.skipUnless(os.name == "posix", "POSIX symlink contract")
+    def test_bootstrap_symlink_is_rejected_without_changing_its_target(self):
+        host.prepare(self.state)
+        mounted = self.state / "init.sql"
+        mounted.unlink()
+        foreign = self.parent / "retain.sql"
+        foreign.write_bytes(b"retain")
+        mounted.symlink_to(foreign)
+        with self.assertRaises(host.HostError):
+            host.prepare(self.state)
+        self.assertEqual(foreign.read_bytes(), b"retain")
+
 
 if __name__ == "__main__":
     unittest.main()

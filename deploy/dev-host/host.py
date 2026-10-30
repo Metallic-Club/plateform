@@ -19,6 +19,7 @@ import urllib.request
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 SECRET_NAMES = ("db_password", "pg_admin_password", "hmac_key", "data_key", "server_secret")
+INIT_SHA256 = "aa53101795acf8322f48ce495b7960bbeb4f01586cb9d05d900b5af92d6a148e"
 
 
 class HostError(Exception):
@@ -80,6 +81,7 @@ def prepare(value):
     private_directory(state, create=True)
     if (state / "secrets").exists() or (state / "secrets").is_symlink():
         validate_secrets(state)
+        prepare_bootstrap(state)
         return state
     if any(state.iterdir()):
         raise HostError("Refusing to initialize a nonempty state directory without its original secrets.")
@@ -103,6 +105,7 @@ def prepare(value):
                 path.unlink()
             staging.rmdir()
     validate_secrets(state)
+    prepare_bootstrap(state)
     return state
 
 
@@ -115,6 +118,45 @@ def sync_directory(path):
             os.close(descriptor)
 
 
+def bootstrap_source():
+    source = HERE / "init.sql"
+    if source.is_symlink() or not source.is_file() or source.stat().st_size > 65536:
+        raise HostError("Bootstrap source must be the reviewed regular SQL file.")
+    content = source.read_bytes()
+    if hashlib.sha256(content).hexdigest() != INIT_SHA256:
+        raise HostError("Bootstrap source differs from its reviewed checksum.")
+    return content
+
+
+def validate_bootstrap(state):
+    path = state / "init.sql"
+    content = bootstrap_source()
+    if path.is_symlink() or not path.is_file() or path.stat().st_size != len(content):
+        raise HostError("Run prepare to install the reviewed regular bootstrap copy; foreign paths are refused.")
+    if path.read_bytes() != content:
+        raise HostError("Existing bootstrap differs; preserve it for review rather than overwriting it.")
+    if os.name == "posix":
+        info = path.stat()
+        if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o444:
+            raise HostError("Bootstrap copy must belong to this account with mode 0444.")
+
+
+def prepare_bootstrap(state):
+    path = state / "init.sql"
+    if path.exists() or path.is_symlink():
+        validate_bootstrap(state)
+        return
+    content = bootstrap_source()
+    # Exclusive creation never replaces an existing path. Compose validates complete content before use.
+    with path.open("xb") as output:
+        output.write(content)
+        output.flush()
+        path.chmod(0o444)
+        os.fsync(output.fileno())
+    sync_directory(state)
+    validate_bootstrap(state)
+
+
 def docker_prefix(sudo=False):
     return ["sudo", "--preserve-env=METALLIC_STATE_DIR,METALLIC_DEV_PORT,METALLIC_PROJECT", "--", "docker"] if sudo else ["docker"]
 
@@ -122,6 +164,7 @@ def docker_prefix(sudo=False):
 def compose(value, port, sudo=False):
     state = checked_path(value)
     validate_secrets(state)
+    validate_bootstrap(state)
     if not 1 <= port <= 65535:
         raise HostError("Port must be between 1 and 65535.")
     project = "metallic-dev-" + hashlib.sha256(os.fsencode(state)).hexdigest()[:12]
@@ -146,6 +189,7 @@ def run_compose(state, port, arguments, sudo=False, **kwargs):
 def backup_path(state, name):
     state = checked_path(state)
     validate_secrets(state)
+    validate_bootstrap(state)
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,100}\.dump", name) is None:
         raise HostError("Backup name must be a plain ASCII .dump filename.")
     directory = state / "backups"

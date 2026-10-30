@@ -24,6 +24,7 @@ jobs:
           (umask 022; python3 -I -m unittest discover -s deploy/dev-host -p test_host.py -v)
       - name: Prepare and validate private configuration
         run: |
+          chmod 0600 deploy/dev-host/init.sql
           python3 deploy/dev-host/host.py prepare --state-dir "$RUNNER_TEMP/metallic-dev-host"
           python3 deploy/dev-host/host.py config --state-dir "$RUNNER_TEMP/metallic-dev-host"
       - name: Build locked canonical backend and launch ephemeral project

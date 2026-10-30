@@ -64,7 +64,7 @@ services:
       # PostgreSQL 18 uses PGDATA=/var/lib/postgresql/18/docker, not the pre18 data mount.
       - postgres_data:/var/lib/postgresql
       - type: bind
-        source: ./init.sql
+        source: "${METALLIC_STATE_DIR:?Run host.py}/init.sql"
         target: /docker-entrypoint-initdb.d/10-metallic.sql
         read_only: true
         bind: {create_host_path: false}

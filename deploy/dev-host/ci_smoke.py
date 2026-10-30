@@ -79,6 +79,9 @@ def smoke(state):
         assert service["logging"]["options"] == {"max-size": "10m", "max-file": "3"}
     assert api["read_only"] and api["user"] == "10001:10001"
     assert any(mount["target"] == "/var/lib/postgresql" for mount in database["volumes"])
+    bootstrap = next(mount for mount in database["volumes"] if mount["target"] == "/docker-entrypoint-initdb.d/10-metallic.sql")
+    assert bootstrap["read_only"] and Path(bootstrap["source"]) == state / "init.sql"
+    assert (state / "init.sql").stat().st_mode & 0o777 == 0o444
     ready()
     for service in ("api", "db"):
         container = capture(state, ["ps", "--quiet", service]).decode("ascii").strip()

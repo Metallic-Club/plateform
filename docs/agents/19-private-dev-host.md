@@ -2,7 +2,7 @@
 
 ## Goal and base
 
-Provide a reviewable private Linux/amd64 development-host bundle, not production hosting or multiplayer. Branch `platform/19-private-dev-host`, canonical base `c12b8c044ebd86f95b73ce810075066db425e91c`. Pending PR11/13/16/18 implementations are excluded. No remote Docker install, service start, permission change or credential output is authorized by this source PR.
+Provide a reviewable private Linux/amd64 development-host bundle, not production hosting or multiplayer. Branch `platform/19-private-dev-host`, initial canonical base `c12b8c044ebd86f95b73ce810075066db425e91c`, normally merged to `653a42241f29e9949f272e60fedd52a76870dc09` for publication (only the lead's Metallic Play error-detail wording changed). Pending PR11/13/16/18 implementations are excluded. No remote Docker install, service start, permission change or credential output is authorized by this source PR.
 
 ## Implemented
 
@@ -22,9 +22,9 @@ Repeated only reviewed issue 8's ownership-safe test cleanup (`server/tests/api/
 - Registry tag/manifest verification passed for the three official image pins documented in the runbook.
 - Initial source checkpoint `4d371c16ea6cc9fe4c71ce983ef1810cac0efb13` had 17/18 Linux tests pass: inherited umask 077 changed an intended 0755 test fixture into 0700. This was a fixture assumption, not a production permission bug. The fixture explicitly sets 0755 in the next checkpoint.
 - Reviewed source checkpoint `41526cb20304863031541582971637aa831ec9cd`: all 20 Linux helper tests passed under both 077 and 022 umasks, no failures/skips. Host-local secret preparation and quiet daemon-free Compose configuration passed. Source archive SHA256: `719d071283ba00790ca6400b22a21b15040ad39a8f53938f2ad9250e7c5e5844`.
-- Windows helper suite: 18 passed, two POSIX-only cases explicitly skipped. Python source compilation and Git whitespace checks passed.
-- Mandatory backend suite: 62 tests passed (32 unit + 30 HTTP/database), zero failures or ignored. Contract walkthrough covers all 63 canonical operations. Guarded lane116 rebuilt this checkout's package with Cargo `-j4`, test harness four threads.
-- Strict all-target Clippy, cargo fmt check, cargo deny licenses and Redocly1 passed. License output has existing unmatched-allowance warnings; Redocly reports one configured ignored problem. OpenAPI/production Rust/migrations are byte-unchanged from canonical base. No web directory exists, so web checks are inapplicable.
+- Current Windows helper suite: 20 passed, three POSIX-only cases explicitly skipped (23 cases). Python source compilation and Git whitespace checks passed.
+- Initial c12 mandatory backend suite: 62 tests passed (32 unit + 30 HTTP/database), zero failures or ignored. Contract walkthrough covers all 63 canonical operations. Guarded lane116 rebuilt this checkout's package with Cargo `-j4`, test harness four threads.
+- Initial c12 strict all-target Clippy, cargo fmt check, cargo deny licenses and Redocly1 passed. Fresh 653-base strict Clippy/fmt/licenses/Redocly passed. Its initial four-thread full run had one readiness 503 while all other 29 API cases passed. Bounded follow-up inspection found the local cluster stopped, with connection-refused and no listener; the exited pool could not be observed. Start-only recovery of the existing cluster succeeded. The exact contract case then passed, followed by the complete quiet serial 62-test suite. Concurrency and later cluster unavailability do not prove the earlier request failure's cause; the original failed run remains recorded. No readiness bound was changed. License output has existing unmatched-allowance warnings; Redocly reports one configured ignored problem. OpenAPI/production Rust/migrations are byte-unchanged from canonical base. No web directory exists, so web checks are inapplicable.
 - No local Docker executable/daemon is available. A remote owned preview was used only for Linux helper tests, key preparation and daemon-free configuration: no Docker startup, administrator change or runtime deployment occurred. Image/runtime/backup-restore execution is intentionally delegated to the new PR workflow; at initial publication it has not executed. Consult the PR's current checks rather than inferring a CI result from this source note.
 
 ## Commands and follow-up
@@ -42,3 +42,7 @@ pnpm dlx --package=@redocly/cli@1 redocly lint api/openapi.yaml
 The complete runbook lives in `deploy/dev-host/README.md`. No feature implementation is imported from PR11/13/16/18; only issue 8's separately tracked safe test-cleanup prerequisite is duplicated. The new narrow workflow is part of this host issue; earlier base verification correctly reported no existing workflow.
 
 After publication, review the actual Linux Docker smoke result and fix any failure before an operator launches. The administrator's concrete one-command launch is documented, but requires a later explicit owner action on their terminal. No password capture, persistent Docker-group grant, aggregate feature merge or production/multiplayer acceptance is part of this work.
+
+## Final bootstrap-copy robustness change
+
+The reviewed preview's checkout SQL was 0644; no permission failure was observed on that host. To support legitimate 0600 private checkouts, preparation now installs a checksum-bound nonsecret 0444 bootstrap copy under 0700 state and mounts that file individually. Existing foreign/symlink copies are refused before mutation; secrets remain unchanged. The workflow explicitly makes the source 0600 before preparation. The three added cases are locally green where applicable; fresh Linux execution/configuration of this final helper is pending the published-head preview/CI. Runtime Rust, OpenAPI and migrations still exactly match canonical 653, so no backend rerun is needed for this Python/Compose-only change.

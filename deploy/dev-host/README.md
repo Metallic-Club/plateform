@@ -3,7 +3,7 @@
 This bundle hosts one canonical P1 development API and its database on Linux/amd64. It uses the development mailer
 and the literal development captcha token. It is for private testing through a local connection or SSH tunnel.
 It is not a production service, a website, a multiplayer game server or a game-process allocator. Do not put real
-accounts or personal data here. Canonical source base: `c12b8c044ebd86f95b73ce810075066db425e91c`; pending connection,
+accounts or personal data here. Canonical source base: `653a42241f29e9949f272e60fedd52a76870dc09`; pending connection,
 refresh-family, Unicode-password and handoff-expiry PR implementations are excluded.
 
 ## Prerequisites and boundaries
@@ -47,6 +47,14 @@ traverse the parent. Compose file-backed secrets use bind mounts; its requested 
 these file permissions. Docker administrators and host root can read them. The entrypoint loads four files into
 the API's process environment because canonical P1 currently supports environment configuration only; this is not
 an encrypted secret manager. No secret is a Docker build argument or image/config value.
+
+Preparation also creates a nonsecret 0444 `init.sql` copy beneath the 0700 state directory. PostgreSQL mounts that
+individual copy, so its non-root initialization process can read it even when a private checkout keeps source files
+at 0600. The source and mounted copy must match the reviewed checksum in `host.py`; symlinks and unknown existing
+copies are refused without replacement. Repeating preparation preserves the copy and every secret byte. If a later
+review changes the initialization SQL, update its reviewed checksum too; preparation will refuse a stale copy.
+The administrator must retain that old file for review and explicitly replace only the bootstrap copy before
+preparing again. This does not rerun first-boot scripts on an existing database or rotate keys.
 
 ## Explicit launch, migration and lifecycle
 
@@ -132,6 +140,7 @@ different empty project. Only this ephemeral CI smoke deletes its explicitly sel
 not push an image or deploy a host; its token has only `contents:read` and checkout credentials are not retained.
 The smoke and destructive cleanup refuse to run outside GitHub Actions or outside its validated `RUNNER_TEMP`;
 they cannot be used as ordinary host lifecycle commands. Helper tests run with both restrictive and usual umasks.
+The workflow makes the checkout SQL file 0600 before preparation to exercise the protected bootstrap mount.
 
 Image tags and multi-platform manifest digests were verified through the public Docker registry on 2026-10-30:
 
