@@ -1,6 +1,6 @@
 # Metallic platform server
 
-Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 64 operations implemented, none
+Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 68 operations implemented, none
 answer 501). Design: `../docs/superpowers/specs/2026-10-30-platform-design.md`.
 
 ## Local database (no Docker, no admin rights)
@@ -126,10 +126,15 @@ legacy compatibility, exact eligibility, concurrent single-use admission and det
 
 - argon2id (m=19456, t=2, p=1); emails, birth dates and parent emails encrypted with AES-256-GCM; lookups use keyed
   hashes. Session and refresh tokens stored as SHA-256 only.
+- Signup and login share the 128-Unicode-code-point password maximum. Hashing and verification use the complete
+  original UTF-8 bytes, without normalization, trimming or truncation.
 - Session cookie: HttpOnly, Secure, SameSite=Lax. CSRF token = HMAC of the session, checked in constant time on
   unsafe methods; Origin allow-list on unsafe requests.
 - Native apps: device flow (RFC 8628), 15-minute access tokens, rotating 30-day refresh tokens; reuse revokes the
-  whole family. No password ever enters the Player or Studio.
+  whole family. Rotation, replay handling and native sign-out share a transaction-scoped family lock, acquired
+  before refresh-token row locks. Validation runs after waiting; revocation updates both token tables atomically.
+  This prevents concurrent minting from escaping a completed family revocation. Access-token-only revocation
+  retains its narrower effect. No password ever enters the Player or Studio.
 - Rate limits per address and per account (in-memory; Valkey with scale-out). 64 KiB body limit, request timeout,
   security headers, CORS allow-list (never `*`).
 - Logs carry method, route template and status; never emails, IPs, tokens or bodies.

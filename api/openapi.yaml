@@ -180,6 +180,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401':
           description: Wrong login or password. The response never says which.
           content:
@@ -331,7 +332,8 @@ paths:
       description: |
         Grants: `urn:ietf:params:oauth:grant-type:device_code` (RFC 8628), `authorization_code` with PKCE
         (RFC 7636, loopback redirect per RFC 8252) and `refresh_token`. Refresh tokens rotate on every use; reusing an
-        old one revokes the whole chain.
+        old one revokes the whole chain. Rotation and family revocation serialize: a concurrent rotation cannot
+        leave a usable descendant after replay detection or native sign-out has completed.
       security: []
       requestBody:
         required: true
@@ -368,6 +370,9 @@ paths:
       tags: [auth]
       operationId: revokeToken
       summary: Revoke a refresh or access token (RFC 7009)
+      description: |
+        Refresh-token revocation atomically ends the entire sign-in family, including a rotation already in flight.
+        Access-token revocation ends only that access token. Invalid or already-revoked tokens still return 200.
       security: []
       requestBody:
         required: true
@@ -414,7 +419,8 @@ paths:
       summary: Trade a web-session code for a website session (called by the website's server)
       description: |
         Answers like `logIn`: the session and `Set-Cookie`. A wrong, used or expired code is always the same 400
-        (`invalid_code`).
+        (`invalid_code`). Codes must still be valid when claimed after any database-lock wait; invalid redemption
+        does not create a session or set a session cookie.
       security: []
       requestBody:
         required: true
@@ -440,7 +446,7 @@ paths:
                 title: This sign-in link has expired
                 status: 400
                 code: invalid_code
-                detail: Sign in again from the Metallic app.
+                detail: Sign in again from Metallic Play.
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
   # ---------------------------------------------------------------- users
@@ -2135,7 +2141,7 @@ components:
           type: string
           minLength: 10
           maxLength: 128
-          description: Checked against a breached-password list. No other composition rules.
+          description: Length counts Unicode code points, not UTF-8 bytes. Checked against a breached-password list. No other composition rules.
         email: { type: string, format: email, maxLength: 254 }
         birthDate:
           type: string
@@ -2152,7 +2158,10 @@ components:
       required: [login, password]
       properties:
         login: { type: string, description: Username or email., maxLength: 254 }
-        password: { type: string, maxLength: 128 }
+        password:
+          type: string
+          maxLength: 128
+          description: Length counts Unicode code points, as at signup. The complete original value is verified without normalization or truncation.
         totpCode: { type: string, pattern: '^[0-9]{6}$' }
         captchaToken: { type: string }
     Session:
