@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Metallic Platform API
-  version: 0.1.0
+  version: 0.1.1
   summary: Public HTTP API for the Metallic website, Launcher, Player and Studio (milestone P1).
   description: |
     The platform API behind the Metallic website, the desktop Launcher, the Metallic player and Metallic Studio.
@@ -1356,8 +1356,10 @@ paths:
       operationId: getWallet
       summary: Currency balance
       description: |
-        `available` can be spent now. `pending` is credited but on hold (new purchases for 72 hours, creator earnings
-        for 7 days) so refunds and chargebacks can be reversed without a negative balance.
+        `available` can be spent now. `giftable` is the part of `available` that can also be gifted (purchased credits
+        become giftable 72 hours after purchase). `pending` is creator earnings in escrow (7 days for game sales,
+        30 days for marketplace sales). A chargeback on spent credits can make `available` negative; spending then
+        pauses until it is positive again.
       responses:
         '200':
           description: Balances.
@@ -1366,7 +1368,7 @@ paths:
               schema: { $ref: '#/components/schemas/Wallet' }
               example:
                 balances:
-                  - { currency: credits, available: 420, pending: 80 }
+                  - { currency: credits, available: 420, giftable: 300, pending: 80 }
                 updatedAt: '2026-10-30T05:59:58Z'
         '401': { $ref: '#/components/responses/Unauthorized' }
 
@@ -2244,10 +2246,13 @@ components:
       description: The one platform currency. "credits" is a working name until the owner picks one.
     Balance:
       type: object
-      required: [currency, available, pending]
+      required: [currency, available, giftable, pending]
       properties:
         currency: { $ref: '#/components/schemas/Currency' }
-        available: { type: integer, minimum: 0 }
+        available:
+          type: integer
+          description: Spendable now. Negative only after a chargeback on credits already spent.
+        giftable: { type: integer, minimum: 0 }
         pending: { type: integer, minimum: 0 }
     Wallet:
       type: object
