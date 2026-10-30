@@ -18,6 +18,9 @@ info:
       Native clients (Launcher, Player, Studio) use a bearer access token from the device or PKCE flow and send no
       cookie. Native clients never see a password.
     - Rate limits are reported with `RateLimit-Policy` and `RateLimit` headers; a 429 carries `Retry-After`.
+    - Any operation may also answer, with a problem body: 403 `csrf_failed` or `origin_not_allowed` (browser
+      requests failing the CSRF or Origin check), 408 (timeout), 413 (body over 64 KiB), 415 (not JSON),
+      429 (rate limited) and 500. These are not repeated on every operation.
   license:
     name: Proprietary
     identifier: LicenseRef-Metallic-Proprietary
@@ -43,6 +46,8 @@ tags:
     description: Avatar items, inventory and the worn avatar (read in P1, plus equip).
   - name: economy
     description: Currency balance and transaction history (read only in P1).
+  - name: internal
+    description: Game-server calls (`/internal/v1`). Not public; the gateway blocks them from the internet.
 
 security:
   - sessionCookie: []
@@ -1413,6 +1418,130 @@ paths:
                 nextCursor: null
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  # ---- internal: game servers only, never exposed through the public gateway
+  /internal/v1/servers:
+    post:
+      tags: [internal]
+      operationId: registerGameServer
+      summary: A game server announces itself
+      description: Called once at start. The server then sends a heartbeat every `heartbeatIntervalSecs`.
+      x-internal: true
+      security: [{ gameServerSecret: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gameId, placeId, region, maxPlayers]
+              properties:
+                gameId: { $ref: '#/components/schemas/Id' }
+                placeId: { $ref: '#/components/schemas/Id' }
+                region: { type: string, pattern: '^[a-z]{2,8}-[a-z]{2,12}$' }
+                maxPlayers: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        '201':
+          description: Registered.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [serverId, heartbeatIntervalSecs]
+                properties:
+                  serverId: { $ref: '#/components/schemas/Id' }
+                  heartbeatIntervalSecs: { type: integer, minimum: 1 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /internal/v1/servers/{serverId}/heartbeat:
+    post:
+      tags: [internal]
+      operationId: heartbeatGameServer
+      summary: The server's current, authoritative player list
+      description: |
+        Players new since the last heartbeat start a play session (and count a visit); players gone end it and add
+        the time to their play history. A server silent for 30 seconds stops counting as live and is stopped.
+      x-internal: true
+      security: [{ gameServerSecret: [] }]
+      parameters:
+        - { name: serverId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                players: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/Id' } }
+                joinable: { type: boolean, default: true }
+                status: { type: string, enum: [running, draining], default: running }
+      responses:
+        '204': { description: Recorded. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: The server was stopped (missed heartbeats); register again.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /internal/v1/servers/{serverId}/stop:
+    post:
+      tags: [internal]
+      operationId: stopGameServer
+      summary: The server is shutting down
+      x-internal: true
+      security: [{ gameServerSecret: [] }]
+      parameters:
+        - { name: serverId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+      responses:
+        '204': { description: Stopped; open play sessions closed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /internal/v1/join-tickets/redeem:
+    post:
+      tags: [internal]
+      operationId: redeemJoinTicket
+      summary: Check a player's join ticket when they connect
+      description: Single use, 60 seconds, bound to the user, the place and (once chosen) the server.
+      x-internal: true
+      security: [{ gameServerSecret: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket, serverId]
+              properties:
+                ticket: { type: string, maxLength: 128 }
+                serverId: { $ref: '#/components/schemas/Id' }
+      responses:
+        '200':
+          description: Valid; let the player in.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId, username, displayName, gameId, placeId]
+                properties:
+                  userId: { $ref: '#/components/schemas/Id' }
+                  username: { type: string }
+                  displayName: { type: string }
+                  gameId: { $ref: '#/components/schemas/Id' }
+                  placeId: { $ref: '#/components/schemas/Id' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: The ticket is for another game, place or server.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '410':
+          description: Expired, already used or unknown.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
 components:
   securitySchemes:
     sessionCookie:
@@ -1424,6 +1553,11 @@ components:
       type: http
       scheme: bearer
       description: Access token from `/v1/oauth/token` (15 minutes). Native apps only.
+    gameServerSecret:
+      type: apiKey
+      in: header
+      name: X-Metallic-Server-Secret
+      description: Shared secret for game servers (`METALLIC_SERVER_SECRET`). Internal endpoints only.
 
   headers:
     SetSessionCookie:
