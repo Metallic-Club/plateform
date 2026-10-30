@@ -52,7 +52,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!_next/|api/|icon|favicon|.*\.(?:png|svg|ico|jpg|webp|txt)$).*)",
+      source: "/((?!_next/|api/|healthz$|icon|favicon|.*\.(?:png|svg|ico|jpg|webp|txt)$).*)",
       // Prefetches carry no document, so they need no policy.
       missing: [
         { type: "header", key: "next-router-prefetch" },
