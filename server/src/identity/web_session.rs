@@ -123,7 +123,7 @@ fn invalid_code() -> Problem {
         "invalid_code",
         "This sign-in link has expired",
     )
-    .with_detail("Sign in again from the Metallic app.")
+    .with_detail("Sign in again from Metallic Play.")
 }
 
 fn no_store(mut r: Response) -> Response {
