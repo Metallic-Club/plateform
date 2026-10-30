@@ -1,0 +1,212 @@
+.browser {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--s-3) var(--s-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--s-1);
+  font-size: var(--t-meta);
+  color: var(--ink-2);
+}
+
+.field select {
+  min-height: 44px;
+  min-width: 160px;
+  padding: 0 var(--s-3);
+  border: 0;
+  border-radius: 2px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--t-body);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent-fill);
+}
+
+.scope {
+  flex-basis: 100%;
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+}
+
+.empty {
+  padding: var(--s-5);
+  background: var(--surface-1);
+  color: var(--ink-2);
+}
+
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  min-height: 44px;
+}
+
+/* A real table: rows separated by tone, not rules. */
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+}
+
+.table thead th {
+  text-align: left;
+  font-size: var(--t-meta);
+  font-weight: 500;
+  color: var(--ink-2);
+  padding: 0 var(--s-4) var(--s-1);
+}
+
+.table tbody tr {
+  background: var(--surface-1);
+}
+
+.table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.table th[scope="row"],
+.table td {
+  padding: var(--s-3) var(--s-4);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.serverName {
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.serverId {
+  display: block;
+  font-weight: 400;
+  font-size: var(--t-meta);
+  color: var(--ink-2);
+}
+
+.players {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  white-space: nowrap;
+}
+
+.bar {
+  display: block;
+  width: 96px;
+  height: 6px;
+  background: var(--surface-3);
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  background: var(--ink-2);
+}
+
+.bar span[data-full] {
+  background: var(--ink);
+}
+
+.fullTag {
+  color: var(--ink-2);
+}
+
+.ping {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  white-space: nowrap;
+}
+
+.pingWord {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+}
+
+.ping[data-quality="slow"] svg {
+  color: var(--danger);
+}
+
+.friends {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.friendNames {
+  margin-left: var(--s-2);
+  font-size: var(--t-meta);
+}
+
+.none {
+  color: var(--ink-2);
+  font-size: var(--t-meta);
+}
+
+.joinCell {
+  text-align: right !important;
+  width: 1%;
+}
+
+/* Phones: each server becomes a compact two-line card. */
+@media (max-width: 719px) {
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .table,
+  .table tbody {
+    display: block;
+  }
+  .table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--s-2) var(--s-3);
+    padding: var(--s-3) var(--s-4);
+    margin-bottom: 4px;
+  }
+  .table th[scope="row"],
+  .table td {
+    display: block;
+    padding: 0;
+  }
+  .table th[scope="row"],
+  .table td:not(.joinCell) {
+    grid-column: 1;
+  }
+  .joinCell {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    align-self: center;
+  }
+  .bar {
+    width: 64px;
+  }
+}
