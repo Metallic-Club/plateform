@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, JetBrains_Mono } from "next/font/google";
 import { Suspense } from "react";
+import { HandoffNotice } from "@/components/shell/HandoffNotice";
 import { SiteFooter } from "@/components/shell/SiteFooter";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { TabBar } from "@/components/shell/NavLinks";
@@ -72,6 +73,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <SiteHeader viewer={viewer} shell={prefs.shell} theme={prefs.theme} />
         </Suspense>
         <main id="main" tabIndex={-1}>
+          {viewer ? (
+            <Suspense fallback={null}>
+              <HandoffNotice displayName={viewer.user.displayName} username={viewer.user.username} />
+            </Suspense>
+          ) : null}
           {children}
         </main>
         <SiteFooter shell={prefs.shell} />

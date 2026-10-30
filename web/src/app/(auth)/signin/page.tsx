@@ -10,6 +10,10 @@ export const metadata: Metadata = { title: "Sign in" };
 const HANDOFF_NOTICE: Record<string, { tone: "warning" | "error"; text: string }> = {
   expired: { tone: "warning", text: "That sign-in link expired or was already used. Sign in again to continue." },
   failed: { tone: "error", text: "Signing you in did not work on our side. Try again in a moment." },
+  blocked: {
+    tone: "warning",
+    text: "That sign-in link did not come from Metallic Play, so it was not used. Sign in here or from the app.",
+  },
 };
 
 export default async function SignInPage({ searchParams }: PageProps<"/signin">) {
