@@ -6,6 +6,7 @@ on:
       - server/**
       - api/openapi.yaml
       - .github/workflows/private-dev-host.yml
+      - .gitattributes
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,7 +19,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Host preparation tests
-        run: python3 -I -m unittest discover -s deploy/dev-host -p test_host.py -v
+        run: |
+          (umask 077; python3 -I -m unittest discover -s deploy/dev-host -p test_host.py -v)
+          (umask 022; python3 -I -m unittest discover -s deploy/dev-host -p test_host.py -v)
       - name: Prepare and validate private configuration
         run: |
           python3 deploy/dev-host/host.py prepare --state-dir "$RUNNER_TEMP/metallic-dev-host"

@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import secrets
@@ -18,7 +19,18 @@ def capture(state, arguments):
     return host.run_compose(state, 18080, arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
 
 
+def require_ci(state):
+    runner = os.environ.get("RUNNER_TEMP")
+    if os.environ.get("GITHUB_ACTIONS") != "true" or not runner:
+        raise host.HostError("The ephemeral smoke/volume cleanup is restricted to GitHub Actions.")
+    runner = host.checked_path(runner)
+    state = host.checked_path(state)
+    if runner not in state.parents:
+        raise host.HostError("Ephemeral CI state must be strictly inside RUNNER_TEMP.")
+
+
 def cleanup(state):
+    require_ci(state)
     if (state / "secrets").is_dir():
         capture(state, ["--profile", "tools", "down", "--volumes", "--remove-orphans"])
 
@@ -53,6 +65,7 @@ def request(port, path, body=None, cookie=None):
 
 
 def smoke(state):
+    require_ci(state)
     host.require_engine(state, 18080)
     model = json.loads(capture(state, ["config", "--format", "json"]))
     api, database = model["services"]["api"], model["services"]["db"]

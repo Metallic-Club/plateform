@@ -3,6 +3,7 @@ import importlib.util
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -11,6 +12,10 @@ from unittest.mock import patch
 SPEC = importlib.util.spec_from_file_location("dev_host", Path(__file__).with_name("host.py"))
 host = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(host)
+SMOKE_SPEC = importlib.util.spec_from_file_location("dev_host_smoke", Path(__file__).with_name("ci_smoke.py"))
+smoke = importlib.util.module_from_spec(SMOKE_SPEC)
+with patch.dict(sys.modules, {"host": host}):
+    SMOKE_SPEC.loader.exec_module(smoke)
 
 
 class PreparationTests(unittest.TestCase):
@@ -81,6 +86,7 @@ class PreparationTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "posix", "POSIX permission contract")
     def test_public_state_directory_is_rejected_without_chmod(self):
         self.state.mkdir(mode=0o755)
+        self.state.chmod(0o755)  # Establish the invalid fixture even when the caller's umask is077.
         with self.assertRaises(host.HostError):
             host.prepare(self.state)
         self.assertEqual(self.state.stat().st_mode & 0o777, 0o755)
@@ -203,6 +209,23 @@ class PreparationTests(unittest.TestCase):
                 host.require_engine(self.state, 18080)
         with patch.object(subprocess, "run", return_value=subprocess.CompletedProcess([], 0, stdout=b"28.0.4\n")):
             host.require_engine(self.state, 18080)
+
+    def test_ci_cleanup_refuses_non_ci_or_outside_runner_state_before_docker(self):
+        host.prepare(self.state)
+        for environment in [{}, {"GITHUB_ACTIONS": "true"}, {"GITHUB_ACTIONS": "true", "RUNNER_TEMP": str(self.parent / "another-runner")}]:
+            with patch.dict(os.environ, environment, clear=True), patch.object(smoke, "capture") as execute:
+                with self.assertRaises(host.HostError):
+                    smoke.cleanup(self.state)
+                execute.assert_not_called()
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "RUNNER_TEMP": str(self.parent)}, clear=True), patch.object(smoke, "capture") as execute:
+            smoke.cleanup(self.state)
+            self.assertIn("--volumes", execute.call_args.args[1])
+
+    def test_ci_smoke_refuses_operator_context_before_any_docker_action(self):
+        with patch.dict(os.environ, {}, clear=True), patch.object(host, "require_engine") as engine:
+            with self.assertRaises(host.HostError):
+                smoke.smoke(self.state)
+            engine.assert_not_called()
 
 
 if __name__ == "__main__":

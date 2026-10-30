@@ -20,8 +20,8 @@ Repeated only reviewed issue 8's ownership-safe test cleanup (`server/tests/api/
 ## Evidence so far
 
 - Actual Docker registry manifest/tag verification for Rust 1.99.1-bookworm, Debian bookworm-slim and PostgreSQL 18.6-bookworm; digests recorded in the runbook and Dockerfile/Compose.
-- Windows Python unit suite: 18 cases, 16 passed, two POSIX-specific permission/symlink cases explicitly skipped. Compilation of Python source passed. Initial missing-module scaffolding failure was not a product regression. The later foreign-backup-state regression reproduced an unwanted directory creation before the fix and passes afterward.
-- No local Docker executable/daemon is available. Actual Compose config, Linux permission tests, image build/runtime and CI have not run yet. Root is reviewing source before uploading for daemon-free remote validation. Do not claim those checks passed.
+- Windows Python unit suite: 20 cases, 18 passed, two POSIX-specific permission/symlink cases explicitly skipped. Compilation of Python source passed. Initial missing-module scaffolding failure was not a product regression. The later foreign-backup-state regression reproduced an unwanted directory creation before the fix and passes afterward.
+- No local Docker executable/daemon is available. Initial remote Linux 18-case run had 17 passes and one fixture failure because inherited umask 077 correctly converted the intended 0755 fixture into 0700; this was a test assumption, not a production permission defect. The fixture now explicitly sets 0755, and CI runs both 077/022 umasks. Fresh Linux execution is pending the next preview archive. Actual Compose config, Linux permission tests, image build/runtime and CI have not run yet. Root is reviewing source before uploading for daemon-free remote validation. Do not claim those checks passed.
 - Local mandatory backend gates are pending the coordinated Studio timing window. Use reviewed 209 Cargo lane guard with exclusive lane116 and `-j4`; safe test harness is already present.
 
 ## Next

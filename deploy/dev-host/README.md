@@ -130,6 +130,8 @@ The narrow PR workflow builds the actual Linux image, starts an isolated project
 UID, probes readiness, verifies durable data and stable keys across restart, then exercises dump/restore into a
 different empty project. Only this ephemeral CI smoke deletes its explicitly selected projects' volumes. It does
 not push an image or deploy a host; its token has only `contents:read` and checkout credentials are not retained.
+The smoke and destructive cleanup refuse to run outside GitHub Actions or outside its validated `RUNNER_TEMP`;
+they cannot be used as ordinary host lifecycle commands. Helper tests run with both restrictive and usual umasks.
 
 Image tags and multi-platform manifest digests were verified through the public Docker registry on 2026-10-30:
 
