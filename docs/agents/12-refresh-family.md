@@ -79,5 +79,7 @@ credentials. The existing cluster remains running for other sessions.
   `metallic-platform12-clippy.log`. No new dependency, Cargo.lock or migration change.
 - No web directory, web generation/build command or CI workflow exists on the canonical base. No visual change.
 
-Finish independent review and a PR into `platform/p1-backend`. Do not merge, deploy or claim a
-nonexistent CI result. If PR 11 lands first, reconcile only the identical #8/#10 overlap against the updated base.
+Independent read-only review found no blocking issue. [PR 13](https://github.com/Metallic-Club/plateform/pull/13) is
+open against `platform/p1-backend`; repository review remains required. No merge or deployment was performed and
+no nonexistent CI result is claimed. If PR 11 lands first, reconcile only the identical #8/#10 overlap against the
+updated base.
