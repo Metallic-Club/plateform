@@ -21,6 +21,29 @@ use crate::{
     services::Limit,
 };
 
+/// `identity.device_authorizations` row: client_id, status, scopes, user_id, interval_secs,
+/// expires_at, last_polled_at.
+type DeviceAuthRow = (
+    String,
+    String,
+    Vec<String>,
+    Option<i64>,
+    i32,
+    OffsetDateTime,
+    Option<OffsetDateTime>,
+);
+
+/// `identity.refresh_tokens` row: family_id, user_id, client_id, scopes, expires_at, used_at, revoked_at.
+type RefreshRow = (
+    i64,
+    i64,
+    String,
+    Vec<String>,
+    OffsetDateTime,
+    Option<OffsetDateTime>,
+    Option<OffsetDateTime>,
+);
+
 pub const ACCESS_TTL: Duration = Duration::minutes(15);
 pub const REFRESH_TTL: Duration = Duration::days(30);
 pub const DEVICE_CODE_TTL: Duration = Duration::minutes(10);
@@ -329,15 +352,7 @@ async fn device_grant(
 ) -> Result<Response, TokenError> {
     let hash = token_hash(device_code);
     let mut tx = state.db.begin().await?;
-    let row: Option<(
-        String,
-        String,
-        Vec<String>,
-        Option<i64>,
-        i32,
-        OffsetDateTime,
-        Option<OffsetDateTime>,
-    )> = sqlx::query_as(
+    let row: Option<DeviceAuthRow> = sqlx::query_as(
         "SELECT client_id, status, scopes, user_id, interval_secs, expires_at, last_polled_at \
          FROM identity.device_authorizations WHERE device_code_hash = $1 FOR UPDATE",
     )
@@ -408,15 +423,7 @@ async fn refresh_grant(
 ) -> Result<Response, TokenError> {
     let hash = token_hash(refresh_token);
     let mut tx = state.db.begin().await?;
-    let row: Option<(
-        i64,
-        i64,
-        String,
-        Vec<String>,
-        OffsetDateTime,
-        Option<OffsetDateTime>,
-        Option<OffsetDateTime>,
-    )> = sqlx::query_as(
+    let row: Option<RefreshRow> = sqlx::query_as(
         "SELECT family_id, user_id, client_id, scopes, expires_at, used_at, revoked_at \
              FROM identity.refresh_tokens WHERE token_hash = $1 FOR UPDATE",
     )
@@ -433,7 +440,7 @@ async fn refresh_grant(
     }
     if used_at.is_some() {
         // Reuse of a rotated token: someone else may hold the chain. Revoke all of it.
-        revoke_family(&mut *tx, family_id).await?;
+        revoke_family(&mut tx, family_id).await?;
         tx.commit().await?;
         tracing::warn!(
             user_id,
@@ -443,7 +450,7 @@ async fn refresh_grant(
         return Err(OAuthError::new("invalid_grant").into());
     }
     if !user_can_get_tokens(&mut *tx, user_id).await? {
-        revoke_family(&mut *tx, family_id).await?;
+        revoke_family(&mut tx, family_id).await?;
         tx.commit().await?;
         return Err(OAuthError::new("invalid_grant").into());
     }

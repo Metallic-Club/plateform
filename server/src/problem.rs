@@ -16,21 +16,37 @@ pub struct FieldError {
     pub message: String,
 }
 
-#[derive(Debug, Serialize)]
+/// Serialised by hand (below) so the `type` URI is built from `code` instead of stored:
+/// that keeps `Problem` small enough to return by value in `Result` (clippy `result_large_err`).
+#[derive(Debug)]
 pub struct Problem {
-    #[serde(rename = "type")]
-    pub type_uri: String,
     pub title: String,
     pub status: u16,
     /// Stable machine-readable code; clients switch on this.
     pub code: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<FieldError>,
     /// Seconds for `Retry-After` on 429. Not part of the body.
-    #[serde(skip)]
     pub retry_after: Option<u64>,
+}
+
+impl Serialize for Problem {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let len = 4 + usize::from(self.detail.is_some()) + usize::from(!self.errors.is_empty());
+        let mut st = serializer.serialize_struct("Problem", len)?;
+        st.serialize_field("type", &self.type_uri())?;
+        st.serialize_field("title", &self.title)?;
+        st.serialize_field("status", &self.status)?;
+        st.serialize_field("code", self.code)?;
+        if let Some(detail) = &self.detail {
+            st.serialize_field("detail", detail)?;
+        }
+        if !self.errors.is_empty() {
+            st.serialize_field("errors", &self.errors)?;
+        }
+        st.end()
+    }
 }
 
 /// Result type for handlers.
@@ -39,7 +55,6 @@ pub type ApiResult<T> = Result<T, Problem>;
 impl Problem {
     pub fn new(status: StatusCode, code: &'static str, title: impl Into<String>) -> Self {
         Self {
-            type_uri: format!("{ERROR_DOCS}{}", code.replace('_', "-")),
             title: title.into(),
             status: status.as_u16(),
             code,
@@ -47,6 +62,11 @@ impl Problem {
             errors: Vec::new(),
             retry_after: None,
         }
+    }
+
+    /// The RFC 9457 `type` URI: the error's docs page, derived from `code`.
+    pub fn type_uri(&self) -> String {
+        format!("{ERROR_DOCS}{}", self.code.replace('_', "-"))
     }
 
     pub fn with_detail(mut self, detail: impl Into<String>) -> Self {

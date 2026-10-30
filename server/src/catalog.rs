@@ -381,8 +381,17 @@ pub struct Avatar {
     updated_at: String,
 }
 
+/// `catalog.avatars` row: body_colors, equipped_inventory_ids, headshot_url, full_body_url, updated_at.
+type AvatarRow = (
+    Value,
+    Vec<i64>,
+    Option<String>,
+    Option<String>,
+    OffsetDateTime,
+);
+
 async fn avatar_body(db: impl PgExecutor<'_> + Copy, user: i64) -> ApiResult<Avatar> {
-    let row: Option<(Value, Vec<i64>, Option<String>, Option<String>, OffsetDateTime)> = sqlx::query_as(
+    let row: Option<AvatarRow> = sqlx::query_as(
         "SELECT body_colors, equipped_inventory_ids, headshot_url, full_body_url, updated_at FROM catalog.avatars WHERE user_id = $1",
     )
     .bind(user)

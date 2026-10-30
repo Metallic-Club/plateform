@@ -377,13 +377,6 @@ impl Resp {
     pub fn header(&self, name: &str) -> Option<&str> {
         self.headers.get(name).and_then(|v| v.to_str().ok())
     }
-    pub fn id(&self) -> i64 {
-        self.body["id"]
-            .as_str()
-            .expect("id")
-            .parse()
-            .expect("numeric id")
-    }
 }
 
 impl Client<'_> {
