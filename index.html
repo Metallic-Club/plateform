@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metallic Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Builder+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        raven: {
+                            bg: '#0d0b12',
+                            surface: '#15121a',
+                            elevated: '#1d1824',
+                            panel: '#221d2e',
+                            interactive: '#2b2437',
+                            border: '#352e45',
+                            borderLight: '#4c3f63',
+                            accent: '#9d7de0',
+                            highlight: '#b88cff',
+                            highlightHover: '#a36cf8',
+                            primaryText: '#f5f0ff',
+                            subtext: '#b5a9c8',
+                            darktext: '#685d7f'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Builder Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    boxShadow: {
+                        glow: '0 0 0 1px rgba(184,140,255,0.12), 0 20px 40px rgba(14,10,23,0.42)',
+                        soft: '0 18px 34px rgba(9,7,17,0.36)'
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        :root {
+            --bg-1: #0a0911;
+            --bg-2: #111019;
+            --surface: rgba(21, 18, 26, 0.86);
+            --panel: rgba(29, 24, 36, 0.96);
+            --panel-alt: rgba(39, 33, 49, 0.95);
+            --border: rgba(161, 136, 214, 0.24);
+            --border-strong: rgba(184, 140, 255, 0.42);
+            --purple: #b88cff;
+            --purple-strong: #8d66f0;
+            --purple-soft: rgba(184, 140, 255, 0.12);
+            --green: #57e0a6;
+            --green-soft: rgba(87, 224, 166, 0.12);
+            --text: #f4f0ff;
+            --muted: #b9adcf;
+            --shadow: 0 24px 52px rgba(3, 2, 8, 0.7);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background:
+                radial-gradient(circle at 12% 10%, rgba(184, 140, 255, 0.12), transparent 18%),
+                radial-gradient(circle at 88% 80%, rgba(78, 126, 255, 0.1), transparent 22%),
+                linear-gradient(180deg, #100e16 0%, #090910 100%);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 32px 32px;
+            mask-image: radial-gradient(circle at center, black 32%, transparent 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        ::-webkit-scrollbar { width: 9px; height: 9px; }
+        ::-webkit-scrollbar-track { background: rgba(14, 11, 17, 0.8); }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(184,140,255,0.46), rgba(125,101,255,0.42));
+            border-radius: 999px;
+            border: 2px solid rgba(14,11,17,0.5);
+        }
+        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, rgba(184,140,255,0.62), rgba(125,101,255,0.5)); }
+
+        a, button, input, select, textarea { font: inherit; }
+
+        .glass-shell {
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+
+        .game-card {
+            position: relative;
+            border-radius: 18px;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(28, 24, 35, 0.98), rgba(18, 15, 23, 0.96));
+            border: 1px solid var(--border);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 16px 30px rgba(8, 7, 14, 0.34);
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .game-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(184,140,255,0.42);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 22px 36px rgba(8, 7, 14, 0.42);
+        }
+
+        .game-art {
+            position: relative;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 18% 18%, rgba(184,140,255,0.28), transparent 24%),
+                linear-gradient(135deg, rgba(87,224,166,0.12), rgba(184,140,255,0.06)),
+                rgba(12, 10, 17, 0.96);
+        }
+
+        .game-art::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 18px 18px;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .royal-rhombus {
+            display: inline-block;
+            transform: rotate(45deg);
+            border-radius: 5px;
+        }
+
+        .header-tab {
+            padding: 0.58rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: rgba(220, 207, 242, 0.5);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+            line-height: 1;
+            transition: all 0.18s ease;
+            white-space: nowrap;
+            opacity: 0.38;
+        }
+
+        .header-tab:hover {
+            opacity: 0.82;
+            border-color: rgba(184,140,255,0.2);
+            background: rgba(17, 15, 22, 0.52);
+            color: rgba(255,255,255,0.95);
+            transform: translateY(-1px);
+        }
+
+        .header-tab-active {
+            background: linear-gradient(135deg, rgba(184,140,255,0.22), rgba(184,140,255,0.08));
+            border-color: rgba(184,140,255,0.52);
+            color: #fff;
+            opacity: 1;
+            box-shadow: 0 0 0 1px rgba(184,140,255,0.1), 0 10px 26px rgba(184,140,255,0.1);
+        }
+
+        .side-menu-item {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            width: 100%;
+            padding: 0.8rem 0.9rem;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: #c0b0d9;
+            font-weight: 700;
+            text-align: left;
+            transition: all 0.15s ease;
+            font-size: 0.96rem;
+        }
+
+        .side-menu-item:hover {
+            background: rgba(255,255,255,0.02);
+            color: white;
+            border-color: rgba(184,140,255,0.08);
+        }
+
+        .side-menu-item.active {
+            background: linear-gradient(135deg, rgba(184,140,255,0.18), rgba(124,103,221,0.1));
+            color: white;
+            border-color: rgba(184,140,255,0.46);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(184,140,255,0.08), 0 0 26px rgba(184,140,255,0.18);
+        }
+
+        .side-menu-item.active::before {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            background: linear-gradient(135deg, rgba(184,140,255,0.12), rgba(87,224,166,0.06));
+            filter: blur(8px);
+            z-index: -1;
+        }
+
+        .side-menu-item i {
+            width: 1rem;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .side-menu-item.active i {
+            color: #e1d0ff;
+            text-shadow: 0 0 12px rgba(184,140,255,0.76);
+        }
+
+        .side-section-label {
+            padding: 0.55rem 0.85rem 0.2rem;
+            color: rgba(181, 169, 200, 0.72);
+            font-size: 9px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(87,224,166,0.35);
+            background: rgba(12, 54, 39, 0.48);
+            color: #86f1c8;
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+        }
+
+        .feature-glow {
+            position: absolute;
+            right: -8%;
+            bottom: -20%;
+            width: 360px;
+            height: 360px;
+            background: radial-gradient(circle, rgba(184,140,255,0.34), transparent 60%);
+            filter: blur(26px);
+            pointer-events: none;
+        }
+
+        .code-block {
+            background: rgba(11, 9, 17, 0.94);
+            border: 1px solid rgba(123, 104, 164, 0.36);
+            border-radius: 14px;
+            color: #ddd4f4;
+            padding: 1rem 1.1rem;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+        }
+
+        .empty-state {
+            border: 1px dashed rgba(184,140,255,0.25);
+            background: rgba(15, 12, 20, 0.34);
+        }
+
+        .metric-bar {
+            height: 0.5rem;
+            border-radius: 999px;
+            background: rgba(17, 15, 23, 0.7);
+            border: 1px solid rgba(141, 102, 240, 0.12);
+            overflow: hidden;
+        }
+
+        .metric-fill {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #b88cff, #57e0a6);
+        }
+
+        .sidebar-collapsed #app-sidebar {
+            width: 0 !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            overflow: hidden;
+            border-right: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col antialiased relative">
+    <header class="h-16 bg-raven-surface/80 border-b border-raven-border/80 glass-shell shadow-[0_10px_24px_rgba(5,4,8,0.28)] flex items-center justify-between px-4 shrink-0 z-20">
+        <div class="flex items-center gap-3 min-w-0">
+            <button onclick="toggleSidebar()" class="w-9 h-9 rounded-xl bg-raven-bg border border-raven-border text-raven-subtext hover:text-white hover:border-raven-highlight/60 transition flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('discover')">
+                <div class="w-9 h-9 rounded-xl border border-raven-border flex items-center justify-center text-raven-highlight shadow-[0_0_20px_rgba(184,140,255,0.18)] bg-gradient-to-br from-violet-500/20 to-emerald-500/10">
+                    <svg viewBox="0 0 100 100" class="w-5 h-5 fill-current">
+                        <path d="M50 12C32 12 22 26 22 44C22 62 32 80 50 80C60 80 74 70 78 56C80 50 84 46 88 44C84 41 80 39 78 35C74 27 64 12 50 12ZM64 34C66 34 68 36 67 39C65 41 62 41 60 38C58 34 57 31 53 28C49 24 44 21 39 22C35 23 31 26 30 30C29 35 31 39 35 41C38 43 42 43 45 42C47 41 48 41 50 43C52 45 52 48 50 50C48 52 45 53 42 54C38 56 34 59 32 64C30 69 31 75 36 78C41 81 48 80 52 76C56 72 58 67 60 62C62 57 67 58 69 60C71 62 73 66 76 68C80 71 85 71 89 66C86 55 80 44 64 34Z"/>
+                    </svg>
+                </div>
+                <span class="font-black text-lg tracking-[0.22em] text-white uppercase font-sans">METALLIC</span>
+            </div>
+        </div>
+
+        <div class="header-nav-wrap flex items-center justify-center gap-2 flex-1 max-w-[720px] min-w-0">
+            <button type="button" class="header-tab header-tab-active" data-tab="discover">Home</button>
+            <button type="button" class="header-tab" data-tab="social">Social</button>
+            <button type="button" class="header-tab" data-tab="marketplace">Marketplace</button>
+            <button type="button" class="header-tab" data-tab="servers">Servers</button>
+            <button type="button" class="header-tab" data-tab="moderation">Moderation</button>
+            <button type="button" class="header-tab" data-tab="docs">API Docs</button>
+        </div>
+
+        <div class="flex items-center gap-3 max-w-xl hidden lg:flex">
+            <div class="relative w-[280px]">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-raven-subtext text-xs"></i>
+                <input type="text" id="global-search" placeholder="Search games, players, items..." class="w-full bg-raven-bg/80 border border-raven-border rounded-xl pl-9 pr-10 py-2.5 text-xs text-white placeholder:text-raven-subtext outline-none focus:border-raven-highlight/60 transition" />
+                <button id="clear-search" class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-raven-subtext hover:text-white hidden">Clear</button>
+            </div>
+            <button onclick="switchTab('marketplace')" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-raven-bg/80 border border-raven-border hover:border-raven-highlight/60 transition text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <span class="w-3.5 h-3.5 bg-raven-highlight royal-rhombus flex items-center justify-center border border-white/20"></span>
+                <span id="user-balance" class="text-white font-mono">1,450</span>
+                <span class="text-[10px] text-raven-subtext uppercase">Alloy</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden relative z-10">
+        <aside id="app-sidebar" class="w-72 bg-raven-surface/80 border-r border-raven-border/80 glass-shell flex flex-col justify-between shrink-0 p-3 transition-all duration-200 z-10 shadow-[0_0_30px_rgba(5,4,8,0.2)]">
+            <div class="space-y-2">
+                <div id="sidebar-nav"></div>
+
+                <div class="pt-4">
+                    <div class="side-section-label">Platform</div>
+                    <button class="side-menu-item" data-tab="discover"><i class="fa-solid fa-house"></i><span>Overview</span></button>
+                    <button class="side-menu-item" data-tab="social"><i class="fa-solid fa-user-group"></i><span>Profiles & Friends</span></button>
+                    <button class="side-menu-item" data-tab="marketplace"><i class="fa-solid fa-bag-shopping"></i><span>Marketplace</span></button>
+                    <button class="side-menu-item" data-tab="servers"><i class="fa-solid fa-server"></i><span>Server Browser</span></button>
+                    <button class="side-menu-item" data-tab="moderation"><i class="fa-solid fa-shield-halved"></i><span>Trust & Safety</span></button>
+                    <button class="side-menu-item" data-tab="docs"><i class="fa-solid fa-code"></i><span>Developer APIs</span></button>
+                </div>
+            </div>
+
+            <div class="p-3 bg-raven-bg/80 rounded-2xl border border-raven-border shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] space-y-1 font-mono text-[11px]">
+                <div class="flex justify-between items-center text-white font-bold">
+                    <span>@RavenDev</span>
+                    <span class="status-badge">● Online</span>
+                </div>
+                <div class="text-[10px] text-raven-subtext">Tier: Verified Platform</div>
+            </div>
+        </aside>
+
+        <main class="flex-1 bg-raven-bg/30 overflow-y-auto p-5">
+            <div class="max-w-7xl mx-auto space-y-6">
+                <div id="tab-discover" class="tab-content space-y-6">
+                    <div class="game-card p-6 flex flex-col md:flex-row gap-5 items-stretch justify-between relative overflow-hidden">
+                        <div class="feature-glow"></div>
+                        <div class="space-y-4 max-w-xl flex flex-col justify-between z-10">
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="px-2.5 py-1 rounded-full bg-raven-highlight text-raven-bg text-[10px] font-black uppercase tracking-[0.18em]">Featured platform</span>
+                                    <span class="px-2 py-1 rounded-full bg-raven-interactive border border-raven-border text-[10px] font-bold text-raven-subtext">Millions of players</span>
+                                </div>
+                                <h1 class="text-3xl md:text-5xl font-extrabold text-white tracking-[-0.06em] leading-[0.9]">METALLIC GLOBAL PLAYGROUND</h1>
+                                <p class="text-raven-subtext text-base leading-relaxed max-w-xl">
+                                    Secure identity, scalable infrastructure, social profiles, live servers, marketplace economy, creator monetization, moderation systems, and community tools built for a massive connected world.
+                                </p>
+                            </div>
+
+                            <div class="space-y-4 pt-1">
+                                <div class="flex items-center gap-4 flex-wrap text-xs font-semibold">
+                                    <span class="text-white flex items-center gap-2 bg-raven-bg/60 border border-raven-border rounded-full px-2.5 py-1.5"><i class="fa-solid fa-user-group text-raven-highlight"></i> 6.2M online</span>
+                                    <span class="text-emerald-400 flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/20 rounded-full px-2.5 py-1.5"><i class="fa-solid fa-thumbs-up"></i> 98.7% satisfaction</span>
+                                    <span class="text-raven-subtext">Secure by design</span>
+                                </div>
+                                <div class="flex items-center gap-3 flex-wrap">
+                                    <button onclick="switchTab('servers')" class="px-7 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:brightness-110 text-white font-bold text-xs shadow-[0_12px_30px_rgba(87,224,166,0.2)] transition">Play now</button>
+                                    <button onclick="switchTab('marketplace')" class="px-4 py-3 rounded-xl bg-raven-interactive/80 hover:bg-raven-elevated text-white font-bold text-xs border border-raven-border transition">Marketplace</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="w-full md:w-[360px] h-56 md:h-auto rounded-2xl game-art border border-raven-border shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] flex flex-col items-center justify-center text-center relative">
+                            <div class="absolute inset-0 bg-gradient-to-br from-raven-highlight/10 via-transparent to-emerald-500/10"></div>
+                            <svg class="w-20 h-20 text-raven-highlight mb-2 opacity-90 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                            </svg>
+                            <span class="text-xs font-black text-raven-highlight font-mono relative">[PLATFORM OVERVIEW]</span>
+                            <span class="text-[10px] text-raven-subtext font-mono mt-2 relative">Identity, economy, discoverability and live ops</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <div class="game-card p-4">
+                            <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Scalable backend</div>
+                            <div class="mt-2 text-3xl font-black text-white">1.2M</div>
+                            <div class="text-sm text-raven-subtext">peak auth/sec via Redis + Postgres + async workers</div>
+                        </div>
+                        <div class="game-card p-4">
+                            <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Live games</div>
+                            <div class="mt-2 text-3xl font-black text-white">8,924</div>
+                            <div class="text-sm text-raven-subtext">region-aware matches and lobbies</div>
+                        </div>
+                        <div class="game-card p-4">
+                            <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Creator payouts</div>
+                            <div class="mt-2 text-3xl font-black text-white">$1.8M</div>
+                            <div class="text-sm text-raven-subtext">monthly UGC and revenue share tracked</div>
+                        </div>
+                        <div class="game-card p-4">
+                            <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Trust score</div>
+                            <div class="mt-2 text-3xl font-black text-white">99.2%</div>
+                            <div class="text-sm text-raven-subtext">suspicion detection and risk gating</div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-base font-bold text-white">Continue Playing</h2>
+                            <button class="text-xs text-raven-highlight font-semibold hover:text-white">View all</button>
+                        </div>
+                        <div id="grid-continue" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between gap-3 flex-wrap">
+                            <h2 class="text-base font-bold text-white">Recommended for you</h2>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <button data-category="All" class="cat-pill px-2.5 py-1.5 rounded-full bg-raven-highlight text-raven-bg font-bold text-xs">All</button>
+                                <button data-category="Action" class="cat-pill px-2.5 py-1.5 rounded-full bg-raven-surface text-raven-subtext hover:text-white border border-raven-border text-xs">Action</button>
+                                <button data-category="RPG" class="cat-pill px-2.5 py-1.5 rounded-full bg-raven-surface text-raven-subtext hover:text-white border border-raven-border text-xs">RPG</button>
+                                <button data-category="Simulator" class="cat-pill px-2.5 py-1.5 rounded-full bg-raven-surface text-raven-subtext hover:text-white border border-raven-border text-xs">Simulator</button>
+                                <button data-category="Platformer" class="cat-pill px-2.5 py-1.5 rounded-full bg-raven-surface text-raven-subtext hover:text-white border border-raven-border text-xs">Platformer</button>
+                            </div>
+                        </div>
+                        <div id="grid-recommended" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                        <div class="game-card p-5 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">Top genres</h3>
+                                <span class="text-[10px] text-raven-subtext">Live trends</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between text-xs text-raven-subtext mb-1"><span>Action</span><span>96%</span></div>
+                                    <div class="metric-bar"><span class="metric-fill" style="width:96%"></span></div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs text-raven-subtext mb-1"><span>RPG</span><span>82%</span></div>
+                                    <div class="metric-bar"><span class="metric-fill" style="width:82%"></span></div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs text-raven-subtext mb-1"><span>Simulator</span><span>75%</span></div>
+                                    <div class="metric-bar"><span class="metric-fill" style="width:75%"></span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="game-card p-5 space-y-4 xl:col-span-2">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-3">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">Recommendation engine</h3>
+                                <span class="text-[10px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800">AI ranking active</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3">
+                                    <div class="text-[10px] uppercase text-raven-subtext font-mono">Because you played</div>
+                                    <div class="mt-2 text-sm font-bold text-white">Cyber Raven: Neon Protocol</div>
+                                    <div class="mt-2 text-xs text-raven-subtext">Recommended: Obsidian Arena PvP, Void Crafters 3D, Starship Flight Sim</div>
+                                </div>
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3">
+                                    <div class="text-[10px] uppercase text-raven-subtext font-mono">Similar players</div>
+                                    <div class="mt-2 text-sm font-bold text-white">Co-op & competitive mix</div>
+                                    <div class="mt-2 text-xs text-raven-subtext">High engagement sessions, social play, and rapid matchmaking fit</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-social" class="tab-content hidden space-y-5">
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                        <div class="game-card p-5 xl:col-span-2 space-y-4">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-3">
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Profile</div>
+                                    <h2 class="text-lg font-bold text-white">RavenDev</h2>
+                                </div>
+                                <span class="status-badge">● Verified Creator</span>
+                            </div>
+
+                            <div class="flex items-center gap-4">
+                                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-emerald-400 flex items-center justify-center text-2xl font-black text-raven-bg">RD</div>
+                                <div class="flex-1">
+                                    <div class="text-xl font-extrabold text-white">RavenDev</div>
+                                    <div class="text-xs text-raven-subtext">Building secure social games and creator tools for millions of players.</div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/60 p-3">
+                                    <div class="text-[10px] text-raven-subtext font-mono uppercase">Bio</div>
+                                    <textarea class="mt-2 w-full bg-transparent text-sm text-white resize-none outline-none" rows="4">Creator, systems designer, and platform operator focused on secure social play, monetization systems, and scalable community experiences.</textarea>
+                                </div>
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/60 p-3 space-y-3">
+                                    <div class="text-[10px] text-raven-subtext font-mono uppercase">Linked platforms</div>
+                                    <div class="space-y-2 text-sm text-white">
+                                        <div class="flex items-center justify-between"><span>Discord</span><span class="text-raven-subtext">linked</span></div>
+                                        <div class="flex items-center justify-between"><span>YouTube</span><span class="text-raven-subtext">@raven-dev</span></div>
+                                        <div class="flex items-center justify-between"><span>Twitch</span><span class="text-raven-subtext">ravenstream</span></div>
+                                        <div class="flex items-center justify-between"><span>TikTok</span><span class="text-raven-subtext">@metallic</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <button class="px-4 py-2 rounded-xl bg-gradient-to-r from-raven-highlight to-raven-highlightHover text-raven-bg font-extrabold text-xs">Save profile</button>
+                                <button class="px-4 py-2 rounded-xl bg-raven-bg border border-raven-border text-white font-bold text-xs">Sync Discord</button>
+                            </div>
+                        </div>
+
+                        <div class="game-card p-5 space-y-4">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-3">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">Friends</h3>
+                                <span class="text-[10px] text-raven-subtext">1,240 online</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between rounded-xl bg-raven-bg/70 border border-raven-border p-2.5">
+                                    <div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-violet-500"></div><span class="text-sm font-bold text-white">NovaFox</span></div>
+                                    <span class="text-[10px] px-2 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">Online</span>
+                                </div>
+                                <div class="flex items-center justify-between rounded-xl bg-raven-bg/70 border border-raven-border p-2.5">
+                                    <div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-cyan-500"></div><span class="text-sm font-bold text-white">PixelHarbor</span></div>
+                                    <span class="text-[10px] px-2 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">Online</span>
+                                </div>
+                                <div class="flex items-center justify-between rounded-xl bg-raven-bg/70 border border-raven-border p-2.5">
+                                    <div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-amber-500"></div><span class="text-sm font-bold text-white">HexWave</span></div>
+                                    <span class="text-[10px] px-2 py-1 rounded-full bg-raven-bg text-raven-subtext border border-raven-border">In lobby</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-marketplace" class="tab-content hidden space-y-5">
+                    <div class="flex items-center justify-between border-b border-raven-border pb-3 gap-3 flex-wrap">
+                        <div>
+                            <h2 class="text-base font-bold text-white">Marketplace & Wardrobe</h2>
+                            <p class="text-xs text-raven-subtext">Alloy economy, creator drops, rarity tiers, gifting and safe inventory ownership.</p>
+                        </div>
+                        <button onclick="switchTab('discover')" class="px-3 py-2 rounded-xl bg-raven-surface hover:bg-raven-elevated text-raven-highlight border border-raven-border text-xs font-bold transition">Back home</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                        <div class="game-card p-5 space-y-4">
+                            <h3 class="text-sm font-bold text-white uppercase font-mono tracking-[0.15em]">Currency</h3>
+                            <div class="rounded-2xl bg-raven-bg/70 border border-raven-border p-4">
+                                <div class="text-[10px] uppercase text-raven-subtext font-mono">Current balance</div>
+                                <div class="mt-2 flex items-center justify-between">
+                                    <div class="text-3xl font-black text-white">1,450</div>
+                                    <span class="w-5 h-5 bg-raven-highlight royal-rhombus"></span>
+                                </div>
+                                <div class="mt-2 text-xs text-raven-subtext">Alloy • Premium credits • Event tokens</div>
+                            </div>
+                            <div class="space-y-2 text-sm text-raven-subtext">
+                                <div class="flex justify-between"><span>Free rewards</span><span class="text-emerald-400">+200</span></div>
+                                <div class="flex justify-between"><span>Marketplace spend</span><span class="text-amber-400">-350</span></div>
+                                <div class="flex justify-between"><span>Creator payouts</span><span class="text-violet-400">+860</span></div>
+                            </div>
+                        </div>
+
+                        <div class="xl:col-span-2 game-card p-5">
+                            <div id="marketplace-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                        <div class="game-card p-5">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-3">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">Wardrobe</h3>
+                                <span class="text-[10px] text-raven-subtext">12 equipped</span>
+                            </div>
+                            <div class="mt-4 grid grid-cols-3 gap-3">
+                                <div class="rounded-2xl bg-raven-bg/60 border border-raven-border p-3 text-center"><div class="h-16 flex items-center justify-center text-2xl"><i class="fa-solid fa-shirt"></i></div><div class="text-[10px] text-raven-subtext uppercase font-mono">Suit</div></div>
+                                <div class="rounded-2xl bg-raven-bg/60 border border-raven-border p-3 text-center"><div class="h-16 flex items-center justify-center text-2xl"><i class="fa-solid fa-hat-cowboy"></i></div><div class="text-[10px] text-raven-subtext uppercase font-mono">Hat</div></div>
+                                <div class="rounded-2xl bg-raven-bg/60 border border-raven-border p-3 text-center"><div class="h-16 flex items-center justify-center text-2xl"><i class="fa-solid fa-sparkles"></i></div><div class="text-[10px] text-raven-subtext uppercase font-mono">FX</div></div>
+                            </div>
+                        </div>
+
+                        <div class="game-card p-5">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-3">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">Gifts & rewards</h3>
+                                <span class="text-[10px] text-emerald-400">3 pending</span>
+                            </div>
+                            <div class="space-y-2 mt-4 text-sm">
+                                <div class="flex justify-between rounded-xl bg-raven-bg/70 border border-raven-border p-2.5"><span>Daily challenge</span><span class="text-emerald-400">+200 Alloy</span></div>
+                                <div class="flex justify-between rounded-xl bg-raven-bg/70 border border-raven-border p-2.5"><span>Referral bonus</span><span class="text-emerald-400">+500 Alloy</span></div>
+                                <div class="flex justify-between rounded-xl bg-raven-bg/70 border border-raven-border p-2.5"><span>Creator drop</span><span class="text-violet-400">Shadow Cloak</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-servers" class="tab-content hidden space-y-4">
+                    <div class="game-card p-5 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-raven-border pb-3">
+                            <div>
+                                <h2 class="text-base font-bold text-white">Server browser & live activity</h2>
+                                <p class="text-xs text-raven-subtext">Best region, ping-aware routing, queue times, and health checks.</p>
+                            </div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <input type="text" id="server-search-input" onkeyup="filterServers()" placeholder="Search server..." class="bg-raven-bg/80 border border-raven-border rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-raven-subtext outline-none focus:border-raven-highlight/60 transition" />
+                                <select id="server-region-select" onchange="filterServers()" class="bg-raven-bg/80 border border-raven-border rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-raven-highlight/60 transition">
+                                    <option value="ALL">All Regions</option>
+                                    <option value="US">North America</option>
+                                    <option value="EU">Europe</option>
+                                    <option value="ASIA">Asia-Pacific</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 xl:grid-cols-4 gap-4">
+                            <div class="game-card p-4">
+                                <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Total live players</div>
+                                <div class="mt-2 text-3xl font-black text-white">146K</div>
+                                <div class="text-sm text-raven-subtext">+12% from last 24h</div>
+                            </div>
+                            <div class="game-card p-4">
+                                <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Healthy servers</div>
+                                <div class="mt-2 text-3xl font-black text-white">96.8%</div>
+                                <div class="text-sm text-raven-subtext">Auto-healing for unstable regions</div>
+                            </div>
+                            <div class="game-card p-4">
+                                <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Queue wait</div>
+                                <div class="mt-2 text-3xl font-black text-white">8s</div>
+                                <div class="text-sm text-raven-subtext">Average matchmaking latency</div>
+                            </div>
+                            <div class="game-card p-4">
+                                <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Region fit</div>
+                                <div class="mt-2 text-3xl font-black text-white">US-E</div>
+                                <div class="text-sm text-raven-subtext">Best server for your network</div>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-raven-bg/70 text-raven-subtext text-[10px] uppercase font-mono border-b border-raven-border">
+                                    <tr>
+                                        <th class="p-3">Server Name</th>
+                                        <th class="p-3">Experience</th>
+                                        <th class="p-3">Region</th>
+                                        <th class="p-3">Ping</th>
+                                        <th class="p-3">Players</th>
+                                        <th class="p-3 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="server-table-body" class="divide-y divide-raven-border font-medium"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-moderation" class="tab-content hidden space-y-5">
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                        <div class="game-card p-5 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">Trust & safety</h3>
+                                <span class="text-[10px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800">Protected</span>
+                            </div>
+                            <div class="space-y-3 text-sm text-raven-subtext">
+                                <div class="flex justify-between"><span>Risk score</span><span class="text-emerald-400">0.7 / 1.0</span></div>
+                                <div class="flex justify-between"><span>Flagged events</span><span class="text-white">2</span></div>
+                                <div class="flex justify-between"><span>Linked alts</span><span class="text-white">0</span></div>
+                            </div>
+                        </div>
+
+                        <div class="xl:col-span-2 game-card p-5 space-y-4">
+                            <div class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">Platform enforcement</div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3">
+                                    <div class="text-xs text-raven-subtext font-mono uppercase">Auto-delete policy</div>
+                                    <div class="mt-2 text-sm text-white">Inactive accounts are removed after configurable grace periods with notifications and recovery windows.</div>
+                                </div>
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3">
+                                    <div class="text-xs text-raven-subtext font-mono uppercase">Alt detection</div>
+                                    <div class="mt-2 text-sm text-white">Shared devices, IP clusters, payment metadata, and suspicious patterns are used to detect multi-account abuse.</div>
+                                </div>
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3">
+                                    <div class="text-xs text-raven-subtext font-mono uppercase">Name sniping prevention</div>
+                                    <div class="mt-2 text-sm text-white">Reserve windows, secure claim timing, renaming cooldowns, and moderation review for high-value names.</div>
+                                </div>
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3">
+                                    <div class="text-xs text-raven-subtext font-mono uppercase">Alt ban propagation</div>
+                                    <div class="mt-2 text-sm text-white">If an account is banned, linked alt accounts are reviewed and sanctioned under the platform risk policy.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="game-card p-5 space-y-4">
+                        <div class="flex items-center justify-between border-b border-raven-border pb-3">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">Moderation policy summary</h3>
+                            <span class="text-[10px] text-raven-subtext">Human review + automation</span>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
+                            <div class="rounded-2xl border border-raven-border bg-raven-bg/60 p-3"><div class="text-raven-subtext font-mono uppercase text-[10px]">Policy</div><div class="mt-2 text-white">Zero-tolerance harassment, impersonation, and exploit abuse.</div></div>
+                            <div class="rounded-2xl border border-raven-border bg-raven-bg/60 p-3"><div class="text-raven-subtext font-mono uppercase text-[10px]">Detection</div><div class="mt-2 text-white">Context-aware moderation with ML scoring and human escalation.</div></div>
+                            <div class="rounded-2xl border border-raven-border bg-raven-bg/60 p-3"><div class="text-raven-subtext font-mono uppercase text-[10px]">Enforcement</div><div class="mt-2 text-white">Warnings, role limitations, account freezes, and full bans when needed.</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-docs" class="tab-content hidden space-y-5">
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                        <div class="game-card p-5 xl:col-span-2 space-y-4">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-3">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">API & developer surface</h3>
+                                <span class="text-[10px] text-violet-400 bg-violet-950/60 px-2 py-0.5 rounded-full border border-violet-800">Version 1</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/60 p-3">
+                                    <div class="text-[10px] uppercase text-raven-subtext font-mono">GET /v1/games/{id}</div>
+                                    <div class="mt-2 text-sm text-white">Fetch metadata, tags, recommendation clusters, live stats, and player count.</div>
+                                </div>
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/60 p-3">
+                                    <div class="text-[10px] uppercase text-raven-subtext font-mono">GET /v1/servers</div>
+                                    <div class="mt-2 text-sm text-white">Return best-fit servers by region, ping, queue time, and uptime health.</div>
+                                </div>
+                                <div class="rounded-2xl border border-raven-border bg-raven-bg/60 p-3">
+                                    <div class="text-[10px] uppercase text-raven-subtext font-mono">POST /v1/marketplace/listings</div>
+                                    <div class="mt-2 text-sm text-white">Create item listings with creator protection, pricing checks, and ownership verification.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="game-card p-5 space-y-4">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono">Integration</h3>
+                            <div class="space-y-2 text-sm text-raven-subtext">
+                                <div class="flex justify-between"><span>Discord OAuth</span><span class="text-white">Enabled</span></div>
+                                <div class="flex justify-between"><span>Webhooks</span><span class="text-white">Live</span></div>
+                                <div class="flex justify-between"><span>Game server SDK</span><span class="text-white">Beta</span></div>
+                                <div class="flex justify-between"><span>Creator portal</span><span class="text-white">Ready</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="game-card p-5">
+                        <div class="text-sm font-bold text-white uppercase tracking-[0.15em] font-mono mb-3">Example webhook payload</div>
+                        <div class="code-block">{
+  "event": "server.health",
+  "game_id": "cyber-raven",
+  "region": "us-east",
+  "players": 1462,
+  "status": "healthy",
+  "latency_ms": 18,
+  "created_at": "2026-10-30T21:44:00Z"
+}</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="launch-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="game-card max-w-xs w-full p-5 space-y-4 text-center font-sans shadow-[0_28px_60px_rgba(0,0,0,0.5)]">
+            <div class="w-12 h-12 rounded-full bg-raven-bg border border-raven-border mx-auto flex items-center justify-center text-emerald-400 shadow-[0_0_20px_rgba(87,224,166,0.14)]">
+                <i class="fa-solid fa-play text-lg"></i>
+            </div>
+            <div>
+                <h3 id="modal-title" class="text-sm font-bold text-white">Launching Experience...</h3>
+                <p id="modal-sub" class="text-xs text-raven-subtext mt-1">Connecting to server instance...</p>
+            </div>
+            <div class="w-full bg-raven-bg rounded-full h-1.5 overflow-hidden border border-raven-border">
+                <div id="modal-progress" class="bg-gradient-to-r from-emerald-400 to-emerald-300 h-full w-0 transition-all duration-200"></div>
+            </div>
+            <button onclick="closeModal('launch-modal')" class="w-full py-2 bg-raven-bg hover:bg-raven-surface text-raven-subtext hover:text-white text-xs font-semibold rounded-xl border border-raven-border transition">Cancel</button>
+        </div>
+    </div>
+
+    <div id="discord-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="game-card max-w-xs w-full p-5 space-y-4 shadow-[0_28px_60px_rgba(0,0,0,0.5)]">
+            <div class="flex justify-between items-center border-b border-raven-border pb-2">
+                <h3 class="text-xs font-bold text-white flex items-center gap-2"><i class="fa-brands fa-discord text-indigo-400"></i> Discord Integration</h3>
+                <button onclick="closeModal('discord-modal')" class="text-raven-subtext hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-raven-subtext leading-relaxed">Connect your Discord account for presence sync, community access, creator roles and richer social identity.</p>
+            <button onclick="closeModal('discord-modal')" class="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:brightness-110 text-white text-xs font-bold rounded-xl transition">Connect Discord</button>
+        </div>
+    </div>
+
+    <script>
+        let userAlloyBalance = 1450;
+        let selectedCategory = 'All';
+        let activeLaunchTimer = null;
+        let activeLaunchTimeout = null;
+
+        const sidebarMap = {
+            discover: [
+                { label: 'Overview', icon: 'fa-house', tab: 'discover' },
+                { label: 'Featured', icon: 'fa-star', tab: 'discover' },
+                { label: 'Server Hub', icon: 'fa-server', tab: 'servers' },
+                { label: 'Marketplace', icon: 'fa-bag-shopping', tab: 'marketplace' }
+            ],
+            social: [
+                { label: 'Profiles', icon: 'fa-user', tab: 'social' },
+                { label: 'Friends', icon: 'fa-user-group', tab: 'social' },
+                { label: 'Creator Links', icon: 'fa-link', tab: 'social' },
+                { label: 'Overview', icon: 'fa-house', tab: 'discover' }
+            ],
+            marketplace: [
+                { label: 'Wardrobe', icon: 'fa-shirt', tab: 'marketplace' },
+                { label: 'Currency', icon: 'fa-wallet', tab: 'marketplace' },
+                { label: 'Rewards', icon: 'fa-gift', tab: 'marketplace' },
+                { label: 'Home', icon: 'fa-house', tab: 'discover' }
+            ],
+            servers: [
+                { label: 'Live Servers', icon: 'fa-tower-broadcast', tab: 'servers' },
+                { label: 'Server Health', icon: 'fa-chart-column', tab: 'servers' },
+                { label: 'Matchmaking', icon: 'fa-rocket', tab: 'servers' },
+                { label: 'Home', icon: 'fa-house', tab: 'discover' }
+            ],
+            moderation: [
+                { label: 'Trust & Safety', icon: 'fa-shield-halved', tab: 'moderation' },
+                { label: 'Alt Detection', icon: 'fa-people-arrows', tab: 'moderation' },
+                { label: 'Policies', icon: 'fa-clipboard-list', tab: 'moderation' },
+                { label: 'Home', icon: 'fa-house', tab: 'discover' }
+            ],
+            docs: [
+                { label: 'API Docs', icon: 'fa-code', tab: 'docs' },
+                { label: 'Webhooks', icon: 'fa-webhook', tab: 'docs' },
+                { label: 'SDKs', icon: 'fa-cubes', tab: 'docs' },
+                { label: 'Home', icon: 'fa-house', tab: 'discover' }
+            ]
+        };
+
+        const games = [
+            { id: 1, title: 'Cyber Raven: Neon Protocol', category: 'Action', rating: '94%', players: '38.4K', isFirstParty: true },
+            { id: 2, title: 'Raven Blox RP City', category: 'RPG', rating: '91%', players: '19.1K', isFirstParty: false },
+            { id: 3, title: 'Obsidian Arena PvP', category: 'Action', rating: '88%', players: '14.2K', isFirstParty: false },
+            { id: 4, title: 'Metallic Obby Sprint', category: 'Platformer', rating: '95%', players: '8.9K', isFirstParty: true },
+            { id: 5, title: 'Void Crafters 3D', category: 'Simulator', rating: '92%', players: '22.4K', isFirstParty: false },
+            { id: 6, title: 'Starship Flight Sim', category: 'Simulator', rating: '86%', players: '5.3K', isFirstParty: false },
+            { id: 7, title: 'Rift Hunters', category: 'Action', rating: '89%', players: '11.8K', isFirstParty: true },
+            { id: 8, title: 'City of Ashfall', category: 'RPG', rating: '90%', players: '7.4K', isFirstParty: false }
+        ];
+
+        const serversData = [
+            { name: 'US-East (Virginia) #01', game: 'Cyber Raven: Neon Protocol', region: 'US', ping: '16ms', max: '64', current: 62 },
+            { name: 'US-West (Oregon) #04', game: 'Cyber Raven: Neon Protocol', region: 'US', ping: '38ms', max: '64', current: 54 },
+            { name: 'EU-Central (Frankfurt) #02', game: 'Obsidian Arena PvP', region: 'EU', ping: '22ms', max: '32', current: 32 },
+            { name: 'Asia-East (Tokyo) #01', game: 'Raven Blox RP City', region: 'ASIA', ping: '84ms', max: '120', current: 98 },
+            { name: 'US-South (Dallas) #03', game: 'Void Crafters 3D', region: 'US', ping: '28ms', max: '48', current: 41 },
+            { name: 'EU-North (Stockholm) #01', game: 'Starship Flight Sim', region: 'EU', ping: '31ms', max: '24', current: 19 }
+        ];
+
+        const marketItems = [
+            { name: 'Cyber Raven Helm', price: 350, category: 'Hats' },
+            { name: 'Obsidian Wings', price: 600, category: 'Back' },
+            { name: 'Violet Aura Field', price: 450, category: 'Effects' },
+            { name: 'Tactical Visor X', price: 200, category: 'Face' },
+            { name: 'Shadow Cloak', price: 800, category: 'Gear' },
+            { name: 'Metallic Armor', price: 1100, category: 'Suit' },
+            { name: 'Neon Trail', price: 260, category: 'Trails' },
+            { name: 'Reaver Blade FX', price: 420, category: 'Effects' }
+        ];
+
+        window.onload = function() {
+            renderGameFeeds();
+            renderServers(serversData);
+            renderMarketplace();
+            bindSideNav();
+            bindTopTabs();
+            bindCategoryFilters();
+            bindGlobalSearch();
+            renderSidebar('discover');
+            setupModals();
+        };
+
+        function bindGlobalSearch() {
+            const input = document.getElementById('global-search');
+            const clearBtn = document.getElementById('clear-search');
+            input.addEventListener('input', function () {
+                const hasValue = this.value.trim().length > 0;
+                clearBtn.classList.toggle('hidden', !hasValue);
+                if (!hasValue) {
+                    selectedCategory = 'All';
+                    updateCategoryButtons();
+                    renderGameFeeds();
+                    return;
+                }
+                searchGames(this.value.trim());
+            });
+            input.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    switchTab('discover');
+                    searchGames(this.value.trim());
+                }
+            });
+            clearBtn.addEventListener('click', function() {
+                input.value = '';
+                clearBtn.classList.add('hidden');
+                selectedCategory = 'All';
+                updateCategoryButtons();
+                renderGameFeeds();
+            });
+        }
+
+        function searchGames(query) {
+            const filtered = query ? games.filter(g => g.title.toLowerCase().includes(query.toLowerCase()) || g.category.toLowerCase().includes(query.toLowerCase())) : games;
+            const recGrid = document.getElementById('grid-recommended');
+            if (!filtered.length) {
+                recGrid.innerHTML = '<div class="empty-state col-span-full game-card p-8 text-center text-raven-subtext text-sm">No games match the current search.</div>';
+                return;
+            }
+            recGrid.innerHTML = filtered.map(game => `
+                <div onclick="launchGameSim('${game.title}')" class="game-card p-2.5 flex flex-col justify-between space-y-2 cursor-pointer">
+                    <div class="w-full aspect-square rounded-xl game-art border border-raven-border flex flex-col items-center justify-center p-2 text-center relative">
+                        <span class="text-[8px] text-raven-darktext font-mono relative">[MATCH]</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-white text-xs truncate">${game.title}</h4>
+                        <span class="text-[10px] text-emerald-400">${game.rating} Rating</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function bindCategoryFilters() {
+            document.querySelectorAll('.cat-pill').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    filterCategory(btn.dataset.category);
+                });
+            });
+        }
+
+        function updateCategoryButtons() {
+            document.querySelectorAll('.cat-pill').forEach(pill => {
+                const isActive = pill.dataset.category === selectedCategory;
+                pill.className = `cat-pill px-2.5 py-1.5 rounded-full ${isActive ? 'bg-raven-highlight text-raven-bg font-bold' : 'bg-raven-surface text-raven-subtext hover:text-white border border-raven-border'} text-xs`;
+            });
+        }
+
+        function filterCategory(category) {
+            selectedCategory = category;
+            updateCategoryButtons();
+            renderGameFeeds();
+        }
+
+        function bindSideNav() {
+            document.querySelectorAll('.side-menu-item[data-tab]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    switchTab(tabId);
+                    document.querySelectorAll('.side-menu-item[data-tab]').forEach(item => item.classList.toggle('active', item.dataset.tab === tabId));
+                });
+            });
+        }
+
+        function bindTopTabs() {
+            document.querySelectorAll('.header-tab').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    switchTab(tabId);
+                });
+            });
+        }
+
+        function renderSidebar(tabId) {
+            const sidebarContainer = document.getElementById('sidebar-nav');
+            const items = sidebarMap[tabId] || sidebarMap.discover;
+            sidebarContainer.innerHTML = items.map((item) => `
+                <button class="side-menu-item ${item.tab === tabId ? 'active' : ''}" data-tab="${item.tab}">
+                    <i class="fa-solid ${item.icon}"></i>
+                    <span>${item.label}</span>
+                </button>
+            `).join('');
+            sidebarContainer.querySelectorAll('.side-menu-item[data-tab]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const target = btn.dataset.tab;
+                    switchTab(target);
+                });
+            });
+            document.querySelectorAll('.side-menu-item[data-tab]').forEach(item => item.classList.toggle('active', item.dataset.tab === tabId));
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById('tab-' + tabId);
+            if (target) target.classList.remove('hidden');
+
+            document.querySelectorAll('.header-tab').forEach(btn => {
+                const active = btn.dataset.tab === tabId;
+                btn.classList.toggle('header-tab-active', active);
+                btn.style.opacity = active ? '1' : '0.38';
+            });
+
+            if (tabId === 'discover') {
+                renderSidebar('discover');
+            } else {
+                renderSidebar(tabId);
+            }
+        }
+
+        function renderGameFeeds() {
+            const continueGrid = document.getElementById('grid-continue');
+            const recommendedGrid = document.getElementById('grid-recommended');
+            const filtered = selectedCategory === 'All' ? games : games.filter(g => g.category === selectedCategory);
+
+            const cardHTML = (g) => `
+                <div onclick="launchGameSim('${g.title}')" class="game-card p-2.5 flex flex-col justify-between space-y-2 cursor-pointer group">
+                    <div class="w-full aspect-square rounded-xl game-art border border-raven-border flex flex-col items-center justify-center p-2 text-center relative">
+                        <span class="text-[8px] text-raven-darktext font-mono relative">[WORLD]</span>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <h4 class="font-bold text-white text-xs truncate">${g.title}</h4>
+                            ${g.isFirstParty ? '<span class="text-[9px] uppercase tracking-[0.12em] text-emerald-400 font-mono">FIRST</span>' : ''}
+                        </div>
+                        <div class="flex items-center justify-between text-[10px] text-raven-subtext">
+                            <span>${g.category}</span>
+                            <span>${g.players}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            continueGrid.innerHTML = games.slice(0, 6).map(cardHTML).join('');
+
+            if (!filtered.length) {
+                recommendedGrid.innerHTML = '<div class="empty-state col-span-full game-card p-8 text-center text-raven-subtext text-sm">No games available in this category.</div>';
+                return;
+            }
+
+            recommendedGrid.innerHTML = filtered.map(cardHTML).join('');
+        }
+
+        function renderServers(list) {
+            const tbody = document.getElementById('server-table-body');
+            tbody.innerHTML = list.map(server => `
+                <tr class="align-middle">
+                    <td class="p-3 text-white font-semibold">${server.name}</td>
+                    <td class="p-3 text-raven-subtext">${server.game}</td>
+                    <td class="p-3"><span class="px-2 py-1 rounded-full bg-raven-bg border border-raven-border text-raven-subtext">${server.region}</span></td>
+                    <td class="p-3 text-white">${server.ping}</td>
+                    <td class="p-3 text-white">${server.current}/${server.max}</td>
+                    <td class="p-3 text-right">
+                        <button onclick="launchGameSim('${server.game}')" class="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-400 text-white text-[10px] font-bold">Join</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterServers() {
+            const query = document.getElementById('server-search-input').value.trim().toLowerCase();
+            const region = document.getElementById('server-region-select').value;
+            const filtered = serversData.filter(server => {
+                const matchesQuery = !query || server.name.toLowerCase().includes(query) || server.game.toLowerCase().includes(query);
+                const matchesRegion = region === 'ALL' || server.region === region;
+                return matchesQuery && matchesRegion;
+            });
+            renderServers(filtered);
+        }
+
+        function renderMarketplace() {
+            const grid = document.getElementById('marketplace-grid');
+            grid.innerHTML = marketItems.map(item => `
+                <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3 space-y-2 hover:border-raven-highlight/40 transition cursor-pointer">
+                    <div class="aspect-square rounded-xl game-art border border-raven-border flex items-center justify-center">
+                        <span class="text-[9px] uppercase tracking-[0.2em] text-raven-subtext font-mono">${item.category}</span>
+                    </div>
+                    <div class="space-y-1">
+                        <div class="text-xs font-bold text-white">${item.name}</div>
+                        <div class="text-[10px] text-raven-subtext">${item.category}</div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-raven-highlight font-mono font-bold">${item.price}</span>
+                        <button class="px-2 py-1 rounded-lg bg-raven-highlight text-raven-bg text-[10px] font-bold">Buy</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function setupModals() {
+            document.querySelectorAll('[data-modal]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const target = document.getElementById(btn.dataset.modal);
+                    if (target) target.classList.remove('hidden');
+                });
+            });
+        }
+
+        function toggleSidebar() {
+            document.body.classList.toggle('sidebar-collapsed');
+        }
+
+        function openModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        }
+
+        function launchGameSim(gameName) {
+            const modal = document.getElementById('launch-modal');
+            const title = document.getElementById('modal-title');
+            const sub = document.getElementById('modal-sub');
+            const progress = document.getElementById('modal-progress');
+
+            modal.classList.remove('hidden');
+            title.textContent = `Launching ${gameName}...`;
+            sub.textContent = 'Connecting to server instance...';
+            progress.style.width = '0%';
+
+            if (activeLaunchTimer) clearInterval(activeLaunchTimer);
+            if (activeLaunchTimeout) clearTimeout(activeLaunchTimeout);
+
+            let value = 0;
+            activeLaunchTimer = setInterval(() => {
+                value += 12;
+                progress.style.width = Math.min(value, 100) + '%';
+                if (value >= 100) {
+                    clearInterval(activeLaunchTimer);
+                    activeLaunchTimeout = setTimeout(() => {
+                        sub.textContent = 'Experience ready';
+                        title.textContent = `${gameName} is live`;
+                    }, 180);
+                }
+            }, 120);
+        }
+    </script>
+</body>
+</html>
