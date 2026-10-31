@@ -17,7 +17,7 @@ use crate::{
     contract::OPERATIONS,
     economy, games,
     identity::{account, oauth, web_session},
-    matchmaker::{self, internal},
+    matchmaker::{self, hosts, internal},
     problem::Problem,
     social, users,
 };
@@ -75,6 +75,9 @@ pub const IMPLEMENTED: &[&str] = &[
     "listRegions",
     "listServers",
     "createJoinTicket",
+    "connectJoinTicket",
+    // net
+    "getNetKeys",
     // library
     "listFavorites",
     "addFavorite",
@@ -96,6 +99,10 @@ pub const IMPLEMENTED: &[&str] = &[
     "heartbeatGameServer",
     "stopGameServer",
     "redeemJoinTicket",
+    // internal (host agents)
+    "registerHost",
+    "heartbeatHost",
+    "rotateHostToken",
 ];
 
 fn route(
@@ -150,6 +157,8 @@ fn route(
         "listRegions" => entry.on(filter, matchmaker::list_regions),
         "listServers" => entry.on(filter, matchmaker::list_servers),
         "createJoinTicket" => entry.on(filter, matchmaker::create_join_ticket),
+        "connectJoinTicket" => entry.on(filter, matchmaker::connection::connect_join_ticket),
+        "getNetKeys" => entry.on(filter, matchmaker::get_net_keys),
         "listFavorites" => entry.on(filter, games::library::list_favorites),
         "addFavorite" => entry.on(filter, games::library::add_favorite),
         "removeFavorite" => entry.on(filter, games::library::remove_favorite),
@@ -167,6 +176,9 @@ fn route(
         "heartbeatGameServer" => entry.on(filter, internal::heartbeat),
         "stopGameServer" => entry.on(filter, internal::stop),
         "redeemJoinTicket" => entry.on(filter, internal::redeem),
+        "registerHost" => entry.on(filter, hosts::register_host),
+        "heartbeatHost" => entry.on(filter, hosts::heartbeat_host),
+        "rotateHostToken" => entry.on(filter, hosts::rotate_host_token),
         _ => entry.on(filter, move || async move { Problem::not_implemented(id) }),
     }
 }

@@ -1,4 +1,6 @@
-# Health checks are for load balancers and have no 4xx response by design.
+# Health checks are for load balancers, and published ticket keys are public, unauthenticated and cacheable:
+# neither has a 4xx response by design.
 api/openapi.yaml:
   operation-4xx-response:
     - '#/paths/~1v1~1readyz/get/responses'
+    - '#/paths/~1v1~1net~1keys/get/responses'

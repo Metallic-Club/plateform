@@ -204,8 +204,12 @@ pub fn test_config() -> Config {
         ("METALLIC_HMAC_KEY", hmac),
         ("METALLIC_DATA_KEY", data),
         ("METALLIC_SERVER_SECRET", SERVER_SECRET.to_owned()),
+        // The deprecated shared secret stays testable; host-token tests use `Auth::Bearer`.
+        ("METALLIC_LEGACY_SERVER_SECRET", "true".to_owned()),
         ("METALLIC_PUBLIC_WEB_URL", WEB.to_owned()),
+        // Requests arrive from 127.0.0.1 (the trusted test proxy) carrying the client address in `x-test-ip`.
         ("METALLIC_CLIENT_IP_HEADER", "x-test-ip".to_owned()),
+        ("METALLIC_TRUSTED_PROXIES", "127.0.0.1/32".to_owned()),
         ("METALLIC_RUN_JOBS", "false".to_owned()),
         ("METALLIC_MIGRATE_ON_START", "false".to_owned()),
         ("METALLIC_COOKIE_SECURE", "true".to_owned()),
@@ -215,13 +219,17 @@ pub fn test_config() -> Config {
 
 impl TestApp {
     pub async fn new() -> Self {
+        Self::with_config(test_config()).await
+    }
+
+    /// Like `new` with an adjusted configuration (for example a longer request timeout for lock-wait tests).
+    pub async fn with_config(config: Config) -> Self {
         let (url, db_name) = create_database().await;
         let db = PgPoolOptions::new()
             .max_connections(5)
             .connect(&url)
             .await
             .expect("test db");
-        let config = test_config();
         let secrets = config.require_secrets().expect("secrets").clone();
         let mailer = Arc::new(MemoryMailer::default());
         let state = AppState::new(
@@ -275,6 +283,7 @@ impl TestApp {
             auth: Auth::None,
             ip: self.next_ip(),
             user: None,
+            peer: None,
         }
     }
 
@@ -338,8 +347,10 @@ impl TestApp {
 
     async fn send(&self, req: Request<Body>) -> Resp {
         let mut req = req;
-        req.extensions_mut()
-            .insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
+        if req.extensions().get::<ConnectInfo<SocketAddr>>().is_none() {
+            req.extensions_mut()
+                .insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
+        }
         let res = self
             .router
             .clone()
@@ -398,6 +409,8 @@ pub struct Client<'a> {
     pub auth: Auth,
     pub ip: String,
     pub user: Option<i64>,
+    /// TCP peer of this client's requests. None = the trusted test proxy (127.0.0.1), which forwards `ip`.
+    pub peer: Option<SocketAddr>,
 }
 
 #[derive(Debug)]
@@ -429,6 +442,7 @@ impl Client<'_> {
             auth: Auth::Bearer(token.to_owned()),
             ip: self.ip.clone(),
             user: self.user,
+            peer: self.peer,
         }
     }
 
@@ -458,6 +472,7 @@ impl Client<'_> {
             auth: Auth::Server,
             ip: "10.250.0.1".into(),
             user: None,
+            peer: None,
         }
     }
 
@@ -555,7 +570,11 @@ impl Client<'_> {
             b = b.header(header::CONTENT_TYPE, "application/json");
             Body::from(body.to_string())
         };
-        self.app.send(b.body(body).expect("request")).await
+        let mut req = b.body(body).expect("request");
+        if let Some(peer) = self.peer {
+            req.extensions_mut().insert(ConnectInfo(peer));
+        }
+        self.app.send(req).await
     }
 }
 

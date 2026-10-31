@@ -1,6 +1,6 @@
 # Metallic platform server
 
-Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 63 operations implemented, none
+Rust (axum 0.8, sqlx 0.9, PostgreSQL 18). Contract: `../api/openapi.yaml` (all 68 operations implemented, none
 answer 501). Design: `../docs/superpowers/specs/2026-10-30-platform-design.md`.
 
 ## Local database (no Docker, no admin rights)
@@ -24,7 +24,7 @@ Assistant's call: the official EDB zip over `postgresql_embedded` (third-party r
 ## Run
 
 ```sh
-cargo run -- keygen            # prints METALLIC_HMAC_KEY / METALLIC_DATA_KEY / METALLIC_SERVER_SECRET
+cargo run -- keygen            # prints METALLIC_HMAC_KEY / METALLIC_DATA_KEY / METALLIC_TICKET_KEYS
 # put them and METALLIC_DATABASE_URL in your shell (see .env.example)
 cargo run -- migrate
 cargo run -- seed              # fictitious demo data; password from METALLIC_SEED_PASSWORD or printed once
@@ -57,12 +57,57 @@ Notes for the web side:
 - `METALLIC_COOKIE_SECURE=false` is needed for plain-http localhost sign-in (dev default).
 - Studio templates stay on fixtures (no endpoint in P1).
 
-## Game servers
+## Game servers and host agents (M2)
 
-Internal endpoints under `/internal/v1` (in the OpenAPI file, tag `internal`) take the `X-Metallic-Server-Secret`
-header (`METALLIC_SERVER_SECRET`, compared in constant time): register, heartbeat every 5 s with the full player
-list, stop, and redeem join tickets. Servers silent for 30 s stop counting and are stopped by the job loop. The
-gateway must not expose `/internal/` to the internet.
+Contract summary: `docs/m2-backend-contract.md`. Ticket bytes, verification and key rotation:
+`docs/m2-join-tickets.md`.
+
+Internal endpoints under `/internal/v1` (OpenAPI tag `internal`) authenticate a **host** with
+`Authorization: Bearer mht_...`. Create one with `cargo run -- host add --name home-1 --region us-east`; the token
+is printed once and stored only as a SHA-256 hash. A host may only touch its own servers and its own `hostId`, and
+is rate limited per host. The host agent calls `registerHost` and `heartbeatHost` every 5 s; heartbeat responses
+carry `start`, `drain`, `stop` and `rotateToken` orders, so the backend never connects to a host. The old shared
+`X-Metallic-Server-Secret` (`METALLIC_SERVER_SECRET`) is deprecated: it works only with
+`METALLIC_LEGACY_SERVER_SECRET=true` (default false) and only for servers registered without a host. The gateway
+must not expose `/internal/` to the internet.
+
+`createJoinTicket` places the player on the fullest live server with room (counting unredeemed tickets as
+reservations; 8+ slot servers keep a friend slot) or allocates a server on a host and answers `202 pending`.
+Tickets are Ed25519-signed (`mjt1.`), verified offline by the edge with `GET /v1/net/keys`, and redeemed online by
+the host agent. Keys come from `METALLIC_TICKET_KEYS_FILE` or `METALLIC_TICKET_KEYS`; dev without either uses a
+random key and warns loudly; outside dev the published test key is refused. Hosts silent 30 s drop out of live
+counts and allocation; at 120 s their servers stop. Behind a proxy set `METALLIC_CLIENT_IP_HEADER` and
+`METALLIC_TRUSTED_PROXIES` (the header is ignored from any other peer).
+Admin: `host list`, `host drain|disable|enable --name N`, `host rotate-token|reset-token --name N`,
+`server drain|stop ID`, `ticket-key new --kid K`.
+
+### Per-process registration (compatibility)
+
+The per-process register/heartbeat/stop endpoints stay for legacy servers (shared secret) and accept a host token.
+Servers silent for 30 s stop counting and are stopped by the job loop after 60 s.
+
+Registration may include `host`, `port`, `certSha256`, `protocolMajor`, `engineVersion` and `buildId`, all together
+or all omitted. Host is a bounded ASCII DNS name or unbracketed IP literal; port is 1-65535; certificate is the
+64-digit SHA-256 hex digest of the complete DER certificate; protocol major is a positive PostgreSQL integer.
+Version/build labels are bounded ASCII, with no backend version negotiation. Certificates are normalized to
+lowercase. Register a new server process to rotate connection facts; metadata is not mutable through heartbeat.
+Legacy P1 registrations remain valid for existing callers, but their connection metadata cannot resolve.
+
+The Player uses `POST /v1/join-tickets/connect` with its bearer token (`play` scope) and `{ticket}` to get the
+registered `serverId`, `host`, `port`, `certSha256`, `protocol` (QUIC ALPN `metallic/<major>`), `engineVersion`,
+`buildId` and original `expiresAt`. Cookie sessions are refused for this native-only operation. All responses are
+`no-store`; endpoints never appear in public server lists or the `metallic://play?place=...&ticket=...` URI.
+Resolution does not consume or extend a ticket. An unbound ticket selects a live, joinable server for its exact
+game/place with the existing region/friend/fill/block policy, then binds atomically; a bound ticket never redirects.
+Unavailable, full, draining, stale or metadata-less bound servers return 409 `server_unavailable`; unknown, expired,
+redeemed and wrongly owned tickets share 410 `ticket_invalid`. A later attempt can retry an unbound ticket until
+its original expiry. There is no capacity reservation or host-process provisioning in this endpoint.
+
+Ticket/server row locks protect selection and binding. Fresh database-clock predicates after lock acquisition and
+in final writes prevent a lock wait from reviving an expired ticket or stale heartbeat. Redemption remains single
+use, with the same place/server binding and wrong-server errors. Its privileged response adds the current identity
+`ageBand` and explicit `partyId: null`; it adds no chat/voice permission or party membership. This age-band output
+requires the lead's review under the Children rule. Existing minor defaults and content/social policy are unchanged.
 
 ## Tests
 
@@ -76,7 +121,8 @@ end. Failed runs retain their databases for inspection. Automatic startup cleanu
 current-process names, skips connected databases and never uses FORCE; other process databases and shared templates
 are never swept. No cleanup terminates another connection. See issue #8 for the fixed cross-process hazard.
 Every response is validated against OpenAPI, and `contract::every_operation_answers_as_documented` explicitly calls
-all 63 operations.
+all 68 operations. Connection tests include native scope/ownership, non-consuming/unchanged-expiry resolution,
+legacy compatibility, exact eligibility, concurrent single-use admission and deterministic row-lock expiry races.
 
 ## Security notes
 
@@ -95,6 +141,9 @@ all 63 operations.
   security headers, CORS allow-list (never `*`).
 - Logs carry method, route template and status; never emails, IPs, tokens or bodies.
 - Ledger: append-only, double-entry, zero-sum enforced by Postgres triggers; every move has an idempotency key.
+- Host tokens stored as SHA-256 only, printed once; a rotated token keeps working 10 minutes. Join tickets are
+  Ed25519 (strict verification), audience-bound, at most 60 s, single use online; host addresses, tokens and tickets
+  never appear in logs, errors or public lists.
 
 ## Known gaps
 

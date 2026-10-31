@@ -6,7 +6,9 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-use metallic_platform::{contract::OPERATIONS, economy, routes::IMPLEMENTED, seed};
+use metallic_platform::{
+    contract::OPERATIONS, economy, matchmaker::hosts, routes::IMPLEMENTED, seed,
+};
 use serde_json::{Map, Value, json};
 use yaml_rust2::{Yaml, YamlLoader};
 
@@ -259,7 +261,20 @@ async fn every_operation_answers_as_documented() {
     const HAT: &str = "1000000000000202";
 
     // ops and auth
-    ok(&anon.op("getReadiness", &[], Value::Null).await, 200);
+    // Readiness gives the database two seconds. Under a parallel `cargo test` opening a pool connection can take
+    // longer, so wait (bounded) for the documented 200; every answer, 503 included, is validated against the schema.
+    let ready = tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        loop {
+            let r = anon.op("getReadiness", &[], Value::Null).await;
+            if r.status.as_u16() != 503 {
+                return r;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        }
+    })
+    .await
+    .expect("readiness reports ok once the database answers");
+    ok(&ready, 200);
     ok(
         &anon
             .op("checkUsername", &[("?username", "ada_test")], Value::Null)
@@ -562,7 +577,9 @@ async fn every_operation_answers_as_documented() {
         .op(
             "registerGameServer",
             &[],
-            json!({ "gameId": SKYLINE, "placeId": PLACE, "region": "us-east", "maxPlayers": 10 }),
+            json!({ "gameId": SKYLINE, "placeId": PLACE, "region": "us-east", "maxPlayers": 10,
+                "host": "game.metallic.example", "port": 4433, "certSha256": "ab".repeat(32),
+                "protocolMajor": 1, "engineVersion": "0.1.0-dev", "buildId": "fixture-build-1" }),
         )
         .await;
     ok(&r, 201);
@@ -588,6 +605,12 @@ async fn every_operation_answers_as_documented() {
         .await;
     assert!(r.status.is_success(), "join: {}", r.body);
     let ticket = r.body["ticket"].as_str().expect("ticket").to_owned();
+    ok(
+        &ada_app
+            .op("connectJoinTicket", &[], json!({ "ticket": ticket }))
+            .await,
+        200,
+    );
     let r = server
         .op(
             "redeemJoinTicket",
@@ -611,6 +634,45 @@ async fn every_operation_answers_as_documented() {
             .op("stopGameServer", &[("serverId", &server_id)], Value::Null)
             .await,
         204,
+    );
+
+    // net keys and host agents (M2)
+    ok(&anon.op("getNetKeys", &[], Value::Null).await, 200);
+    let (host_id, host_token) =
+        hosts::add_host(&app.db, &app.state.ids, "contract-host", "us-east", 2, 100)
+            .await
+            .expect("host add");
+    let host_id = host_id.to_string();
+    let agent = anon.with_bearer(&host_token);
+    ok(&anon.op("registerHost", &[], json!({})).await, 401);
+    let edge = json!({ "port": 47000, "certSha256": "ef".repeat(32) });
+    ok(
+        &agent
+            .op(
+                "registerHost",
+                &[],
+                json!({ "region": "us-east", "agentVersion": "0.2.0", "engineVersion": "0.2.0", "protocolMajor": 1,
+                    "engineBuilds": ["contract-build"], "edge": edge,
+                    "capacity": { "cores": 4, "memoryMiB": 8192, "maxServers": 2, "maxPlayers": 100 } }),
+            )
+            .await,
+        201,
+    );
+    ok(
+        &agent
+            .op(
+                "heartbeatHost",
+                &[("hostId", &host_id)],
+                json!({ "load": { "cpu": 1, "memoryMiB": 1, "upMbps": 0 }, "edge": { "certSha256": "ef".repeat(32) }, "servers": [] }),
+            )
+            .await,
+        200,
+    );
+    ok(
+        &agent
+            .op("rotateHostToken", &[("hostId", &host_id)], Value::Null)
+            .await,
+        200,
     );
 
     // library
