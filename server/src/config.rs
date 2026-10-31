@@ -169,7 +169,13 @@ impl Config {
             "worker" => Ok(Role::Worker),
             other => Err(format!("unknown role `{other}` (expected api or worker)")),
         })?;
-        let environment = parse("METALLIC_ENV", get("METALLIC_ENV"), "dev", |v| match v {
+        // No default: dev relaxes address checks and accepts a random ticket key, so a deployment that forgot the
+        // variable must not start as dev.
+        let environment = get("METALLIC_ENV").ok_or_else(|| ConfigError {
+            variable: "METALLIC_ENV",
+            message: "must be set to dev, staging or prod".to_owned(),
+        })?;
+        let environment = parse("METALLIC_ENV", Some(environment), "", |v| match v {
             "dev" => Ok(Environment::Dev),
             "staging" => Ok(Environment::Staging),
             "prod" => Ok(Environment::Prod),
@@ -650,12 +656,31 @@ mod tests {
         )
     }
 
+    /// `vars` plus `METALLIC_ENV=dev` unless `vars` sets it (the one variable without a default).
     fn config(vars: &[(&str, &str)]) -> Result<Config, ConfigError> {
-        let map: HashMap<String, String> = vars
+        let mut map: HashMap<String, String> = vars
             .iter()
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect();
+        map.entry("METALLIC_ENV".to_owned())
+            .or_insert_with(|| "dev".to_owned());
         Config::from_lookup(|name| map.get(name).cloned())
+    }
+
+    #[test]
+    fn the_environment_must_be_explicit() {
+        for unset in [None, Some(""), Some("  ")] {
+            let err = Config::from_lookup(|name| {
+                (name == "METALLIC_ENV")
+                    .then_some(unset)
+                    .flatten()
+                    .map(str::to_owned)
+            })
+            .expect_err("no implicit dev");
+            assert_eq!(err.variable, "METALLIC_ENV");
+        }
+        let c = Config::from_lookup(|name| (name == "METALLIC_ENV").then(|| "dev".to_owned()));
+        assert_eq!(c.expect("explicit dev").environment, Environment::Dev);
     }
 
     #[test]

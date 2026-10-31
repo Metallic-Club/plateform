@@ -17,6 +17,9 @@ pub async fn run_fast(state: &AppState) {
         Ok(n) => tracing::info!(servers = n, "stopped servers that missed heartbeats"),
         Err(e) => tracing::warn!(error = %e.code, "stale server job failed"),
     }
+    if let Err(e) = matchmaker::hosts::forget_pending_tokens(&state.db).await {
+        tracing::warn!(error = %e.code, "pending host token cleanup failed");
+    }
     if let Err(e) = games::snapshot_playing(state).await {
         tracing::warn!(error = %e.code, "live count snapshot failed");
     }

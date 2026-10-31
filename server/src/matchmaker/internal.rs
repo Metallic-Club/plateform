@@ -139,6 +139,19 @@ pub async fn register(
     let game_id = id_field("gameId", &req.game_id)?;
     let place_id = id_field("placeId", &req.place_id)?;
     let connection = req.connection.validate()?;
+    // Players must reach the process: outside dev a literal host must be a public address (the value is not echoed).
+    if !state.config.allow_private_addresses
+        && connection
+            .as_ref()
+            .and_then(|c| c.host.parse::<std::net::IpAddr>().ok())
+            .is_some_and(|ip| !crate::config::is_public_address(ip))
+    {
+        return Err(Problem::invalid(
+            "host",
+            "not_public",
+            "Use a public address or DNS name.",
+        ));
+    }
     let region = req
         .region
         .filter(|r| valid_region_code(r))
@@ -229,6 +242,9 @@ pub(super) fn player_ids(players: &[String], field: &str, max: usize) -> ApiResu
     Ok(ids)
 }
 
+/// A host may report a new player in a server only within this many seconds of that player redeeming a ticket for it.
+pub const REPORT_AFTER_REDEEM_SECS: i64 = 120;
+
 /// Result of applying one server report.
 pub(super) enum Applied {
     /// Recorded; presence must be updated with these (game, joined/current players, left players).
@@ -276,12 +292,49 @@ pub(super) async fn apply_report(
         return Ok(Applied::TooMany);
     }
     let old_set: HashSet<i64> = old.iter().copied().collect();
-    let new_set: HashSet<i64> = ids.iter().copied().collect();
-    let joined: Vec<i64> = ids
+    let mut joined: Vec<i64> = ids
         .iter()
         .copied()
         .filter(|p| !old_set.contains(p))
         .collect();
+    // A host agent (scope) may only add a user who redeemed a ticket for this server recently; anyone else is dropped
+    // and counted, never logged by id. Once accepted, an id stays while the host keeps reporting it. Deprecated
+    // shared-secret servers (no scope) keep the old behaviour.
+    let mut ids = ids.to_vec();
+    if let Some(host) = scope
+        && !joined.is_empty()
+    {
+        let verified: HashSet<i64> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT DISTINCT user_id FROM matchmaker.join_tickets WHERE server_id = $1 AND user_id = ANY($2) \
+             AND redeemed_at IS NOT NULL AND redeemed_at > clock_timestamp() - interval '{REPORT_AFTER_REDEEM_SECS} seconds'"
+        )))
+        .bind(server_id)
+        .bind(&joined)
+        .fetch_all(&mut *conn)
+        .await?
+        .into_iter()
+        .collect();
+        let dropped = joined.iter().filter(|p| !verified.contains(p)).count();
+        if dropped > 0 {
+            joined.retain(|p| verified.contains(p));
+            ids.retain(|p| old_set.contains(p) || verified.contains(p));
+            sqlx::query(
+                "UPDATE matchmaker.hosts SET unverified_players = unverified_players + $2 WHERE id = $1",
+            )
+            .bind(host)
+            .bind(dropped as i64)
+            .execute(&mut *conn)
+            .await?;
+            tracing::warn!(
+                host_id = host,
+                server_id,
+                dropped,
+                "host reported players without a redeemed ticket"
+            );
+        }
+    }
+    let ids = ids.as_slice();
+    let new_set: HashSet<i64> = ids.iter().copied().collect();
     let left: Vec<i64> = old
         .iter()
         .copied()

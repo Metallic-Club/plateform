@@ -90,3 +90,25 @@ No auth bypass was found. Fixed, each with a test (`server/tests/api/m2.rs` unle
    active key's window (`ticket.rs` unit tests).
 8. The published test key is refused outside dev (`config.rs` unit test).
 9. Host-reported player lists vs redeemed tickets: issue #23.
+
+## Follow-ups #24, #22 and #23 (branch `platform/m2-followups-24`)
+
+Each with a test:
+- #24.1 `createJoinTicket` expires old tickets first, so it locks tickets before servers like connect and redeem
+  (`a_double_tap_during_a_connect_waits_instead_of_deadlocking`: the server row is held while a second join and a
+  connect queue behind it; before the fix Postgres aborted one of them).
+- #24.2 `hosts.pending_token_enc` is dropped on the new token's first use (`authenticate`) or by the fast job once
+  the window ends (`forget_pending_tokens`)
+  (`the_pending_host_token_is_dropped_on_first_use_or_when_the_window_ends`).
+- #24.3 `METALLIC_ENV` has no default; the process refuses to start without it (`config.rs` unit test). Compose
+  and `.env.example` set it; `dev-postgres.ps1 env` prints it with the database URL.
+- #22.1 Unbound tickets bind only to a server with room counting pending reservations, rechecked under the server
+  lock (`tests/api/connection.rs` `unbound_tickets_count_pending_reservations_when_binding`). #22.2: the security
+  review fixes covered hosts (item 4); `registerGameServer` now also refuses a non-public IP-literal `host` outside
+  dev (`outside_dev_a_process_must_register_a_public_host`).
+- #23 Host reports add a user only with a ticket redeemed for that server in the last 120 s; drops are counted per
+  host (`hosts.unverified_players`, `host list`) and logged without ids. Index in migration 000010
+  (`host_reports_add_only_players_who_redeemed_a_ticket_there`).
+- Test timing: `oauth_family` race tests hold a request through up to 30 s + 15 s of lock waits, so under a loaded
+  parallel run it hit the default 10 s request timeout (408). Their apps now allow 60 s, like the connection and
+  web-session lock tests. What they prove is unchanged.
