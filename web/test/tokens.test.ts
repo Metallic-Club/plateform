@@ -3,8 +3,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-const tokens = readFileSync(new URL("../src/styles/metallic-tokens.css", import.meta.url), "utf8");
-const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+const tokens = readFileSync(new URL("../src/styles/metallic-tokens.css", import.meta.url), "utf8").replace(/
+/g, "
+");
+const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8").replace(/
+/g, "
+");
 
 describe("design tokens", () => {
   it("is the generated studio file with every theme", () => {
