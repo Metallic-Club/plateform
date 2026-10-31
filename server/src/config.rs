@@ -2,7 +2,12 @@
 //! Secrets have no defaults: the process refuses to start without them (`metallic-platform keygen` prints fresh ones).
 //! Policy values for the owner's open questions (design spec section 14) live in [`Policy`] so they are easy to change.
 
-use std::{fmt, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    fmt,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    time::Duration,
+};
 
 use base64::Engine as _;
 
@@ -108,8 +113,15 @@ pub struct Config {
     pub public_web_url: String,
     /// `Secure` flag on cookies. Only dev may turn it off.
     pub cookie_secure: bool,
-    /// Header that carries the client IP when behind a trusted proxy (e.g. `CF-Connecting-IP`). None = socket address.
+    /// Header that carries the client IP when behind a trusted proxy (e.g. `X-Forwarded-For`, `CF-Connecting-IP`).
+    /// Only read when the TCP peer is in `trusted_proxies`. None = socket address.
     pub client_ip_header: Option<String>,
+    /// Proxies allowed to set `client_ip_header` (`METALLIC_TRUSTED_PROXIES`, comma-separated CIDRs). Required when
+    /// the header is set.
+    pub trusted_proxies: Vec<Cidr>,
+    /// Accept loopback, private, link-local and unspecified client and host addresses for knock tokens and host
+    /// edges (`METALLIC_ALLOW_PRIVATE_ADDRESSES`). Default: on in dev only.
+    pub allow_private_addresses: bool,
     /// Folder where the dev mailer writes emails. None = log only (link redacted).
     pub dev_mail_dir: Option<String>,
     /// Snowflake worker id (0-1023), unique per running process.
@@ -259,8 +271,37 @@ impl Config {
                 message: "may only be false in dev".to_owned(),
             });
         }
-        let client_ip_header =
-            get("METALLIC_CLIENT_IP_HEADER").map(|h| h.trim().to_ascii_lowercase());
+        let client_ip_header = get("METALLIC_CLIENT_IP_HEADER")
+            .map(|h| h.trim().to_ascii_lowercase())
+            .filter(|h| !h.is_empty());
+        let trusted_proxies = match get("METALLIC_TRUSTED_PROXIES") {
+            None => Vec::new(),
+            Some(list) => list
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| {
+                    Cidr::parse(s).ok_or_else(|| ConfigError {
+                        variable: "METALLIC_TRUSTED_PROXIES",
+                        message: "must be comma-separated IP addresses or CIDRs".to_owned(),
+                    })
+                })
+                .collect::<Result<_, _>>()?,
+        };
+        if client_ip_header.is_some() && trusted_proxies.is_empty() {
+            return Err(ConfigError {
+                variable: "METALLIC_TRUSTED_PROXIES",
+                message:
+                    "is required with METALLIC_CLIENT_IP_HEADER (the proxies allowed to set it)"
+                        .to_owned(),
+            });
+        }
+        let allow_private_addresses = parse(
+            "METALLIC_ALLOW_PRIVATE_ADDRESSES",
+            get("METALLIC_ALLOW_PRIVATE_ADDRESSES"),
+            if dev { "true" } else { "false" },
+            parse_bool,
+        )?;
         let dev_mail_dir = get("METALLIC_DEV_MAIL_DIR");
         let worker_id = parse("METALLIC_WORKER_ID", get("METALLIC_WORKER_ID"), "0", |v| {
             int_in(v, 0, 1023).map(|n: u32| n as u16)
@@ -377,6 +418,8 @@ impl Config {
             public_web_url,
             cookie_secure,
             client_ip_header,
+            trusted_proxies,
+            allow_private_addresses,
             dev_mail_dir,
             worker_id,
             run_jobs,
@@ -402,6 +445,74 @@ impl Config {
                       (run `metallic-platform keygen` for fresh values)"
                 .to_owned(),
         })
+    }
+}
+
+/// An IP network (`10.0.0.0/8`, `2001:db8::/32`, or a bare address = one host).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Cidr {
+    network: IpAddr,
+    prefix: u8,
+}
+
+impl Cidr {
+    pub fn parse(text: &str) -> Option<Self> {
+        let (addr, prefix) = match text.split_once('/') {
+            Some((a, p)) => (a, Some(p)),
+            None => (text, None),
+        };
+        let network: IpAddr = addr.trim().parse().ok()?;
+        let network = network.to_canonical();
+        let max = if network.is_ipv4() { 32 } else { 128 };
+        let prefix = match prefix {
+            None => max,
+            Some(p) => p.trim().parse::<u8>().ok().filter(|p| *p <= max)?,
+        };
+        Some(Self { network, prefix })
+    }
+
+    pub fn contains(&self, ip: IpAddr) -> bool {
+        match (self.network, ip.to_canonical()) {
+            (IpAddr::V4(n), IpAddr::V4(a)) => {
+                let mask = u32::MAX
+                    .checked_shl(32 - u32::from(self.prefix))
+                    .unwrap_or(0);
+                u32::from(n) & mask == u32::from(a) & mask
+            }
+            (IpAddr::V6(n), IpAddr::V6(a)) => {
+                let mask = u128::MAX
+                    .checked_shl(128 - u32::from(self.prefix))
+                    .unwrap_or(0);
+                u128::from(n) & mask == u128::from(a) & mask
+            }
+            _ => false,
+        }
+    }
+}
+
+/// An address a player or another host can reach over the internet: not loopback, private (RFC 1918, ULA), shared
+/// (CGNAT), link-local, unspecified, broadcast or multicast. IPv4-mapped IPv6 is judged as IPv4.
+pub fn is_public_address(ip: IpAddr) -> bool {
+    match ip.to_canonical() {
+        IpAddr::V4(a) => {
+            let [b0, b1, ..] = a.octets();
+            !(a.is_loopback()
+                || a.is_private()
+                || a.is_link_local()
+                || a.is_unspecified()
+                || a.is_broadcast()
+                || a.is_multicast()
+                || b0 == 0
+                || (b0 == 100 && (64..128).contains(&b1)))
+        }
+        IpAddr::V6(a) => {
+            let s0 = a.segments()[0];
+            !(a.is_loopback()
+                || a.is_unspecified()
+                || a.is_multicast()
+                || (s0 & 0xfe00) == 0xfc00
+                || (s0 & 0xffc0) == 0xfe80)
+        }
     }
 }
 
@@ -489,7 +600,17 @@ fn ticket_keys(
             });
         }
     };
-    Keyring::from_json(&json, now).map_err(|message| ConfigError { variable, message })
+    let ring =
+        Keyring::from_json(&json, now).map_err(|message| ConfigError { variable, message })?;
+    if !dev && ring.has_test_key() {
+        return Err(ConfigError {
+            variable,
+            message:
+                "the keyset contains the published test key; generate one with `ticket-key new`"
+                    .to_owned(),
+        });
+    }
+    Ok(ring)
 }
 
 fn key_bytes(
@@ -522,9 +643,10 @@ mod tests {
     const KEY: &str = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
 
     /// base64 of `{"keys":[{"kid":"test","status":"active","d":<test seed 00..1f>}]}`. Test-only key.
+    /// A fake keyset (seed 0x2a repeated), not the published test key, so it passes outside dev.
     fn keyset() -> String {
         base64::engine::general_purpose::STANDARD.encode(
-            br#"{"keys":[{"kid":"test","status":"active","d":"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"}]}"#,
+            br#"{"keys":[{"kid":"test","status":"active","d":"KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio"}]}"#,
         )
     }
 
@@ -613,6 +735,22 @@ mod tests {
             config(&vars)
         };
         assert_eq!(prod(&[]).unwrap_err().variable, "METALLIC_TICKET_KEYS_FILE");
+        // The documented test key (seed 00..1f) works in dev only.
+        let test_seed: Vec<u8> = (0u8..32).collect();
+        let test_set = base64::engine::general_purpose::STANDARD.encode(format!(
+            r#"{{"keys":[{{"kid":"test-2026-10","status":"active","d":"{}"}}]}}"#,
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&test_seed)
+        ));
+        let err = prod(&[("METALLIC_TICKET_KEYS", &test_set)]).unwrap_err();
+        assert_eq!(err.variable, "METALLIC_TICKET_KEYS");
+        assert!(err.message.contains("test key"));
+        let dev_test = config(&[
+            ("METALLIC_HMAC_KEY", KEY),
+            ("METALLIC_DATA_KEY", KEY),
+            ("METALLIC_TICKET_KEYS", &test_set),
+        ])
+        .unwrap();
+        assert!(dev_test.secrets.unwrap().ticket_keys.has_test_key());
         let keys = keyset();
         assert_eq!(
             prod(&[

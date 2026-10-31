@@ -5,6 +5,8 @@
 //!
 //! Host addresses and tokens never appear in logs, errors or public lists.
 
+use std::net::IpAddr;
+
 use axum::{
     Json,
     extract::State,
@@ -20,7 +22,8 @@ use super::internal::{
 };
 use crate::{
     AppState,
-    crypto::{new_token, token_hash},
+    config::is_public_address,
+    crypto::{decrypt, encrypt, new_token, token_hash},
     http::{ApiJson, IdPath, client_ip, rfc3339},
     ids::{IdGenerator, parse_id},
     problem::{ApiResult, Problem},
@@ -228,7 +231,30 @@ pub async fn register_host(
                 .ok_or_else(|| Problem::invalid("edge.publicHost", "invalid", "Invalid host."))
         })
         .transpose()?;
-    let observed = client_ip(&parts, &state).0.to_string();
+    let observed_ip = client_ip(&parts, &state).0;
+    let allow_private = state.config.allow_private_addresses;
+    // Players must be able to reach the edge: a literal publicHost must be a public address, and without one the
+    // address the agent connects from (the edge's address) must be public. Dev may allow private addresses.
+    if !allow_private {
+        let literal = public_host
+            .as_deref()
+            .and_then(|h| h.parse::<IpAddr>().ok());
+        if literal.is_some_and(|ip| !is_public_address(ip)) {
+            return Err(Problem::invalid(
+                "edge.publicHost",
+                "not_public",
+                "Use a public address or DNS name.",
+            ));
+        }
+        if public_host.is_none() && !is_public_address(observed_ip) {
+            return Err(Problem::invalid(
+                "edge.publicHost",
+                "required",
+                "This host connects from a non-public address; give edge.publicHost.",
+            ));
+        }
+    }
+    let observed = observed_ip.to_string();
     sqlx::query(
         "UPDATE matchmaker.hosts SET registered_at = now(), last_seen_at = now(), agent_version = $2, \
          engine_version = $3, protocol_major = $4, engine_builds = $5, cap_cores = $6, cap_memory_mib = $7, \
@@ -428,10 +454,14 @@ pub async fn heartbeat_host(
             "Register the host first",
         ));
     }
-    let observed = client_ip(&parts, &state).0.to_string();
+    let observed_ip = client_ip(&parts, &state).0;
+    // A non-public observed address never replaces the stored one (outside dev): it cannot be a player-facing edge.
+    let observed = (state.config.allow_private_addresses || is_public_address(observed_ip))
+        .then(|| observed_ip.to_string());
     sqlx::query(
         "UPDATE matchmaker.hosts SET last_seen_at = now(), load_cpu = $2, load_memory_mib = $3, load_up_mbps = $4, \
-         edge_cert_sha256 = $5, edge_cert_sha256_next = $6, observed_address = $7 WHERE id = $1",
+         edge_cert_sha256 = $5, edge_cert_sha256_next = $6, observed_address = coalesce($7, observed_address) \
+         WHERE id = $1",
     )
     .bind(host)
     .bind(l.cpu)
@@ -584,26 +614,73 @@ struct Rotated {
     token: String,
 }
 
+/// Context string for the encrypted pending token (AES-256-GCM with the data key).
+const PENDING_TOKEN_CONTEXT: &str = "host-token";
+
 /// `POST /internal/v1/hosts/{hostId}/token/rotate`: a new token, returned once. The previous one keeps working for
 /// 10 minutes so the agent can persist the new one first.
+///
+/// Only the **current** token rotates. A call with the previous token inside its grace window (the agent lost the
+/// response) gets the same pending token back, idempotently: the previous token can never mint a further token, so a
+/// leaked old token cannot extend itself past the window.
 pub async fn rotate_host_token(
     State(state): State<AppState>,
     caller: GameServer,
     IdPath(path_id): IdPath,
+    headers: axum::http::HeaderMap,
 ) -> ApiResult<Response> {
     let host = host_of(caller, path_id)?;
-    let token = new_token(TOKEN_PREFIX);
-    sqlx::query(
-        "UPDATE matchmaker.hosts SET prev_token_hash = token_hash, \
-         prev_token_expires_at = now() + make_interval(mins => $3), token_hash = $2, rotate_requested = false \
-         WHERE id = $1",
+    let presented = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(token_hash)
+        .ok_or_else(host_token_needed)?;
+    let mut tx = state.db.begin().await?;
+    let row: Option<(bool, bool, Option<Vec<u8>>)> = sqlx::query_as(
+        "SELECT token_hash = $2, prev_token_hash IS NOT DISTINCT FROM $2 AND prev_token_expires_at > now(), \
+         pending_token_enc FROM matchmaker.hosts WHERE id = $1 AND status <> 'disabled' FOR UPDATE",
     )
     .bind(host)
-    .bind(token_hash(&token))
-    .bind(PREVIOUS_TOKEN_MINUTES as i32)
-    .execute(&state.db)
+    .bind(&presented)
+    .fetch_optional(&mut *tx)
     .await?;
-    tracing::info!(host_id = host, "host token rotated");
+    let token = match row {
+        Some((true, _, _)) => {
+            let token = new_token(TOKEN_PREFIX);
+            let sealed = encrypt(
+                &state.secrets.data_key,
+                PENDING_TOKEN_CONTEXT,
+                token.as_bytes(),
+            );
+            sqlx::query(
+                "UPDATE matchmaker.hosts SET prev_token_hash = token_hash, \
+                 prev_token_expires_at = now() + make_interval(mins => $3), token_hash = $2, \
+                 pending_token_enc = $4, rotate_requested = false WHERE id = $1",
+            )
+            .bind(host)
+            .bind(token_hash(&token))
+            .bind(PREVIOUS_TOKEN_MINUTES as i32)
+            .bind(sealed)
+            .execute(&mut *tx)
+            .await?;
+            tracing::info!(host_id = host, "host token rotated");
+            token
+        }
+        Some((false, true, Some(sealed))) => {
+            let token = decrypt(&state.secrets.data_key, PENDING_TOKEN_CONTEXT, &sealed)
+                .and_then(|t| String::from_utf8(t).ok())
+                .ok_or_else(Problem::internal)?;
+            tracing::info!(
+                host_id = host,
+                "host token rotation repeated with the previous token"
+            );
+            token
+        }
+        // The previous token after its window, or with no pending token: the same answer as any bad token.
+        _ => return Err(host_token_needed()),
+    };
+    tx.commit().await?;
     Ok((
         [(header::CACHE_CONTROL, "no-store")],
         Json(Rotated { token }),
@@ -750,7 +827,7 @@ pub async fn reset_token(db: &PgPool, name: &str) -> Result<String, String> {
     let token = new_token(TOKEN_PREFIX);
     let n = sqlx::query(
         "UPDATE matchmaker.hosts SET token_hash = $2, prev_token_hash = NULL, prev_token_expires_at = NULL, \
-         rotate_requested = false WHERE name = $1",
+         pending_token_enc = NULL, rotate_requested = false WHERE name = $1",
     )
     .bind(name)
     .bind(token_hash(&token))

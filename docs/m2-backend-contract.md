@@ -39,7 +39,7 @@ win where they differ; this file lists every difference).
 |-----------|---------|----------|
 | `registerHost` `POST /internal/v1/hosts/register` | `{region, agentVersion, engineVersion, protocolMajor, engineBuilds:[buildId], capacity:{cores, memoryMiB, maxServers, maxPlayers}, edge:{port, certSha256, certSha256Next?, publicHost?}}` | `201 {hostId, heartbeatIntervalSecs, observedAddress}` |
 | `heartbeatHost` `POST /internal/v1/hosts/{hostId}/heartbeat` | `{load:{cpu, memoryMiB, upMbps}, edge:{certSha256, certSha256Next?}, servers:[{serverId, kind, status: starting\|ready\|draining\|stopped, players:[userId], joinable, tickP99Ms?, exitCode?}]}` | `200 {orders:[...], keysVersion, nextHeartbeatSecs}`; `410 host_not_registered` |
-| `rotateHostToken` `POST /internal/v1/hosts/{hostId}/token/rotate` | none | `200 {token}`; the previous token works 10 more minutes |
+| `rotateHostToken` `POST /internal/v1/hosts/{hostId}/token/rotate` | none | `200 {token}`; the previous token works 10 more minutes. Only the current token rotates; the previous token (lost response) gets the same new token back |
 | `redeemJoinTicket` `POST /internal/v1/join-tickets/redeem` | `{ticket, serverId}` | existing fields + `kind, canEdit, chatAllowed, voiceAllowed, accountStatus` |
 
 Orders (`type` tag):
@@ -68,8 +68,18 @@ and only for servers registered without a host.
   spare capacity (requested region first, then fewest servers) and answer `202 pending`; the agent gets `start`.
   Registered hosts exist but none is active, live and has room (full, draining or silent fleet):
   `503 no_capacity`. No host ever registered (legacy deployment): the old unbound ticket.
+- **One live ticket per account:** issuing a ticket expires the account's other unredeemed tickets, so one account
+  cannot hold reservations on many servers. Tickets and placement check `kind` (a `play` ticket never binds to or
+  redeems on an `edit` or `test` server).
+- **Addresses:** the client address is the TCP peer unless the peer is a trusted proxy
+  (`METALLIC_TRUSTED_PROXIES`); then it is the right-most forwarded hop that is not a trusted proxy. Outside dev a
+  loopback, private or unspecified address gets no knock token (`403 client_address_not_public`), and a host on
+  such an address must give a public `edge.publicHost`.
+- **Starting timeout:** a server that is not `ready` 60 s after allocation stops counting as pending and is stopped,
+  however often the agent reports `starting`.
 - **Race safety:** quick joins for one place serialize on a transaction-scoped advisory lock; each placement locks
-  the server row and recounts; allocation locks the host row and recounts its servers. Tested with 12 concurrent
+  the server row and recounts; allocation locks all candidate host rows in id order (no deadlock across places
+  and regions) and recounts their servers. Tested with 12 concurrent
   joins (`server/tests/api/m2.rs`): one allocation for an empty place; on a 4-slot server exactly 4 tickets and
   one more allocation, not eight.
 - **Liveness:** host silent 30 s: its servers are unjoinable and not counted. 120 s: stopped. An allocation the

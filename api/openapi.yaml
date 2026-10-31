@@ -1271,7 +1271,8 @@ paths:
         the server and the ticket expiry, for the edge's under-attack mode (`docs/m2-join-tickets.md`). A full,
         draining, stale or fact-less bound server, or a server whose host went silent, produces
         `server_unavailable`; an unknown, expired, redeemed or differently owned ticket produces the same
-        `ticket_invalid` response. Connection facts are never included in launch URIs or public server lists.
+        `ticket_invalid` response. Outside dev, a caller whose address is loopback, private or unspecified gets
+        403 `client_address_not_public` (no knock token for such an address). Connection facts are never included in launch URIs or public server lists.
         Responses use `Cache-Control: no-store`. Redeem the ticket only after connecting to the selected server.
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -1767,7 +1768,9 @@ paths:
         Called by `metallic-host` at start (and again after a restart). The host is identified by its `mht_` token;
         `region` must match the region the host was created with. The edge address handed to players is the
         agent's public address as this request arrives (`observedAddress`), unless `edge.publicHost` is given
-        (relay phase). Reported capacity can only lower the admin limits. The backend never connects to the host:
+        (relay phase). Outside dev, a non-public observed address needs `edge.publicHost`, and a literal
+        `edge.publicHost` must be a public address (400 otherwise). Reported capacity can only lower the admin
+        limits. The backend never connects to the host:
         everything it wants arrives as orders in heartbeat responses. Addresses are never logged.
       x-internal: true
       security: [{ hostToken: [] }]
@@ -1906,6 +1909,8 @@ paths:
       description: |
         Returns a new `mht_` token once (`Cache-Control: no-store`). The previous token keeps working for 10
         minutes so the agent can store the new one first. Sent when a heartbeat carries `rotateToken`, or any time.
+        Only the current token rotates. Called with the previous token during those 10 minutes (the agent lost the
+        response), it returns the same new token again instead of rotating; after them it answers 401.
       x-internal: true
       security: [{ hostToken: [] }]
       parameters:

@@ -56,6 +56,7 @@ fn bearer<'a>(app: &'a TestApp, token: &str) -> Client<'a> {
         auth: Auth::Bearer(token.to_owned()),
         ip: app.next_ip(),
         user: None,
+        peer: None,
     }
 }
 
@@ -138,7 +139,30 @@ async fn native_token(app: &TestApp, user: &Client<'_>) -> String {
     r.body["access_token"].as_str().expect("token").to_owned()
 }
 
-async fn keys(app: &TestApp) -> Vec<(String, VerifyingKey)> {
+/// A published key as the edge keeps it: kid, key and validity window (Unix seconds).
+type Published = (String, VerifyingKey, Option<i64>, Option<i64>);
+
+fn window(k: &Value, field: &str) -> Option<i64> {
+    k[field].as_str().map(|t| {
+        time::OffsetDateTime::parse(t, &time::format_description::well_known::Rfc3339)
+            .expect("RFC 3339")
+            .unix_timestamp()
+    })
+}
+
+/// The lookup an offline verifier does: by kid, with the published window.
+fn lookup<'k>(published: &'k [Published], kid: &str) -> Option<ticket::KeyRef<'k>> {
+    published
+        .iter()
+        .find(|(k, ..)| k == kid)
+        .map(|(_, key, not_before, not_after)| ticket::KeyRef {
+            key,
+            not_before: *not_before,
+            not_after: *not_after,
+        })
+}
+
+async fn keys(app: &TestApp) -> Vec<Published> {
     let r = app.anon().op("getNetKeys", &[], Value::Null).await;
     assert_eq!(r.status, StatusCode::OK);
     assert_eq!(r.header("cache-control"), Some("public, max-age=300"));
@@ -159,6 +183,8 @@ async fn keys(app: &TestApp) -> Vec<(String, VerifyingKey)> {
             (
                 k["kid"].as_str().expect("kid").to_owned(),
                 VerifyingKey::from_bytes(&x).expect("key"),
+                window(k, "notBefore"),
+                window(k, "notAfter"),
             )
         })
         .collect()
@@ -258,10 +284,8 @@ async fn host_agent_allocates_starts_and_issues_tickets_verified_offline() {
     assert!(t.starts_with("mjt1.") && t.len() <= 512);
     assert!(r.body["launchUri"].as_str().expect("uri").ends_with(&t));
     let published = keys(&app).await;
-    let claims = ticket::verify(&t, now(), |kid| {
-        published.iter().find(|(k, _)| k == kid).map(|(_, v)| v)
-    })
-    .expect("verifies offline");
+    let claims =
+        ticket::verify(&t, now(), |kid| lookup(&published, kid)).expect("verifies offline");
     assert_eq!(claims.server.to_string(), sid);
     assert_eq!(claims.user, player.user_id());
     assert_eq!(claims.place.to_string(), PLACE);
@@ -291,7 +315,7 @@ async fn host_agent_allocates_starts_and_issues_tickets_verified_offline() {
     let knock = ticket::verify_knock(
         r.body["knockToken"].as_str().expect("knock"),
         now(),
-        |kid| published.iter().find(|(k, _)| k == kid).map(|(_, v)| v),
+        |kid| lookup(&published, kid),
     )
     .expect("knock verifies");
     assert_eq!(knock.ip, native.ip.parse::<IpAddr>().expect("ip"));
@@ -639,5 +663,354 @@ async fn drain_and_silent_hosts_leave_counts_and_allocation() {
         "only host is draining: {}",
         r.body
     );
+    app.finish().await;
+}
+
+// ------------------------------------------------------------------ security review (FIX-FIRST) regressions
+
+/// A registered host in `region` (`us-east` or `eu-central`), with its agent client.
+async fn host_in<'a>(
+    app: &'a TestApp,
+    name: &str,
+    region: &str,
+    max_servers: i32,
+) -> (String, Client<'a>) {
+    let (id, token) = hosts::add_host(&app.db, &app.state.ids, name, region, max_servers, 500)
+        .await
+        .expect("host add");
+    let agent = bearer(app, &token);
+    let mut body = registration();
+    body["region"] = json!(region);
+    body["capacity"]["maxServers"] = json!(20);
+    let r = agent.op("registerHost", &[], body).await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    (id.to_string(), agent)
+}
+
+/// A running, joinable server of the test place on `host` (as if started and reported ready), returning its id.
+async fn running_server(app: &TestApp, host: &str, max_players: i32) -> String {
+    let id: i64 = sqlx::query_scalar(
+        "INSERT INTO matchmaker.servers (id, game_id, place_id, region, status, max_players, joinable, host_id) \
+         SELECT $1, $2, $3, h.region, 'running', $4, true, h.id FROM matchmaker.hosts h WHERE h.id = $5 RETURNING id",
+    )
+    .bind(app.state.ids.next())
+    .bind(GAME.parse::<i64>().expect("id"))
+    .bind(PLACE.parse::<i64>().expect("id"))
+    .bind(max_players)
+    .bind(host.parse::<i64>().expect("id"))
+    .fetch_one(&app.db)
+    .await
+    .expect("server");
+    id.to_string()
+}
+
+async fn rotate(c: &Client<'_>, id: &str) -> Resp {
+    c.op("rotateHostToken", &[("hostId", id)], Value::Null)
+        .await
+}
+
+#[tokio::test]
+async fn rotation_with_the_previous_token_returns_the_same_token_and_never_mints_another() {
+    let app = seeded().await;
+    let (id, original) = host_in(&app, "rotor", "us-east", 2).await;
+    // Current token rotates.
+    let r = rotate(&original, &id).await;
+    assert_eq!(r.status, StatusCode::OK);
+    let first = r.body["token"].as_str().expect("token").to_owned();
+    // The response was "lost": the agent retries with the now-previous token and gets the SAME token back, twice.
+    for _ in 0..2 {
+        let r = rotate(&original, &id).await;
+        assert_eq!(r.status, StatusCode::OK);
+        assert_eq!(r.body["token"], first.as_str(), "idempotent, no new token");
+    }
+    let first_client = bearer(&app, &first);
+    // Only the current token rotates further; the old previous token then dies at once (one previous at a time).
+    let r = rotate(&first_client, &id).await;
+    assert_eq!(r.status, StatusCode::OK);
+    let second = r.body["token"].as_str().expect("token").to_owned();
+    assert_ne!(second, first);
+    assert_eq!(
+        rotate(&original, &id).await.status,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        rotate(&first_client, &id).await.body["token"],
+        second.as_str()
+    );
+    // After the grace window the previous token cannot rotate (or do anything else).
+    sqlx::query("UPDATE matchmaker.hosts SET prev_token_expires_at = now() - interval '1 second' WHERE name = 'rotor'")
+        .execute(&app.db)
+        .await
+        .expect("sql");
+    assert_eq!(
+        rotate(&first_client, &id).await.status,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        rotate(&bearer(&app, &second), &id).await.status,
+        StatusCode::OK
+    );
+    app.finish().await;
+}
+
+#[tokio::test]
+async fn a_server_stuck_in_starting_stops_blocking_quick_join() {
+    let app = seeded().await;
+    let (host_id, h) = host_in(&app, "stuck", "us-east", 3).await;
+    let player = app.user("m2_stuck", "1990-01-01").await;
+    assert_eq!(join(&player).await.status, StatusCode::ACCEPTED);
+    let stuck = start_ids(&beat(&h, &host_id, json!([])).await).remove(0);
+    let starting = || json!([{ "serverId": stuck, "kind": "play", "status": "starting", "players": [], "joinable": false }]);
+    // The agent keeps reporting `starting` (refreshing the heartbeat) but the server never becomes ready.
+    beat(&h, &host_id, starting()).await;
+    assert_eq!(join(&player).await.status, StatusCode::ACCEPTED);
+    assert_eq!(
+        servers_of_place(&app).await,
+        1,
+        "still waiting on the first allocation"
+    );
+    sqlx::query(
+        "UPDATE matchmaker.servers SET started_at = now() - interval '61 seconds' WHERE id = $1",
+    )
+    .bind(stuck.parse::<i64>().expect("id"))
+    .execute(&app.db)
+    .await
+    .expect("sql");
+    beat(&h, &host_id, starting()).await;
+    // Measured from allocation time, not the last heartbeat: the next join allocates a fresh server...
+    assert_eq!(join(&player).await.status, StatusCode::ACCEPTED);
+    assert_eq!(servers_of_place(&app).await, 2);
+    // ...and the stale job stops the stuck one although its heartbeat is fresh.
+    assert_eq!(stop_stale_servers(&app.state).await.expect("job"), 1);
+    let status: String = sqlx::query_scalar("SELECT status FROM matchmaker.servers WHERE id = $1")
+        .bind(stuck.parse::<i64>().expect("id"))
+        .fetch_one(&app.db)
+        .await
+        .expect("status");
+    assert_eq!(status, "stopped");
+    app.finish().await;
+}
+
+#[tokio::test]
+async fn concurrent_allocations_across_places_and_regions_do_not_deadlock() {
+    let app = seeded().await;
+    // Two full hosts in different regions: every allocation locks both, preferring them in opposite orders.
+    let (east, _e) = host_in(&app, "full-east", "us-east", 1).await;
+    let (west, _w) = host_in(&app, "full-eu", "eu-central", 1).await;
+    running_server(&app, &east, 4).await;
+    running_server(&app, &west, 4).await;
+    sqlx::query("UPDATE matchmaker.servers SET joinable = false WHERE host_id IS NOT NULL")
+        .execute(&app.db)
+        .await
+        .expect("sql");
+    let games: Vec<i64> = sqlx::query_scalar(
+        "SELECT id FROM games.games WHERE status = 'public' AND start_place_id IS NOT NULL ORDER BY id LIMIT 8",
+    )
+    .fetch_all(&app.db)
+    .await
+    .expect("games");
+    assert!(games.len() >= 6, "seeded public games");
+    let mut players = Vec::new();
+    for i in 0..games.len() {
+        players.push(app.user(&format!("m2_place{i}"), "1990-01-01").await);
+    }
+    let ids: Vec<String> = games.iter().map(i64::to_string).collect();
+    let joins = players.iter().zip(&ids).enumerate().map(|(i, (p, g))| {
+        let region = if i % 2 == 0 { "us-east" } else { "eu-central" };
+        async move {
+            p.op(
+                "createJoinTicket",
+                &[("gameId", g)],
+                json!({ "region": region }),
+            )
+            .await
+        }
+    });
+    let results = join_all(joins.collect()).await;
+    for r in &results {
+        assert_eq!(
+            r.status,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "no deadlock (500): {}",
+            r.body
+        );
+        assert_eq!(r.body["code"], "no_capacity");
+    }
+    // With room on both hosts the same race allocates one server per place.
+    sqlx::query("UPDATE matchmaker.hosts SET max_servers = 20")
+        .execute(&app.db)
+        .await
+        .expect("sql");
+    let joins = players.iter().zip(&ids).enumerate().map(|(i, (p, g))| {
+        let region = if i % 2 == 0 { "us-east" } else { "eu-central" };
+        async move {
+            p.op(
+                "createJoinTicket",
+                &[("gameId", g)],
+                json!({ "region": region }),
+            )
+            .await
+        }
+    });
+    let results = join_all(joins.collect()).await;
+    assert!(
+        results.iter().all(|r| r.status == StatusCode::ACCEPTED),
+        "{:?}",
+        results.iter().map(|r| r.status).collect::<Vec<_>>()
+    );
+    let allocated: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM matchmaker.servers WHERE status = 'starting'")
+            .fetch_one(&app.db)
+            .await
+            .expect("count");
+    assert_eq!(allocated, games.len() as i64);
+    app.finish().await;
+}
+
+#[tokio::test]
+async fn client_addresses_come_only_from_trusted_proxies_and_must_be_public_outside_dev() {
+    // Production-like address rules on a dev database.
+    let mut config = crate::support::test_config();
+    config.allow_private_addresses = false;
+    let app = TestApp::with_config(config).await;
+    seed::run(&app.state, PASSWORD).await.expect("seed");
+    let (_, token) = hosts::add_host(&app.db, &app.state.ids, "edge-1", "us-east", 2, 100)
+        .await
+        .expect("host add");
+
+    // An untrusted peer cannot choose its address with the forwarded header: the TCP peer is used.
+    let mut spoofer = bearer(&app, &token);
+    spoofer.ip = "198.51.100.66".into();
+    spoofer.peer = Some("203.0.113.9:5000".parse().expect("addr"));
+    let r = spoofer.op("registerHost", &[], registration()).await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    assert_eq!(r.body["observedAddress"], "203.0.113.9");
+    // Through the trusted proxy, the right-most untrusted hop counts; what the client prepended does not.
+    let mut proxied = bearer(&app, &token);
+    proxied.ip = "6.6.6.6, 198.51.100.67".into();
+    let r = proxied.op("registerHost", &[], registration()).await;
+    assert_eq!(r.body["observedAddress"], "198.51.100.67");
+    // IPv4-mapped addresses are normalised.
+    let mut mapped = bearer(&app, &token);
+    mapped.peer = Some("[::ffff:203.0.113.10]:5000".parse().expect("addr"));
+    let r = mapped.op("registerHost", &[], registration()).await;
+    assert_eq!(r.body["observedAddress"], "203.0.113.10");
+
+    // A host behind a private address needs a public edge.publicHost.
+    let private = bearer(&app, &token);
+    assert!(private.ip.starts_with("10."));
+    let r = private.op("registerHost", &[], registration()).await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+    assert!(
+        !r.body.to_string().contains(&private.ip),
+        "no address echoed"
+    );
+    let mut with_public = registration();
+    with_public["edge"]["publicHost"] = json!("10.0.0.5");
+    assert_eq!(
+        private.op("registerHost", &[], with_public).await.status,
+        StatusCode::BAD_REQUEST
+    );
+    let mut with_public = registration();
+    with_public["edge"]["publicHost"] = json!("edge-1.metallic.example");
+    assert_eq!(
+        private.op("registerHost", &[], with_public).await.status,
+        StatusCode::CREATED
+    );
+
+    // A player on a private address gets no knock token (and no connection facts).
+    let player = app.user("m2_lan", "1990-01-01").await;
+    let native = player.with_bearer(&native_token(&app, &player).await);
+    let r = native
+        .op(
+            "connectJoinTicket",
+            &[],
+            json!({ "ticket": format!("jt_{}", "a".repeat(40)) }),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN);
+    assert_eq!(r.body["code"], "client_address_not_public");
+    app.finish().await;
+}
+
+#[tokio::test]
+async fn one_account_holds_one_live_ticket_and_kinds_must_match() {
+    let app = seeded().await;
+    let (host_id, h) = host_in(&app, "squat", "us-east", 4).await;
+    let a = running_server(&app, &host_id, 4).await;
+    let b = running_server(&app, &host_id, 4).await;
+    let squatter = app.user("m2_squatter", "1990-01-01").await;
+    let first = squatter
+        .op(
+            "createJoinTicket",
+            &[("gameId", GAME)],
+            json!({ "serverId": a }),
+        )
+        .await;
+    assert_eq!(first.status, StatusCode::CREATED, "{}", first.body);
+    let second = squatter
+        .op(
+            "createJoinTicket",
+            &[("gameId", GAME)],
+            json!({ "serverId": b }),
+        )
+        .await;
+    assert_eq!(second.status, StatusCode::CREATED);
+    // The first ticket died when the second was issued: it reserves nothing and cannot be redeemed.
+    let open: Vec<i64> = sqlx::query_scalar(
+        "SELECT server_id FROM matchmaker.join_tickets WHERE user_id = $1 AND redeemed_at IS NULL \
+         AND expires_at > clock_timestamp()",
+    )
+    .bind(squatter.user_id())
+    .fetch_all(&app.db)
+    .await
+    .expect("open tickets");
+    assert_eq!(open, [b.parse::<i64>().expect("id")]);
+    let t1 = first.body["ticket"].as_str().expect("ticket");
+    let r = h
+        .op(
+            "redeemJoinTicket",
+            &[],
+            json!({ "ticket": t1, "serverId": a }),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::GONE);
+    // Server `a` is free again for others: 4 more players fit (4-slot server, no friend reserve).
+    for i in 0..4 {
+        let p = app.user(&format!("m2_fill{i}"), "1990-01-01").await;
+        let r = p
+            .op(
+                "createJoinTicket",
+                &[("gameId", GAME)],
+                json!({ "serverId": a }),
+            )
+            .await;
+        assert_eq!(r.status, StatusCode::CREATED, "slot {i}");
+    }
+
+    // Kind: a play ticket neither binds to nor redeems on an edit server.
+    let t2 = second.body["ticket"].as_str().expect("ticket").to_owned();
+    sqlx::query("UPDATE matchmaker.servers SET kind = 'edit' WHERE id = $1")
+        .bind(b.parse::<i64>().expect("id"))
+        .execute(&app.db)
+        .await
+        .expect("sql");
+    let r = h
+        .op(
+            "redeemJoinTicket",
+            &[],
+            json!({ "ticket": t2, "serverId": b }),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CONFLICT, "{}", r.body);
+    let other = app.user("m2_editor", "1990-01-01").await;
+    let r = other
+        .op(
+            "createJoinTicket",
+            &[("gameId", GAME)],
+            json!({ "serverId": b }),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::NOT_FOUND);
     app.finish().await;
 }

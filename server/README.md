@@ -75,7 +75,9 @@ must not expose `/internal/` to the internet.
 reservations; 8+ slot servers keep a friend slot) or allocates a server on a host and answers `202 pending`.
 Tickets are Ed25519-signed (`mjt1.`), verified offline by the edge with `GET /v1/net/keys`, and redeemed online by
 the host agent. Keys come from `METALLIC_TICKET_KEYS_FILE` or `METALLIC_TICKET_KEYS`; dev without either uses a
-random key and warns loudly. Hosts silent 30 s drop out of live counts and allocation; at 120 s their servers stop.
+random key and warns loudly; outside dev the published test key is refused. Hosts silent 30 s drop out of live
+counts and allocation; at 120 s their servers stop. Behind a proxy set `METALLIC_CLIENT_IP_HEADER` and
+`METALLIC_TRUSTED_PROXIES` (the header is ignored from any other peer).
 Admin: `host list`, `host drain|disable|enable --name N`, `host rotate-token|reset-token --name N`,
 `server drain|stop ID`, `ticket-key new --kid K`.
 

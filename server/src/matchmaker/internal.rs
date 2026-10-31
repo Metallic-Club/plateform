@@ -442,7 +442,7 @@ pub async fn stop_stale_servers(state: &AppState) -> ApiResult<u64> {
     let ids: Vec<i64> = sqlx::query_scalar(
         "SELECT s.id FROM matchmaker.servers s WHERE s.status <> 'stopped' AND ( \
            (s.host_id IS NULL AND s.last_heartbeat_at < now() - interval '60 seconds') \
-           OR (s.host_id IS NOT NULL AND s.status = 'starting' AND s.last_heartbeat_at < now() - interval '60 seconds') \
+           OR (s.host_id IS NOT NULL AND s.status = 'starting' AND s.started_at < now() - interval '60 seconds') \
            OR (s.host_id IS NOT NULL AND s.last_heartbeat_at < now() - interval '120 seconds') \
            OR EXISTS (SELECT 1 FROM matchmaker.hosts h WHERE h.id = s.host_id AND (h.status = 'disabled' \
               OR h.last_seen_at IS NULL AND s.started_at < now() - interval '120 seconds' \
@@ -549,10 +549,11 @@ pub async fn redeem(
     }
     let server: Option<(i64, i64)> = sqlx::query_as(
         "SELECT game_id, place_id FROM matchmaker.servers WHERE id = $1 AND status <> 'stopped' \
-         AND host_id IS NOT DISTINCT FROM $2",
+         AND host_id IS NOT DISTINCT FROM $2 AND kind = $3",
     )
     .bind(server_id)
     .bind(caller.scope())
+    .bind(&kind)
     .fetch_optional(&mut *tx)
     .await?;
     let wrong = || Problem::conflict("ticket_wrong_server", "Ticket is for another server");

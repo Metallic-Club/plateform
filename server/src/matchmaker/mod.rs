@@ -426,7 +426,16 @@ pub async fn create_join_ticket(
             .fetch_optional(&mut *tx)
             .await?
             .unwrap_or(false);
-        match allocate::hold_slot(&mut tx, sid, game_id, viewer.user_id, !friend_inside).await? {
+        match allocate::hold_slot(
+            &mut tx,
+            sid,
+            game_id,
+            viewer.user_id,
+            "play",
+            !friend_inside,
+        )
+        .await?
+        {
             allocate::Room::Held { region, place } => Some((sid, place, region)),
             allocate::Room::Full => return Err(full()),
             allocate::Room::Gone if follow_server.is_some() => {
@@ -510,6 +519,15 @@ pub async fn create_join_ticket(
             display_name: me.display_name.clone(),
         })
         .ok_or_else(Problem::internal)?;
+    // One live ticket per account: older unredeemed tickets die here, so one account cannot hold pending slots on
+    // many servers (each unredeemed bound ticket counts as a reservation).
+    sqlx::query(
+        "UPDATE matchmaker.join_tickets SET expires_at = clock_timestamp() \
+         WHERE user_id = $1 AND redeemed_at IS NULL AND expires_at > clock_timestamp()",
+    )
+    .bind(viewer.user_id)
+    .execute(&mut *tx)
+    .await?;
     sqlx::query(
         "INSERT INTO matchmaker.join_tickets (ticket_hash, user_id, game_id, place_id, server_id, region, expires_at, jti, kind) \
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'play')",

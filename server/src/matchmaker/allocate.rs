@@ -5,8 +5,9 @@
 //! Race safety: quick joins for one place serialize on a transaction-scoped advisory lock, so two joins can never
 //! both decide to allocate. Every placement then takes the server row lock (`FOR UPDATE`) and recounts players plus
 //! pending reservations (unredeemed, unexpired tickets bound to the server) before binding a ticket, so explicit
-//! `serverId` joins, follows and quick joins cannot overfill a server. Allocation locks the host row and recounts
-//! the host's servers before inserting.
+//! `serverId` joins, follows and quick joins cannot overfill a server. Allocation locks all candidate host rows in
+//! one statement, in id order (no deadlock between allocations preferring different hosts), and recounts each host's
+//! servers before inserting. Lock order everywhere: place advisory lock, server rows, host rows.
 
 use std::collections::HashSet;
 
@@ -77,13 +78,14 @@ pub enum Room {
     Held { region: String, place: i64 },
 }
 
-/// Locks one server and checks it can take `viewer`, counting pending reservations. `keep_reserve` leaves the
-/// friend slot free.
+/// Locks one server and checks it can take `viewer` with a ticket of `kind` (`play`, `edit`, `test`), counting
+/// pending reservations. `keep_reserve` leaves the friend slot free. A server of another kind is `Gone`.
 pub async fn hold_slot(
     tx: &mut Transaction<'_, Postgres>,
     server: i64,
     game: i64,
     viewer: i64,
+    kind: &str,
     keep_reserve: bool,
 ) -> ApiResult<Room> {
     let row: Option<SlotRow> = sqlx::query_as(
@@ -91,10 +93,12 @@ pub async fn hold_slot(
          last_heartbeat_at > now() - interval '30 seconds' AS fresh, \
          (host_id IS NULL OR EXISTS (SELECT 1 FROM matchmaker.hosts h WHERE h.id = host_id \
             AND h.status = 'active' AND h.last_seen_at > now() - interval '30 seconds')) AS host_ok \
-         FROM matchmaker.servers WHERE id = $1 AND game_id = $2 AND status <> 'stopped' FOR UPDATE",
+         FROM matchmaker.servers WHERE id = $1 AND game_id = $2 AND kind = $3 AND status <> 'stopped' \
+         FOR UPDATE",
     )
     .bind(server)
     .bind(game)
+    .bind(kind)
     .fetch_optional(&mut **tx)
     .await?;
     let Some(SlotRow {
@@ -175,7 +179,7 @@ pub async fn quick_place(
             AND NOT (t.user_id = ANY(s.player_ids))) AS pending \
          FROM matchmaker.servers s WHERE s.game_id = $1 AND s.place_id = $2 AND s.desired = 'run' AND s.kind = 'play' \
          AND ((s.status = 'running' AND s.joinable AND s.last_heartbeat_at > now() - interval '30 seconds') \
-           OR (s.status = 'starting' AND s.host_id IS NOT NULL AND s.last_heartbeat_at > now() - interval '60 seconds')) \
+           OR (s.status = 'starting' AND s.host_id IS NOT NULL AND s.started_at > now() - interval '60 seconds')) \
          AND (s.host_id IS NULL OR EXISTS (SELECT 1 FROM matchmaker.hosts h WHERE h.id = s.host_id \
             AND h.status = 'active' AND h.last_seen_at > now() - interval '30 seconds')) \
          ORDER BY s.id LIMIT 500",
@@ -210,7 +214,9 @@ pub async fn quick_place(
             .then_with(|| a.id.cmp(&b.id))
     });
     for c in running.iter().take(5) {
-        if let Room::Held { region, .. } = hold_slot(tx, c.id, q.game, q.viewer, true).await? {
+        if let Room::Held { region, .. } =
+            hold_slot(tx, c.id, q.game, q.viewer, "play", true).await?
+        {
             return Ok(Placement::Ready {
                 server: c.id,
                 region,
@@ -256,17 +262,20 @@ async fn allocate(
             Placement::NoHost
         });
     }
+    // Lock every candidate host in one statement, in id order, then recount under the locks. A fixed lock order means
+    // concurrent allocations for different places and regions (each preferring other hosts) cannot deadlock; they
+    // serialize on the hosts they share.
+    let candidates: Vec<i64> = hosts.iter().map(|h| h.0).collect();
+    let locked: Vec<(i64, i32, i32)> = sqlx::query_as(
+        "SELECT id, least(max_servers, coalesce(cap_servers, max_servers)), \
+         least(max_players, coalesce(cap_players, max_players)) \
+         FROM matchmaker.hosts WHERE id = ANY($1) AND status = 'active' ORDER BY id FOR UPDATE",
+    )
+    .bind(&candidates)
+    .fetch_all(&mut **tx)
+    .await?;
     for (host, region) in hosts {
-        // Lock the host, then recount under the lock: concurrent allocations for other places serialize here.
-        let limits: Option<(i32, i32)> = sqlx::query_as(
-            "SELECT least(max_servers, coalesce(cap_servers, max_servers)), \
-             least(max_players, coalesce(cap_players, max_players)) \
-             FROM matchmaker.hosts WHERE id = $1 AND status = 'active' FOR UPDATE",
-        )
-        .bind(host)
-        .fetch_optional(&mut **tx)
-        .await?;
-        let Some((max_servers, max_players)) = limits else {
+        let Some(&(_, max_servers, max_players)) = locked.iter().find(|l| l.0 == host) else {
             continue;
         };
         let (servers, players): (i64, i64) = sqlx::query_as(

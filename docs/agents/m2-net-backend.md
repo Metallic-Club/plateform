@@ -67,3 +67,26 @@ Fixes: `argon2` and `blake2` built with `opt-level = 3` in the dev profile (test
 `waiting_pid` deadline 30 s, race guards 120 s, unblocked operations 15 s; web-session expiry window 20 s with a
 60 s request timeout (same pattern as the connection lock tests); the walkthrough waits (30 s, every answer
 schema-checked) for readiness 200. What each test proves is unchanged; nothing is ignored or single-threaded.
+
+## Security review fixes (FIX-FIRST)
+
+No auth bypass was found. Fixed, each with a test (`server/tests/api/m2.rs` unless noted):
+1. A server stuck in `starting` is measured from `started_at` (allocation time), not the last heartbeat, both in
+   placement and in the stale job (`a_server_stuck_in_starting_stops_blocking_quick_join`).
+2. Slot squatting: issuing a ticket expires the account's other unredeemed tickets
+   (`one_account_holds_one_live_ticket_and_kinds_must_match`; index in migration 000009).
+3. Only the current host token rotates. The previous token, during its 10-minute window, gets the same pending token
+   back (stored encrypted with the data key, `hosts.pending_token_enc`)
+   (`rotation_with_the_previous_token_returns_the_same_token_and_never_mints_another`).
+4. Client IP: the forwarded header counts only from `METALLIC_TRUSTED_PROXIES` peers, right-most untrusted hop,
+   `to_canonical()`; outside dev (`METALLIC_ALLOW_PRIVATE_ADDRESSES`) no knock token for non-public callers and
+   hosts on non-public addresses need a public `edge.publicHost`. Tests send from the trusted proxy 127.0.0.1
+   (`client_addresses_come_only_from_trusted_proxies_and_must_be_public_outside_dev`, unit tests in `http.rs`).
+5. Host locks are taken for all candidate hosts in one statement in id order (no `SKIP LOCKED`: it would turn
+   contention into false `no_capacity`)
+   (`concurrent_allocations_across_places_and_regions_do_not_deadlock`).
+6. `kind` is checked in `hold_slot` and redeem.
+7. Key windows: `notBefore <= iat`, `exp <= notAfter + 5 s` in the verifier; the keyring never signs outside the
+   active key's window (`ticket.rs` unit tests).
+8. The published test key is refused outside dev (`config.rs` unit test).
+9. Host-reported player lists vs redeemed tickets: issue #23.

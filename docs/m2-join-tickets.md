@@ -59,13 +59,15 @@ In this order; any failure closes the connection with one generic error code, ne
 1. Length at most 512, prefix `mjt1.`, exactly one more `.`, both parts decode as unpadded base64url, the
    signature part is exactly 64 bytes.
 2. Read the magic and `kid` from the payload. Find the key by `kid` among keys whose status is `active`, `next`
-   or `retired` (all published keys verify). Unknown `kid`: refetch `/v1/net/keys` once (rate limited, at most
-   once a minute), then fail.
+   or `retired` (all published keys verify), together with its `notBefore` and `notAfter`. Unknown `kid`: refetch
+   `/v1/net/keys` once (rate limited, at most once a minute), then fail.
 3. Verify the signature with **strict** Ed25519 verification (reject non-canonical `S`, small-order `R` and
    small-order public keys; `ed25519-dalek` `verify_strict`).
 4. Decode the full payload strictly (section 2).
 5. `aud == "metallic-server"`.
 6. `0 < exp - iat <= 60`, `iat <= now + 5 s` (clock skew), `now < exp`.
+   Key window: `notBefore <= iat` when the key has `notBefore`, and `exp <= notAfter + 5 s` when it has
+   `notAfter`. The backend never signs outside its active key's window.
 7. `server` is a live, joinable server on this host (never 0 in hosted mode), and `kind` matches it (`edit` only
    to edit sessions).
 8. If `ip` is present and the edge enforces it: it matches the client address.
@@ -73,7 +75,8 @@ In this order; any failure closes the connection with one generic error code, ne
 10. Admit, then the host agent calls `redeemJoinTicket {ticket, serverId}` (global single use, identity,
     permissions). No answer within 3 s: refuse the join.
 
-The backend's reference verifier is `metallic_platform::matchmaker::ticket::verify` (steps 1-6).
+The backend's reference verifier is `metallic_platform::matchmaker::ticket::verify` (steps 1-6, including the key
+window).
 
 ## 4. Knock token (`connectJoinTicket.knockToken`)
 
@@ -91,8 +94,8 @@ knock = "mkt1." base64url(payload) "." base64url(signature)
 | . | 8 | `server` | server id |
 | . | 8 | `exp` | Unix seconds; the ticket's expiry |
 
-Signed with the same keys as tickets. The edge checks the signature, `now < exp`, `ip` equals the datagram source
-address and `server` is on this host.
+Signed with the same keys as tickets. The edge checks the signature, `now < exp`, `exp <= notAfter + 5 s` of the
+key, `ip` equals the datagram source address and `server` is on this host.
 
 ## 5. Keys
 
@@ -142,7 +145,7 @@ compromised key from the keyset entirely, and deploy. Its tickets die at once; a
 ## 6. Test vectors
 
 The test key is the 32-byte seed `00 01 02 ... 1f` (public key below). It is a published test key: never accept it
-anywhere real. `server/src/matchmaker/ticket.rs` (`test_vectors_are_exact`) checks these strings byte for byte;
+anywhere real. The backend refuses to start outside dev with a keyset that contains it. `server/src/matchmaker/ticket.rs` (`test_vectors_are_exact`) checks these strings byte for byte;
 `metallic_net::ticket` must decode and verify them with the public key and `now = 1793318410`.
 
 - `kid` = `test-2026-10`

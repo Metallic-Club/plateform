@@ -13,6 +13,7 @@ use time::OffsetDateTime;
 use super::{SERVER_COLUMNS, ServerRow, pick_server, visible_friends};
 use crate::{
     AppState,
+    config::is_public_address,
     crypto::token_hash,
     http::{ApiJson, ClientIp, rfc3339},
     identity::auth::{Viewer, limit},
@@ -263,6 +264,14 @@ pub async fn connect_join_ticket(
     }
     viewer.require_scope("play")?;
     limit(&state, CONNECT_LIMIT, &viewer.user_id.to_string()).await?;
+    // The knock token allowlists this address at the edge; a loopback, private or unspecified address (usually a
+    // missing or misconfigured trusted proxy) would allowlist the wrong network. Dev may allow it.
+    if !state.config.allow_private_addresses && !is_public_address(client) {
+        return Err(Problem::forbidden(
+            "client_address_not_public",
+            "Cannot connect from this network address",
+        ));
+    }
     let req: ConnectRequest = serde_json::from_value(raw)
         .map_err(|_| Problem::bad_request("Invalid connection request."))?;
     let ticket = req

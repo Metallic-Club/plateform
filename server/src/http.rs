@@ -83,23 +83,46 @@ impl FromRequestParts<AppState> for ClientIp {
     }
 }
 
+/// The client address. The TCP peer, unless the peer is a configured trusted proxy and the configured header is
+/// present: then the right-most hop of that header that is not itself a trusted proxy (anything to its left was
+/// written by the client and is not trusted). IPv4-mapped IPv6 addresses are normalised to IPv4.
 pub fn client_ip(parts: &Parts, state: &AppState) -> ClientIp {
-    if let Some(header) = &state.config.client_ip_header
-        && let Some(ip) = parts
-            .headers
-            .get(header.as_str())
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.split(',').next())
-            .and_then(|v| v.trim().parse::<IpAddr>().ok())
-    {
-        return ClientIp(ip);
-    }
-    let ip = parts
+    let peer = parts
         .extensions
         .get::<ConnectInfo<SocketAddr>>()
-        .map(|c| c.0.ip())
-        .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-    ClientIp(ip)
+        .map_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED), |c| c.0.ip())
+        .to_canonical();
+    let config = &state.config;
+    if let Some(header) = &config.client_ip_header
+        && config.trusted_proxies.iter().any(|c| c.contains(peer))
+    {
+        let values: Vec<&str> = parts
+            .headers
+            .get_all(header.as_str())
+            .iter()
+            .filter_map(|v| v.to_str().ok())
+            .collect();
+        if !values.is_empty() {
+            return ClientIp(
+                forwarded_client(&values.join(","), &config.trusted_proxies).unwrap_or(peer),
+            );
+        }
+    }
+    ClientIp(peer)
+}
+
+/// Walks a forwarded-for list from the right: the first hop that is not a trusted proxy is the client. A hop that does
+/// not parse ends the walk with None (the caller keeps the peer). Every hop trusted: the left-most one.
+pub fn forwarded_client(list: &str, trusted: &[crate::config::Cidr]) -> Option<IpAddr> {
+    let mut leftmost = None;
+    for hop in list.rsplit(',') {
+        let ip = hop.trim().parse::<IpAddr>().ok()?.to_canonical();
+        if !trusted.iter().any(|c| c.contains(ip)) {
+            return Some(ip);
+        }
+        leftmost = Some(ip);
+    }
+    leftmost
 }
 
 // ------------------------------------------------------------------ pagination
@@ -263,8 +286,78 @@ pub fn parse_id_list(field: &str, v: Option<&str>, max: usize) -> ApiResult<Vec<
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use crate::config::{Cidr, is_public_address};
+
+    #[test]
+    fn forwarded_client_takes_the_rightmost_untrusted_hop() {
+        let ip = |s: &str| s.parse::<IpAddr>().unwrap();
+        let trusted = [
+            Cidr::parse("10.0.0.0/8").unwrap(),
+            Cidr::parse("2001:db8::1").unwrap(),
+        ];
+        // The client wrote the left part; the proxies appended the right part.
+        assert_eq!(
+            forwarded_client("6.6.6.6, 198.51.100.7, 10.1.2.3", &trusted),
+            Some(ip("198.51.100.7"))
+        );
+        assert_eq!(
+            forwarded_client("198.51.100.7", &trusted),
+            Some(ip("198.51.100.7"))
+        );
+        assert_eq!(
+            forwarded_client("10.0.0.9, 10.1.2.3", &trusted),
+            Some(ip("10.0.0.9"))
+        );
+        assert_eq!(
+            forwarded_client("::ffff:198.51.100.7", &trusted),
+            Some(ip("198.51.100.7"))
+        );
+        assert_eq!(forwarded_client("garbage, 10.1.2.3", &trusted), None);
+        assert_eq!(forwarded_client("", &trusted), None);
+    }
+
+    #[test]
+    fn cidrs_and_public_addresses() {
+        let ip = |s: &str| s.parse::<IpAddr>().unwrap();
+        let net = Cidr::parse("192.168.0.0/16").unwrap();
+        assert!(net.contains(ip("192.168.4.5")));
+        assert!(net.contains(ip("::ffff:192.168.4.5")));
+        assert!(!net.contains(ip("192.169.0.1")));
+        assert!(Cidr::parse("0.0.0.0/0").unwrap().contains(ip("8.8.8.8")));
+        assert!(!Cidr::parse("0.0.0.0/0").unwrap().contains(ip("::1")));
+        assert!(
+            Cidr::parse("2001:db8::/32")
+                .unwrap()
+                .contains(ip("2001:db8:ffff::1"))
+        );
+        for bad in ["10.0.0.0/33", "nonsense", "::/129", "1.2.3.4/x"] {
+            assert!(Cidr::parse(bad).is_none(), "{bad}");
+        }
+        for private in [
+            "127.0.0.1",
+            "10.2.3.4",
+            "172.16.0.1",
+            "192.168.1.1",
+            "169.254.1.1",
+            "0.0.0.0",
+            "100.64.0.1",
+            "255.255.255.255",
+            "224.0.0.1",
+            "::1",
+            "::",
+            "fd00::1",
+            "fe80::1",
+            "::ffff:10.0.0.1",
+        ] {
+            assert!(!is_public_address(ip(private)), "{private}");
+        }
+        for public in ["198.51.100.7", "8.8.8.8", "2001:db8::1", "::ffff:8.8.8.8"] {
+            assert!(is_public_address(ip(public)), "{public}");
+        }
+    }
 
     #[test]
     fn cursors_round_trip_and_reject_junk() {

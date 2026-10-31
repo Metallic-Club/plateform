@@ -264,6 +264,27 @@ pub enum VerifyError {
     Expired,
     NotYetValid,
     LifetimeTooLong,
+    /// Issued before the key's `notBefore`, or expiring after its `notAfter` (plus skew).
+    OutsideKeyWindow,
+}
+
+/// Clock skew a verifier allows (seconds), for `iat` and for a key's `notAfter`.
+pub const SKEW_SECS: i64 = 5;
+
+/// A verification key with its validity window (Unix seconds). A ticket must be issued at or after `not_before` and
+/// expire no later than `not_after` + skew.
+#[derive(Clone, Copy)]
+pub struct KeyRef<'k> {
+    pub key: &'k VerifyingKey,
+    pub not_before: Option<i64>,
+    pub not_after: Option<i64>,
+}
+
+impl KeyRef<'_> {
+    fn admits(&self, iat: Option<i64>, exp: i64) -> bool {
+        iat.is_none_or(|iat| self.not_before.is_none_or(|nb| nb <= iat))
+            && self.not_after.is_none_or(|na| exp <= na + SKEW_SECS)
+    }
 }
 
 /// Splits `prefix || b64(payload) || "." || b64(sig)` and checks the signature with the key named in the payload.
@@ -271,8 +292,8 @@ fn open<'k>(
     text: &str,
     prefix: &str,
     kid_of: impl Fn(&[u8]) -> Option<String>,
-    key: impl Fn(&str) -> Option<&'k VerifyingKey>,
-) -> Result<Vec<u8>, VerifyError> {
+    key: impl Fn(&str) -> Option<KeyRef<'k>>,
+) -> Result<(Vec<u8>, KeyRef<'k>), VerifyError> {
     if text.len() > MAX_TICKET_LEN {
         return Err(VerifyError::Malformed);
     }
@@ -287,10 +308,12 @@ fn open<'k>(
         .and_then(|s| s.try_into().ok())
         .ok_or(VerifyError::Malformed)?;
     let kid = kid_of(&payload).ok_or(VerifyError::Malformed)?;
-    let key = key(&kid).ok_or(VerifyError::UnknownKey)?;
-    key.verify_strict(&payload, &Signature::from_bytes(&sig))
+    let found = key(&kid).ok_or(VerifyError::UnknownKey)?;
+    found
+        .key
+        .verify_strict(&payload, &Signature::from_bytes(&sig))
         .map_err(|_| VerifyError::BadSignature)?;
-    Ok(payload)
+    Ok((payload, found))
 }
 
 fn kid_after_magic(magic: [u8; 4]) -> impl Fn(&[u8]) -> Option<String> {
@@ -308,13 +331,14 @@ fn kid_after_magic(magic: [u8; 4]) -> impl Fn(&[u8]) -> Option<String> {
 }
 
 /// Reference verifier (the edge and `metallic_net::ticket` implement the same steps, see the docs). Checks format,
-/// signature, audience and time; the caller still checks `server`, `kind`, `ip` and the `jti` replay set.
+/// signature, audience, time and the key's validity window; the caller still checks `server`, `kind`, `ip` and the
+/// `jti` replay set.
 pub fn verify<'k>(
     text: &str,
     now: i64,
-    key: impl Fn(&str) -> Option<&'k VerifyingKey>,
+    key: impl Fn(&str) -> Option<KeyRef<'k>>,
 ) -> Result<Claims, VerifyError> {
-    let payload = open(text, TICKET_PREFIX, kid_after_magic(TICKET_MAGIC), key)?;
+    let (payload, found) = open(text, TICKET_PREFIX, kid_after_magic(TICKET_MAGIC), key)?;
     let c = decode_claims(&payload).ok_or(VerifyError::Malformed)?;
     if c.aud != AUDIENCE {
         return Err(VerifyError::WrongAudience);
@@ -322,11 +346,14 @@ pub fn verify<'k>(
     if c.exp <= c.iat || c.exp - c.iat > MAX_TTL_SECS {
         return Err(VerifyError::LifetimeTooLong);
     }
-    if c.iat > now + 5 {
+    if c.iat > now + SKEW_SECS {
         return Err(VerifyError::NotYetValid);
     }
     if now >= c.exp {
         return Err(VerifyError::Expired);
+    }
+    if !found.admits(Some(c.iat), c.exp) {
+        return Err(VerifyError::OutsideKeyWindow);
     }
     Ok(c)
 }
@@ -369,16 +396,20 @@ pub fn decode_knock(bytes: &[u8]) -> Option<Knock> {
     })
 }
 
-/// Reference knock verifier: signature and expiry; the caller compares `ip` with the datagram's source.
+/// Reference knock verifier: signature, expiry and the key's `notAfter`; the caller compares `ip` with the
+/// datagram's source.
 pub fn verify_knock<'k>(
     text: &str,
     now: i64,
-    key: impl Fn(&str) -> Option<&'k VerifyingKey>,
+    key: impl Fn(&str) -> Option<KeyRef<'k>>,
 ) -> Result<Knock, VerifyError> {
-    let payload = open(text, KNOCK_PREFIX, kid_after_magic(KNOCK_MAGIC), key)?;
+    let (payload, found) = open(text, KNOCK_PREFIX, kid_after_magic(KNOCK_MAGIC), key)?;
     let k = decode_knock(&payload).ok_or(VerifyError::Malformed)?;
     if now >= k.exp {
         return Err(VerifyError::Expired);
+    }
+    if !found.admits(None, k.exp) {
+        return Err(VerifyError::OutsideKeyWindow);
     }
     Ok(k)
 }
@@ -393,6 +424,12 @@ fn seal(prefix: &str, key: &SigningKey, payload: &[u8]) -> String {
 }
 
 // ------------------------------------------------------------------ keyring
+
+/// The published test seed (`00 01 .. 1f`) of the test vectors. Never valid outside dev.
+const TEST_SEED: [u8; 32] = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+    26, 27, 28, 29, 30, 31,
+];
 
 /// Publication state of a key (spec 8.3 "Keys").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -438,6 +475,16 @@ pub struct PublicKey {
     pub key: VerifyingKey,
     pub not_before: Option<OffsetDateTime>,
     pub not_after: Option<OffsetDateTime>,
+}
+
+impl PublicKey {
+    pub fn as_ref(&self) -> KeyRef<'_> {
+        KeyRef {
+            key: &self.key,
+            not_before: self.not_before.map(OffsetDateTime::unix_timestamp),
+            not_after: self.not_after.map(OffsetDateTime::unix_timestamp),
+        }
+    }
 }
 
 /// The signing key plus every published public key. `Debug` never prints key material.
@@ -622,20 +669,44 @@ impl Keyring {
         })
     }
 
-    /// A published key by kid, for verification.
-    pub fn key(&self, kid: &str) -> Option<&VerifyingKey> {
-        self.keys.iter().find(|k| k.kid == kid).map(|k| &k.key)
+    /// A published key by kid, with its validity window, for verification.
+    pub fn key(&self, kid: &str) -> Option<KeyRef<'_>> {
+        self.keys
+            .iter()
+            .find(|k| k.kid == kid)
+            .map(PublicKey::as_ref)
     }
 
-    /// Signs claims with the active key (the `kid` field is set here).
+    /// True when the keyset contains the published test key (seed `00 01 .. 1f` from `docs/m2-join-tickets.md`).
+    /// Anything outside dev refuses to start with it.
+    pub fn has_test_key(&self) -> bool {
+        let test = SigningKey::from_bytes(&TEST_SEED).verifying_key();
+        self.keys.iter().any(|k| k.key == test)
+    }
+
+    fn active_window(&self) -> Option<KeyRef<'_>> {
+        self.key(&self.active_kid)
+    }
+
+    /// Signs claims with the active key (the `kid` field is set here). None when the claims fall outside the active
+    /// key's window (a keyset that was not rotated in time): verifiers would reject such a ticket.
     pub fn issue(&self, mut claims: Claims) -> Option<String> {
+        let window = self.active_window()?;
+        if window.not_before.is_some_and(|nb| claims.iat < nb)
+            || window.not_after.is_some_and(|na| claims.exp > na)
+        {
+            return None;
+        }
         claims.kid = self.active_kid.clone();
         let payload = encode_claims(&claims)?;
         Some(seal(TICKET_PREFIX, &self.signing, &payload))
     }
 
-    /// Signs a knock token with the active key.
+    /// Signs a knock token with the active key (None past the active key's `notAfter`).
     pub fn knock(&self, ip: IpAddr, server: i64, exp: i64) -> Option<String> {
+        if self.active_window()?.not_after.is_some_and(|na| exp > na) {
+            return None;
+        }
         let payload = encode_knock(&Knock {
             kid: self.active_kid.clone(),
             ip,
@@ -671,12 +742,6 @@ pub fn new_key_entry(
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-
-    /// Test-only seed 00 01 02 ... 1f. Clearly fake; never use it anywhere else.
-    const TEST_SEED: [u8; 32] = [
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-        25, 26, 27, 28, 29, 30, 31,
-    ];
 
     fn test_keyring() -> Keyring {
         let d = URL_SAFE_NO_PAD.encode(TEST_SEED);
@@ -728,7 +793,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(
-            URL_SAFE_NO_PAD.encode(ring.key("test-2026-10").unwrap().as_bytes()),
+            URL_SAFE_NO_PAD.encode(ring.key("test-2026-10").unwrap().key.as_bytes()),
             PUBLIC_X
         );
         assert_eq!(t1, VECTOR_1);
@@ -798,6 +863,75 @@ mod tests {
         c.user = i64::MAX;
         let t = ring.issue(c).unwrap();
         assert!(t.len() <= MAX_TICKET_LEN, "{} characters", t.len());
+    }
+
+    #[test]
+    fn key_windows_bound_issue_and_verify() {
+        let d = URL_SAFE_NO_PAD.encode(TEST_SEED);
+        let iat = 1_793_318_400;
+        // Active from iat, valid until iat + 3600; verified at a fixed `now` inside both.
+        let json = format!(
+            r#"{{"keys":[{{"kid":"w","status":"active","d":"{d}","notBefore":"2026-10-30T00:00:00Z","notAfter":"2026-10-30T01:00:00Z"}}]}}"#
+        );
+        let at = OffsetDateTime::from_unix_timestamp(iat + 60).unwrap();
+        let ring = Keyring::from_json(json.as_bytes(), at).unwrap();
+        let mut c = vector_claims();
+        c.iat = iat;
+        c.exp = iat + 60;
+        assert!(verify(&ring.issue(c.clone()).unwrap(), iat + 10, |k| ring.key(k)).is_ok());
+        // The keyring refuses to sign outside the active key's window.
+        let mut early = c.clone();
+        early.iat = iat - 1;
+        early.exp = iat + 59;
+        assert!(ring.issue(early.clone()).is_none(), "before notBefore");
+        let mut late = c.clone();
+        late.iat = iat + 3590;
+        late.exp = iat + 3620;
+        assert!(ring.issue(late.clone()).is_none(), "after notAfter");
+        // A verifier refuses tickets signed outside the window even when the signature is good (another signer).
+        let free = test_keyring();
+        let key = *free.key("test-2026-10").unwrap().key;
+        let outside = |claims: Claims, now: i64| {
+            let t = free.issue(claims).unwrap();
+            verify(&t, now, |_| {
+                Some(KeyRef {
+                    key: &key,
+                    not_before: Some(iat),
+                    not_after: Some(iat + 3600),
+                })
+            })
+            .map(|_| ())
+        };
+        assert_eq!(outside(early, iat), Err(VerifyError::OutsideKeyWindow));
+        assert_eq!(
+            outside(late, iat + 3600),
+            Err(VerifyError::OutsideKeyWindow)
+        );
+        let mut skew = c.clone();
+        skew.iat = iat + 3550;
+        skew.exp = iat + 3600 + SKEW_SECS;
+        assert_eq!(
+            outside(skew, iat + 3560),
+            Ok(()),
+            "notAfter allows the clock skew"
+        );
+        // Knock tokens stop at notAfter too.
+        let ip: IpAddr = "198.51.100.4".parse().unwrap();
+        assert!(ring.knock(ip, 42, iat + 3600).is_some());
+        assert!(ring.knock(ip, 42, iat + 3601).is_none());
+    }
+
+    #[test]
+    fn the_published_test_key_is_detected() {
+        assert!(test_keyring().has_test_key());
+        let other = new_key_entry("real", KeyStatus::Active, None).unwrap();
+        let json = format!(
+            r#"{{"keys":[{{"kid":"real","status":"active","d":"{}"}}]}}"#,
+            other.d.unwrap()
+        );
+        let ring = Keyring::from_json(json.as_bytes(), OffsetDateTime::now_utc()).unwrap();
+        assert!(!ring.has_test_key());
+        assert!(!Keyring::ephemeral().has_test_key());
     }
 
     #[test]

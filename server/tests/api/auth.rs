@@ -60,6 +60,7 @@ async fn cookie_writes_need_the_csrf_token_and_an_allowed_origin() {
         },
         ip: ada.ip.clone(),
         user: ada.user,
+        peer: None,
     };
     let r = forged.op("updateMe", &[], json!({ "bio": "hacked" })).await;
     assert_eq!(r.status, StatusCode::FORBIDDEN);
