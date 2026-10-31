@@ -4,10 +4,14 @@
   padding-top: var(--s6);
 }
 
+/* s13 (96) between sections on wide screens (UI overhaul 4.5); the Launcher keeps its compact gap. */
 @media (min-width: 900px) {
   .home {
-    gap: var(--gap-hero);
+    gap: var(--s13);
     padding-top: var(--s8);
+  }
+  :global([data-shell="launcher"]) .home {
+    gap: var(--gap-hero);
   }
 }
 

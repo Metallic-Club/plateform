@@ -39,7 +39,8 @@
 .check input {
   width: 20px;
   height: 20px;
-  accent-color: var(--accent);
+  /* Play is the page's one violet thing (UI overhaul 4.5); a checked box stays graphite. */
+  accent-color: var(--text-2);
 }
 
 .scope {
@@ -88,15 +89,23 @@
   background: var(--bg-raised);
 }
 
+/* Rows are 48px (UI overhaul 4.5): a real table, lines allowed. Phones use cards (below). */
+@media (min-width: 720px) {
+  .table tbody tr {
+    height: 48px;
+  }
+}
+
 .table th[scope="row"],
 .table td {
-  padding: var(--s5) var(--s6);
+  padding: var(--s2) var(--s6);
   text-align: left;
   vertical-align: middle;
 }
 
 .serverName {
   font-weight: 650;
+  line-height: 1.3;
   white-space: nowrap;
 }
 

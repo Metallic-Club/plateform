@@ -175,7 +175,7 @@ export function ServerBrowser({
                   </td>
                   <td className={styles.joinCell}>
                     {s.joinable ? (
-                      <PlayButton game={game} shell={shell} serverId={s.id} label="Join" size="small" variant="secondary" />
+                      <PlayButton game={game} shell={shell} serverId={s.id} label="Join" size="small" variant="quiet" />
                     ) : (
                       <span className={styles.none}>{full ? "Full" : "Closing"}</span>
                     )}
