@@ -54,8 +54,12 @@ pub async fn authenticate(state: &AppState, token: &str) -> ApiResult<Option<i64
         return Ok(None);
     }
     // Lookup by the SHA-256 of a 256-bit random token: an equality probe on a hash leaks nothing useful.
+    // The first use of a rotated token proves the agent has it: its encrypted copy (kept only so a retried rotation
+    // can return it) is dropped then.
     Ok(sqlx::query_scalar(
-        "UPDATE matchmaker.hosts SET last_seen_at = now() WHERE status <> 'disabled' AND (token_hash = $1 \
+        "UPDATE matchmaker.hosts SET last_seen_at = now(), \
+         pending_token_enc = CASE WHEN token_hash = $1 THEN NULL ELSE pending_token_enc END \
+         WHERE status <> 'disabled' AND (token_hash = $1 \
          OR (prev_token_hash = $1 AND prev_token_expires_at > now())) RETURNING id",
     )
     .bind(token_hash(token))
@@ -617,6 +621,18 @@ struct Rotated {
 /// Context string for the encrypted pending token (AES-256-GCM with the data key).
 const PENDING_TOKEN_CONTEXT: &str = "host-token";
 
+/// Drops encrypted pending tokens whose grace window has ended (the fast job). The first use of the new token drops
+/// it earlier ([`authenticate`]). Returns how many were dropped.
+pub async fn forget_pending_tokens(db: &PgPool) -> ApiResult<u64> {
+    Ok(sqlx::query(
+        "UPDATE matchmaker.hosts SET pending_token_enc = NULL WHERE pending_token_enc IS NOT NULL \
+         AND (prev_token_expires_at IS NULL OR prev_token_expires_at <= now())",
+    )
+    .execute(db)
+    .await?
+    .rows_affected())
+}
+
 /// `POST /internal/v1/hosts/{hostId}/token/rotate`: a new token, returned once. The previous one keeps working for
 /// 10 minutes so the agent can persist the new one first.
 ///
@@ -702,12 +718,14 @@ pub struct HostSummary {
     pub last_seen_at: Option<OffsetDateTime>,
     pub servers: i64,
     pub players: i64,
+    /// Reported players dropped because they had not redeemed a ticket for that server.
+    pub unverified_players: i64,
 }
 
 impl HostSummary {
     pub fn line(&self) -> String {
         format!(
-            "{}  {}  {}  {}  servers {}/{}  players {}/{}  last seen {}",
+            "{}  {}  {}  {}  servers {}/{}  players {}/{}  unverified players dropped {}  last seen {}",
             self.id,
             self.name,
             self.region,
@@ -716,6 +734,7 @@ impl HostSummary {
             self.max_servers,
             self.players,
             self.max_players,
+            self.unverified_players,
             self.last_seen_at.map_or("never".to_owned(), rfc3339)
         )
     }
@@ -777,7 +796,7 @@ pub async fn add_host(
 
 pub async fn list_hosts(db: &PgPool) -> Result<Vec<HostSummary>, String> {
     sqlx::query_as(
-        "SELECT h.id, h.name, h.region, h.status, h.max_servers, h.max_players, h.last_seen_at, \
+        "SELECT h.id, h.name, h.region, h.status, h.max_servers, h.max_players, h.last_seen_at, h.unverified_players, \
          count(s.id) AS servers, coalesce(sum(cardinality(s.player_ids)), 0)::bigint AS players \
          FROM matchmaker.hosts h LEFT JOIN matchmaker.servers s ON s.host_id = h.id AND s.status <> 'stopped' \
          GROUP BY h.id ORDER BY h.name",

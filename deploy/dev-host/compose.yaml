@@ -24,6 +24,7 @@ x-api: &api
     org.metallic.purpose: private-development-only
     org.metallic.auth-providers: dev-mailer-and-dev-captcha
   environment:
+    # Required by the API (no default); this bundle is private development only.
     METALLIC_ENV: dev
     METALLIC_ROLE: api
     METALLIC_BIND_ADDR: 0.0.0.0:8080

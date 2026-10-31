@@ -1609,6 +1609,7 @@ paths:
         joins; an existing ticket bound to a legacy server is never redirected to that new process.
         The certificate hash is SHA-256 of the complete DER certificate (not its public key). Neither endpoint
         fields nor credentials belong in logs. Register a new server process to rotate its certificate/endpoint.
+        Outside dev an IP-literal `host` must be a public address (`400 not_public`, the value is not echoed).
       x-internal: true
       security: [{ hostToken: [] }, { gameServerSecret: [] }]
       requestBody:
@@ -1832,8 +1833,9 @@ paths:
       summary: Host load, edge certificates and every server's state; orders come back
       description: |
         Every `nextHeartbeatSecs` (5). `servers` lists every server the host runs: `starting`, `ready`, `draining`
-        or `stopped` (with `exitCode`), its authoritative player list (sessions start and end as with the
-        per-server heartbeat) and `joinable`. Orders: `start` (a server the matchmaker allocated; idempotent by
+        or `stopped` (with `exitCode`), its player list (sessions start and end as with the per-server heartbeat)
+        and `joinable`. A user is added only if they redeemed a ticket for that server in the last 120 s; others
+        are dropped and counted for the host. An accepted user stays while reported. Orders: `start` (a server the matchmaker allocated; idempotent by
         `serverId`, repeated until the host reports it), `drain` (no new players; stop when empty or after
         `deadlineSecs`), `stop`, and `rotateToken` (call `rotateHostToken`). A server the backend does not know
         for this host gets `stop`. A host silent for 30 s makes its servers unjoinable and uncounted; after 120 s

@@ -24,6 +24,7 @@ Assistant's call: the official EDB zip over `postgresql_embedded` (third-party r
 ## Run
 
 ```sh
+export METALLIC_ENV=dev           # required; the server refuses to start without it
 cargo run -- keygen            # prints METALLIC_HMAC_KEY / METALLIC_DATA_KEY / METALLIC_TICKET_KEYS
 # put them and METALLIC_DATABASE_URL in your shell (see .env.example)
 cargo run -- migrate
@@ -31,7 +32,8 @@ cargo run -- seed              # fictitious demo data; password from METALLIC_SE
 cargo run                      # API on 127.0.0.1:8080; in dev it also runs migrations and background jobs
 ```
 
-Only `METALLIC_ENV=dev` starts today: emails go to the log-only dev mailer (kind only; set `METALLIC_DEV_MAIL_DIR`
+`METALLIC_ENV` has no default: set it explicitly (`dev`, `staging` or `prod`), so a deployment never runs as dev
+by accident. Only `METALLIC_ENV=dev` starts today: emails go to the log-only dev mailer (kind only; set `METALLIC_DEV_MAIL_DIR`
 to get the full messages as files) and the captcha accepts `dev-captcha-ok`. Real providers come with deployment.
 
 Seed accounts (all `@example.com`, invented): `nova_pilot`, `quartz_fox`, `ember_lane`, `pixel_otter` (adults),

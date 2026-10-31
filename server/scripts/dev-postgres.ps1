@@ -23,11 +23,13 @@
     stop      stop it
     status    show whether it runs
     url       print the database URL for METALLIC_DATABASE_URL (contains the dev password; do not commit it)
+    env       print the environment lines for a local API run: METALLIC_ENV=dev (required, no default) and
+              METALLIC_DATABASE_URL (contains the dev password; do not commit it)
     setup     install + init + start (idempotent)
 #>
 param(
   [Parameter(Position = 0)]
-  [ValidateSet('install', 'init', 'start', 'stop', 'status', 'url', 'setup')]
+  [ValidateSet('install', 'init', 'start', 'stop', 'status', 'url', 'env', 'setup')]
   [string]$Command = 'setup',
   [int]$Port = 54329
 )
@@ -167,5 +169,9 @@ switch ($Command) {
   'stop' { Stop-Cluster }
   'status' { if (Test-Running) { Write-Output "running on 127.0.0.1:$Port" } else { Write-Output 'stopped' } }
   'url' { Write-Output "postgres://metallic:$(Get-Content -Raw $PasswordFile)@127.0.0.1:$Port/metallic" }
+  'env' {
+    Write-Output 'METALLIC_ENV=dev'
+    Write-Output "METALLIC_DATABASE_URL=postgres://metallic:$(Get-Content -Raw $PasswordFile)@127.0.0.1:$Port/metallic"
+  }
   'setup' { Install-Postgres; Initialize-Cluster; Start-Cluster; Initialize-Database }
 }

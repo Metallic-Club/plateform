@@ -229,19 +229,23 @@ pub(super) async fn current_ticket(
 async fn choose_server(
     tx: &mut Transaction<'_, Postgres>,
     ticket: &Ticket,
+    viewer: i64,
     friends: &std::collections::HashSet<i64>,
     hidden: &std::collections::HashSet<i64>,
 ) -> ApiResult<Option<i64>> {
     if let Some(bound) = ticket.server_id {
         return Ok(Some(bound));
     }
-    // Use the existing quick-join scoring and block filtering, without locking every candidate server.
+    // Use the existing quick-join scoring and block filtering, without locking every candidate server. Pending
+    // reservations count, so unbound tickets do not all pile onto one nearly full server.
     let candidates: Vec<ServerRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {SERVER_COLUMNS} FROM matchmaker.servers WHERE game_id = $1 AND place_id = $2 \
-         AND {ELIGIBLE} ORDER BY started_at DESC LIMIT 2000"
+         AND {ELIGIBLE} AND {} ORDER BY started_at DESC LIMIT 2000",
+        super::allocate::room_for("$3")
     )))
     .bind(ticket.game_id)
     .bind(ticket.place_id)
+    .bind(viewer)
     .fetch_all(&mut **tx)
     .await?;
     Ok(pick_server(&candidates, ticket.region.as_deref(), friends, hidden).map(|server| server.id))
@@ -299,9 +303,17 @@ pub async fn connect_join_ticket(
     if !current_ticket(&mut tx, &hash, viewer.user_id).await? {
         return Err(invalid_ticket());
     }
-    let chosen = choose_server(&mut tx, &ticket, &friends, &hidden).await?;
+    let chosen = choose_server(&mut tx, &ticket, viewer.user_id, &friends, &hidden).await?;
     let metadata: Option<ConnectionMetadata> = match chosen {
-        Some(server) => connection_facts(&mut tx, server, ticket.game_id, ticket.place_id).await?,
+        Some(server) => {
+            let facts = connection_facts(&mut tx, server, ticket.game_id, ticket.place_id).await?;
+            // Binding an unbound ticket takes a slot: recount under the server lock (another connect may have
+            // bound one since the candidate read). A bound ticket's slot was held when it was issued.
+            let full = facts.is_some()
+                && ticket.server_id.is_none()
+                && !super::allocate::has_room(&mut tx, server, viewer.user_id).await?;
+            if full { None } else { facts }
+        }
         None => None,
     };
     let Some((server, metadata)) = chosen.zip(metadata) else {

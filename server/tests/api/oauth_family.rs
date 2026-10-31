@@ -16,6 +16,14 @@ const RACE_GUARD: Duration = Duration::from_secs(120);
 /// An operation that must not wait on the held lock; it still has to finish under load.
 const UNBLOCKED: Duration = Duration::from_secs(15);
 
+/// A held request waits for the race's lock waits (up to `LOCK_WAIT`, then `UNBLOCKED`) before it may finish, which
+/// is longer than the default 10 s request timeout under a parallel `cargo test`; these apps allow 60 s.
+async fn race_app() -> TestApp {
+    let mut config = crate::support::test_config();
+    config.request_timeout = Duration::from_secs(60);
+    TestApp::with_config(config).await
+}
+
 fn refresh(token: &str) -> Value {
     json!({ "grant_type": "refresh_token", "refresh_token": token, "client_id": "metallic-studio" })
 }
@@ -86,7 +94,7 @@ enum Revocation {
 
 async fn rotation_overlapping_revocation(mode: Revocation) {
     tokio::time::timeout(RACE_GUARD, async {
-        let app = TestApp::new().await;
+        let app = race_app().await;
         let user = app.user("family_race", "1990-05-05").await;
         let tokens = device_tokens(&app, &user).await;
         let old_refresh = tokens["refresh_token"].as_str().expect("refresh");
@@ -207,7 +215,7 @@ async fn native_logout_cannot_leave_a_concurrently_minted_refresh_alive() {
 #[tokio::test]
 async fn duplicate_concurrent_refresh_is_replay_but_distinct_families_both_rotate() {
     tokio::time::timeout(RACE_GUARD, async {
-        let app = TestApp::new().await;
+        let app = race_app().await;
         let user = app.user("parallel_family", "1990-05-05").await;
         let first = device_tokens(&app, &user).await;
         let second = device_tokens(&app, &user).await;
@@ -364,7 +372,7 @@ async fn access_only_revocation_and_wrong_client_keep_existing_semantics() {
 #[tokio::test]
 async fn refresh_expiry_is_validated_after_waiting_for_the_family_lock() {
     tokio::time::timeout(RACE_GUARD, async {
-        let app = TestApp::new().await;
+        let app = race_app().await;
         let user = app.user("wait_expiry", "1990-05-05").await;
         let pair = device_tokens(&app, &user).await;
         let token = pair["refresh_token"].as_str().expect("refresh");

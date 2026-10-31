@@ -683,3 +683,100 @@ async fn redeem_lock_wait_cannot_consume_a_ticket_that_expired_while_blocked() {
     assert!(unused);
     app.finish().await;
 }
+
+#[tokio::test]
+async fn unbound_tickets_count_pending_reservations_when_binding() {
+    let app = seeded().await;
+    let server = Client::server(&app);
+    let mut players = Vec::new();
+    for i in 0..4 {
+        players.push(app.user(&format!("reserve_{i}"), "1990-01-01").await);
+    }
+    let mut tokens = Vec::new();
+    for p in &players {
+        tokens.push(native_token(&app, p, "profile play").await);
+    }
+    let natives: Vec<Client<'_>> = players
+        .iter()
+        .zip(&tokens)
+        .map(|(p, t)| p.with_bearer(t))
+        .collect();
+    let mut tickets = Vec::new();
+    for n in &natives {
+        tickets.push(ticket(n, None).await);
+    }
+    // One 2-slot server, empty: without counting reservations all four unbound tickets would bind to it.
+    let id = register(&server, registration()).await;
+    let connect =
+        |i: usize| natives[i].op("connectJoinTicket", &[], json!({ "ticket": tickets[i] }));
+    let (a, b, c, d) = tokio::join!(connect(0), connect(1), connect(2), connect(3));
+    let mut statuses: Vec<u16> = [&a, &b, &c, &d].iter().map(|r| r.status.as_u16()).collect();
+    statuses.sort();
+    assert_eq!(statuses, [200, 200, 409, 409]);
+    for r in [&a, &b, &c, &d] {
+        if r.status == StatusCode::OK {
+            assert_eq!(r.body["serverId"], id);
+        } else {
+            assert_eq!(r.body["code"], "server_unavailable");
+        }
+    }
+    let bound: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM matchmaker.join_tickets WHERE server_id = $1 AND redeemed_at IS NULL",
+    )
+    .bind(id.parse::<i64>().expect("test fixture"))
+    .fetch_one(&app.db)
+    .await
+    .expect("test fixture");
+    assert_eq!(bound, 2, "reservations never exceed the slots");
+    // A bound ticket reconnects (its own reservation does not count against it).
+    let again = natives
+        .iter()
+        .zip(&tickets)
+        .zip([&a, &b, &c, &d])
+        .find(|(_, r)| r.status == StatusCode::OK)
+        .map(|((n, t), _)| (n, t))
+        .expect("one connected");
+    let r = again
+        .0
+        .op("connectJoinTicket", &[], json!({ "ticket": again.1 }))
+        .await;
+    assert_eq!(r.status, StatusCode::OK);
+    app.finish().await;
+}
+
+#[tokio::test]
+async fn outside_dev_a_process_must_register_a_public_host() {
+    let mut config = crate::support::test_config();
+    config.allow_private_addresses = false;
+    let app = TestApp::with_config(config).await;
+    seed::run(&app.state, PASSWORD).await.expect("seed");
+    let server = Client::server(&app);
+    for private in [
+        "127.0.0.1",
+        "10.1.2.3",
+        "192.168.0.7",
+        "169.254.1.1",
+        "0.0.0.0",
+        "::1",
+        "fd00::1",
+    ] {
+        let mut body = registration();
+        body["host"] = json!(private);
+        let response = server.op("registerGameServer", &[], body).await;
+        assert_eq!(response.status, StatusCode::BAD_REQUEST, "{private}");
+        assert!(!response.body.to_string().contains(private), "not echoed");
+    }
+    for public in ["203.0.113.10", HOST] {
+        let mut body = registration();
+        body["host"] = json!(public);
+        register(&server, body).await;
+    }
+    app.finish().await;
+
+    // Dev (the default test config) still allows a loopback process, as everything runs on one machine.
+    let app = seeded().await;
+    let mut body = registration();
+    body["host"] = json!("127.0.0.1");
+    register(&Client::server(&app), body).await;
+    app.finish().await;
+}

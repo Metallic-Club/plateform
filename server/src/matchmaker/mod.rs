@@ -414,6 +414,17 @@ pub async fn create_join_ticket(
     };
 
     let mut tx = state.db.begin().await?;
+    // One live ticket per account: older unredeemed tickets die here, so one account cannot hold pending slots on
+    // many servers (each unredeemed bound ticket counts as a reservation). This runs first so this path, like
+    // `connectJoinTicket` and redeem, locks ticket rows before server rows: a double tap while a connect is in
+    // flight then waits instead of deadlocking.
+    sqlx::query(
+        "UPDATE matchmaker.join_tickets SET expires_at = clock_timestamp() \
+         WHERE user_id = $1 AND redeemed_at IS NULL AND expires_at > clock_timestamp()",
+    )
+    .bind(viewer.user_id)
+    .execute(&mut *tx)
+    .await?;
     // (server, place, region) the ticket binds to; None = unbound (legacy deployments with no host agent).
     let bound: Option<(i64, i64, String)> = if let Some(sid) = server_id.or(follow_server) {
         // A follow may use the friend slot; so may a listed server where a visible friend already plays.
@@ -519,15 +530,6 @@ pub async fn create_join_ticket(
             display_name: me.display_name.clone(),
         })
         .ok_or_else(Problem::internal)?;
-    // One live ticket per account: older unredeemed tickets die here, so one account cannot hold pending slots on
-    // many servers (each unredeemed bound ticket counts as a reservation).
-    sqlx::query(
-        "UPDATE matchmaker.join_tickets SET expires_at = clock_timestamp() \
-         WHERE user_id = $1 AND redeemed_at IS NULL AND expires_at > clock_timestamp()",
-    )
-    .bind(viewer.user_id)
-    .execute(&mut *tx)
-    .await?;
     sqlx::query(
         "INSERT INTO matchmaker.join_tickets (ticket_hash, user_id, game_id, place_id, server_id, region, expires_at, jti, kind) \
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'play')",

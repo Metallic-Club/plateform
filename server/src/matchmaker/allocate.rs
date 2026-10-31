@@ -7,11 +7,12 @@
 //! pending reservations (unredeemed, unexpired tickets bound to the server) before binding a ticket, so explicit
 //! `serverId` joins, follows and quick joins cannot overfill a server. Allocation locks all candidate host rows in
 //! one statement, in id order (no deadlock between allocations preferring different hosts), and recounts each host's
-//! servers before inserting. Lock order everywhere: place advisory lock, server rows, host rows.
+//! servers before inserting. Lock order everywhere: the caller's ticket rows, place advisory lock, server rows, host
+//! rows. `connectJoinTicket` binds unbound tickets with the same reservation count ([`has_room`]).
 
 use std::collections::HashSet;
 
-use sqlx::{Postgres, Transaction};
+use sqlx::{PgConnection, Postgres, Transaction};
 
 use crate::{ids::IdGenerator, problem::ApiResult};
 
@@ -30,6 +31,31 @@ pub fn reserve(max_players: i32) -> i32 {
 const PENDING: &str = "SELECT count(DISTINCT t.user_id) FROM matchmaker.join_tickets t \
     WHERE t.server_id = $1 AND t.redeemed_at IS NULL AND t.expires_at > clock_timestamp() \
     AND t.user_id <> $2 AND NOT (t.user_id = ANY($3))";
+
+/// SQL condition on an unaliased `matchmaker.servers` row: it has room for the viewer bound to `viewer` (a
+/// placeholder such as `$3`): already in it, or players plus pending reservations (other accounts' unredeemed,
+/// unexpired tickets bound to it) below `max_players`. Unbound tickets never had a friend reserve, so none here.
+pub fn room_for(viewer: &str) -> String {
+    format!(
+        "({viewer} = ANY(player_ids) OR cardinality(player_ids) + (SELECT count(DISTINCT t.user_id) \
+         FROM matchmaker.join_tickets t WHERE t.server_id = servers.id AND t.redeemed_at IS NULL \
+         AND t.expires_at > clock_timestamp() AND t.user_id <> {viewer} AND NOT (t.user_id = ANY(player_ids))) \
+         < max_players)"
+    )
+}
+
+/// Recounts [`room_for`] on a server row the caller has already locked, so concurrent binds see each other.
+pub async fn has_room(conn: &mut PgConnection, server: i64, viewer: i64) -> ApiResult<bool> {
+    Ok(sqlx::query_scalar::<_, bool>(sqlx::AssertSqlSafe(format!(
+        "SELECT {} FROM matchmaker.servers WHERE id = $1",
+        room_for("$2")
+    )))
+    .bind(server)
+    .bind(viewer)
+    .fetch_optional(conn)
+    .await?
+    .unwrap_or(false))
+}
 
 #[derive(sqlx::FromRow)]
 struct Candidate {

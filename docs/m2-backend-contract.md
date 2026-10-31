@@ -39,7 +39,7 @@ win where they differ; this file lists every difference).
 |-----------|---------|----------|
 | `registerHost` `POST /internal/v1/hosts/register` | `{region, agentVersion, engineVersion, protocolMajor, engineBuilds:[buildId], capacity:{cores, memoryMiB, maxServers, maxPlayers}, edge:{port, certSha256, certSha256Next?, publicHost?}}` | `201 {hostId, heartbeatIntervalSecs, observedAddress}` |
 | `heartbeatHost` `POST /internal/v1/hosts/{hostId}/heartbeat` | `{load:{cpu, memoryMiB, upMbps}, edge:{certSha256, certSha256Next?}, servers:[{serverId, kind, status: starting\|ready\|draining\|stopped, players:[userId], joinable, tickP99Ms?, exitCode?}]}` | `200 {orders:[...], keysVersion, nextHeartbeatSecs}`; `410 host_not_registered` |
-| `rotateHostToken` `POST /internal/v1/hosts/{hostId}/token/rotate` | none | `200 {token}`; the previous token works 10 more minutes. Only the current token rotates; the previous token (lost response) gets the same new token back |
+| `rotateHostToken` `POST /internal/v1/hosts/{hostId}/token/rotate` | none | `200 {token}`; the previous token works 10 more minutes. Only the current token rotates; the previous token (lost response) gets the same new token back until the new token is first used or the 10 minutes end (the encrypted copy is then dropped) |
 | `redeemJoinTicket` `POST /internal/v1/join-tickets/redeem` | `{ticket, serverId}` | existing fields + `kind, canEdit, chatAllowed, voiceAllowed, accountStatus` |
 
 Orders (`type` tag):
@@ -71,14 +71,24 @@ and only for servers registered without a host.
 - **One live ticket per account:** issuing a ticket expires the account's other unredeemed tickets, so one account
   cannot hold reservations on many servers. Tickets and placement check `kind` (a `play` ticket never binds to or
   redeems on an `edit` or `test` server).
+- **Reported players:** a host's report may add a user to a server only if that user redeemed a ticket for that
+  server in the last 120 s. Anyone else is dropped (no session, presence or live count), counted per host
+  (`host list`: "unverified players dropped") and logged without user ids. An accepted id stays while the host
+  keeps reporting it; a player who left needs a new ticket to come back. Deprecated shared-secret servers keep the
+  old behaviour.
+- **Unbound tickets** (legacy): `connectJoinTicket` binds one only to a server with room counting players plus
+  pending reservations, rechecked under the server row lock, so concurrent connects never over-reserve a server.
 - **Addresses:** the client address is the TCP peer unless the peer is a trusted proxy
   (`METALLIC_TRUSTED_PROXIES`); then it is the right-most forwarded hop that is not a trusted proxy. Outside dev a
   loopback, private or unspecified address gets no knock token (`403 client_address_not_public`), and a host on
-  such an address must give a public `edge.publicHost`.
+  such an address must give a public `edge.publicHost`; a legacy process registering an IP-literal `host` must use
+  a public one.
 - **Starting timeout:** a server that is not `ready` 60 s after allocation stops counting as pending and is stopped,
   however often the agent reports `starting`.
-- **Race safety:** quick joins for one place serialize on a transaction-scoped advisory lock; each placement locks
-  the server row and recounts; allocation locks all candidate host rows in id order (no deadlock across places
+- **Race safety:** `createJoinTicket` first expires the account's old tickets, so it locks ticket rows before
+  server rows like `connectJoinTicket` and redeem (a double tap during a connect waits, never deadlocks). Quick
+  joins for one place serialize on a transaction-scoped advisory lock; each placement locks the server row and
+  recounts; allocation locks all candidate host rows in id order (no deadlock across places
   and regions) and recounts their servers. Tested with 12 concurrent
   joins (`server/tests/api/m2.rs`): one allocation for an empty place; on a 4-slot server exactly 4 tickets and
   one more allocation, not eight.

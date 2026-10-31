@@ -596,6 +596,8 @@ async fn drain_and_silent_hosts_leave_counts_and_allocation() {
     let ada = app.user("m2_cy", "1990-01-01").await;
     assert_eq!(join(&ada).await.status, StatusCode::ACCEPTED);
     let sid = start_ids(&beat(&h, &host_id, json!([])).await).remove(0);
+    beat(&h, &host_id, json!([ready(&sid, &[])])).await;
+    seat(&h, &sid, &ada).await;
     beat(&h, &host_id, json!([ready(&sid, &[ada.id_str()])])).await;
     assert_eq!(live(&app).await, 1);
 
@@ -634,6 +636,8 @@ async fn drain_and_silent_hosts_leave_counts_and_allocation() {
 
     // The second server comes up; then the host goes silent: out of counts at 30 s, stopped at 120 s.
     let second = next[0].clone();
+    beat(&h, &host_id, json!([ready(&second, &[])])).await;
+    seat(&h, &second, &bo).await;
     beat(&h, &host_id, json!([ready(&second, &[bo.id_str()])])).await;
     assert_eq!(live(&app).await, 1);
     sqlx::query("UPDATE matchmaker.hosts SET last_seen_at = now() - interval '31 seconds'")
@@ -1012,5 +1016,235 @@ async fn one_account_holds_one_live_ticket_and_kinds_must_match() {
         )
         .await;
     assert_eq!(r.status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}
+
+// ------------------------------------------------------------------ #24 / #23 follow-ups
+
+/// Waits (on the real condition, no fixed sleep) until `n` backends of this test database wait on a lock.
+async fn lock_waiters(app: &TestApp, n: i64) {
+    tokio::time::timeout(std::time::Duration::from_secs(40), async {
+        loop {
+            let waiting: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() \
+                 AND wait_event_type = 'Lock'",
+            )
+            .fetch_one(&app.db)
+            .await
+            .expect("inspect only this test database's waiters");
+            if waiting >= n {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("requests must reach the observed locks within the deadline");
+}
+
+#[tokio::test]
+async fn a_double_tap_during_a_connect_waits_instead_of_deadlocking() {
+    let app = seeded().await;
+    let (host_id, _agent) = host_in(&app, "tap", "us-east", 2).await;
+    let server = running_server(&app, &host_id, 4).await;
+    let player = app.user("m2_tapper", "1990-01-01").await;
+    let first = player
+        .op(
+            "createJoinTicket",
+            &[("gameId", GAME)],
+            json!({ "serverId": server }),
+        )
+        .await;
+    assert_eq!(first.status, StatusCode::CREATED, "{}", first.body);
+    let ticket = first.body["ticket"].as_str().expect("ticket").to_owned();
+    let native = player.with_bearer(&native_token(&app, &player).await);
+
+    // Hold the server row so both requests queue behind it: the second join first, then the connect. Before the
+    // fix the join held the server and wanted the old ticket while the connect held the ticket and wanted the
+    // server, and Postgres aborted one of them (a 500).
+    let mut blocker = app.db.begin().await.expect("blocker transaction");
+    sqlx::query("SELECT 1 FROM matchmaker.servers WHERE id = $1 FOR UPDATE")
+        .bind(server.parse::<i64>().expect("id"))
+        .execute(&mut *blocker)
+        .await
+        .expect("hold the server row");
+    let app_ref = &app;
+    let again = player.op(
+        "createJoinTicket",
+        &[("gameId", GAME)],
+        json!({ "serverId": server }),
+    );
+    let connect = native.op("connectJoinTicket", &[], json!({ "ticket": ticket }));
+    let (again, connect) = tokio::join!(again, async move {
+        lock_waiters(app_ref, 1).await;
+        let (connect, ()) = tokio::join!(connect, async move {
+            lock_waiters(app_ref, 2).await;
+            blocker.commit().await.expect("release the server row");
+        });
+        connect
+    });
+    assert_eq!(again.status, StatusCode::CREATED, "{}", again.body);
+    // The double tap won: the older ticket is no longer live, so the connect answers a clean 410.
+    assert_eq!(connect.status, StatusCode::GONE, "{}", connect.body);
+    let live: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM matchmaker.join_tickets WHERE user_id = $1 \
+         AND redeemed_at IS NULL AND expires_at > clock_timestamp()",
+    )
+    .bind(player.user_id())
+    .fetch_one(&app.db)
+    .await
+    .expect("live tickets");
+    assert_eq!(live, 1, "one live ticket per account");
+    app.finish().await;
+}
+
+async fn has_pending_token(app: &TestApp, host: &str) -> bool {
+    sqlx::query_scalar("SELECT pending_token_enc IS NOT NULL FROM matchmaker.hosts WHERE id = $1")
+        .bind(host.parse::<i64>().expect("id"))
+        .fetch_one(&app.db)
+        .await
+        .expect("host row")
+}
+
+#[tokio::test]
+async fn the_pending_host_token_is_dropped_on_first_use_or_when_the_window_ends() {
+    let app = seeded().await;
+    let (id, original) = host_in(&app, "pending", "us-east", 2).await;
+    let r = rotate(&original, &id).await;
+    assert_eq!(r.status, StatusCode::OK);
+    let first = bearer(&app, r.body["token"].as_str().expect("token"));
+    assert!(has_pending_token(&app, &id).await);
+    // A lost response: the previous token still gets the same token back while the new one is unused.
+    assert_eq!(rotate(&original, &id).await.body["token"], r.body["token"]);
+    // The first use of the new token proves the agent has it: the encrypted copy is gone.
+    beat(&first, &id, json!([])).await;
+    assert!(!has_pending_token(&app, &id).await);
+    assert_eq!(
+        rotate(&original, &id).await.status,
+        StatusCode::UNAUTHORIZED,
+        "nothing left to hand out"
+    );
+    // The previous token itself still works inside its window.
+    beat(&original, &id, json!([])).await;
+
+    // Never used, but the window ended: the fast job drops it.
+    assert_eq!(rotate(&first, &id).await.status, StatusCode::OK);
+    assert!(has_pending_token(&app, &id).await);
+    assert_eq!(hosts::forget_pending_tokens(&app.db).await.expect("job"), 0);
+    sqlx::query(
+        "UPDATE matchmaker.hosts SET prev_token_expires_at = now() - interval '1 second' WHERE id = $1",
+    )
+    .bind(id.parse::<i64>().expect("id"))
+    .execute(&app.db)
+    .await
+    .expect("sql");
+    assert_eq!(hosts::forget_pending_tokens(&app.db).await.expect("job"), 1);
+    assert!(!has_pending_token(&app, &id).await);
+    app.finish().await;
+}
+
+/// Issues a ticket for `server` to `player` and redeems it on the host agent `h`, as a real join does.
+async fn seat(h: &Client<'_>, server: &str, player: &Client<'_>) {
+    let r = player
+        .op(
+            "createJoinTicket",
+            &[("gameId", GAME)],
+            json!({ "serverId": server }),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let r = h
+        .op(
+            "redeemJoinTicket",
+            &[],
+            json!({ "ticket": r.body["ticket"], "serverId": server }),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+}
+
+async fn players_in(app: &TestApp, server: &str) -> Vec<i64> {
+    sqlx::query_scalar("SELECT player_ids FROM matchmaker.servers WHERE id = $1")
+        .bind(server.parse::<i64>().expect("id"))
+        .fetch_one(&app.db)
+        .await
+        .expect("server")
+}
+
+async fn sessions_of(app: &TestApp, user: i64) -> i64 {
+    sqlx::query_scalar("SELECT count(*) FROM games.play_sessions WHERE user_id = $1")
+        .bind(user)
+        .fetch_one(&app.db)
+        .await
+        .expect("sessions")
+}
+
+/// Players in the live counts of the test game.
+async fn playing(app: &TestApp) -> i64 {
+    app.anon()
+        .op("getLiveCounts", &[("?gameIds", GAME)], Value::Null)
+        .await
+        .body["items"][0]["playing"]
+        .as_i64()
+        .expect("playing")
+}
+
+async fn dropped_for(app: &TestApp, name: &str) -> i64 {
+    let hosts = hosts::list_hosts(&app.db).await.expect("host list");
+    let h = hosts.iter().find(|h| h.name == name).expect("host");
+    assert!(h.line().contains(&format!(
+        "unverified players dropped {}",
+        h.unverified_players
+    )));
+    h.unverified_players
+}
+
+#[tokio::test]
+async fn host_reports_add_only_players_who_redeemed_a_ticket_there() {
+    let app = seeded().await;
+    let (host_id, h) = host_in(&app, "honest", "us-east", 2).await;
+    let sid = running_server(&app, &host_id, 8).await;
+    let ada = app.user("m2_ticketed", "1990-01-01").await;
+    let ghost = app.user("m2_ghost", "1990-01-01").await;
+
+    // No ticket: not added, no session, no live count; the drop is counted for the host.
+    beat(&h, &host_id, json!([ready(&sid, &[ghost.id_str()])])).await;
+    assert!(players_in(&app, &sid).await.is_empty());
+    assert_eq!(sessions_of(&app, ghost.user_id()).await, 0);
+    assert_eq!(playing(&app).await, 0);
+    assert_eq!(dropped_for(&app, "honest").await, 1);
+
+    // The normal flow: redeem, then report. Only the ticketed player is added.
+    seat(&h, &sid, &ada).await;
+    beat(
+        &h,
+        &host_id,
+        json!([ready(&sid, &[ada.id_str(), ghost.id_str()])]),
+    )
+    .await;
+    assert_eq!(players_in(&app, &sid).await, [ada.user_id()]);
+    assert_eq!(sessions_of(&app, ada.user_id()).await, 1);
+    assert_eq!(sessions_of(&app, ghost.user_id()).await, 0);
+    assert_eq!(playing(&app).await, 1);
+    assert_eq!(dropped_for(&app, "honest").await, 2);
+
+    // Accepted ids stay accepted on later heartbeats, long after the redeem.
+    sqlx::query(
+        "UPDATE matchmaker.join_tickets SET redeemed_at = now() - interval '1 hour' WHERE user_id = $1",
+    )
+    .bind(ada.user_id())
+    .execute(&app.db)
+    .await
+    .expect("sql");
+    beat(&h, &host_id, json!([ready(&sid, &[ada.id_str()])])).await;
+    assert_eq!(players_in(&app, &sid).await, [ada.user_id()]);
+    // Left, then reported again without a new ticket: dropped (a reconnect always takes a new ticket).
+    beat(&h, &host_id, json!([ready(&sid, &[])])).await;
+    beat(&h, &host_id, json!([ready(&sid, &[ada.id_str()])])).await;
+    assert!(players_in(&app, &sid).await.is_empty());
+    assert_eq!(dropped_for(&app, "honest").await, 3);
+    seat(&h, &sid, &ada).await;
+    beat(&h, &host_id, json!([ready(&sid, &[ada.id_str()])])).await;
+    assert_eq!(players_in(&app, &sid).await, [ada.user_id()]);
     app.finish().await;
 }
