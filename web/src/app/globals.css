@@ -1,164 +1,51 @@
 /*
- * Metallic web: themes, site-only tokens and base styles.
+ * Metallic web: theme schemes, site-only values and base styles.
  *
- * Colours, spacing, radii, the cut and motion come from the shared tokens in
- * src/styles/metallic-tokens.css (imported once, before this file, in app/layout.tsx).
- * Components use the token names directly: --bg-*, --text-*, --accent*, --s2..--s11,
- * --r-*, --cut-*, --t-fast/--t-base/--t-slow, --ease-out.
- *
- * This file adds only what the token file does not have yet:
- *   - the Titanium, Light and System theme blocks (the token file only defines
- *     Graphite; studio#196 will generate one [data-theme] block per theme, and
- *     these blocks go away then),
+ * Every colour, space step, radius, cut and motion value comes from the shared tokens in
+ * src/styles/metallic-tokens.css, generated from studio's token JSON (see that file's
+ * header) and imported once, before this file, in app/layout.tsx. It has one block per
+ * theme (Graphite, Titanium, Light) plus the site's System theme. Nothing here sets a
+ * token value; this file adds only:
+ *   - each theme's color-scheme (form controls, scrollbars),
+ *   - the focus ring,
  *   - web-only layout values (gutter, header height, section gaps),
  *   - the web type scale, which uses the token sizes where they exist.
  * See web/docs/DESIGN.md for the reasons behind each value.
  */
 
-/* Graphite: the token file's :root values. On a nested [data-theme] (the
-   theme picker's swatches) the surface and accent roles are set again from
-   the ramp, so a Graphite swatch looks right inside a Light page. */
 :root,
 [data-theme="graphite"],
+[data-theme="titanium"],
 [data-theme="system"] {
   color-scheme: dark;
-  --art-scrim: rgb(12 11 15 / 0.74);
-  --backdrop: rgb(12 11 15 / 0.6);
-}
-[data-theme="graphite"],
-[data-theme="system"] {
-  --bg-deep: var(--g-900);
-  --bg-base: var(--g-850);
-  --bg-panel: var(--g-800);
-  --bg-raised: var(--g-750);
-  --bg-hover: var(--g-700);
-  --bg-active: var(--g-650);
-  --accent: var(--v-400);
-  --accent-hover: var(--v-300);
-  --accent-press: var(--v-500);
-  --on-accent: var(--g-900);
-  --focus: var(--v-300);
 }
 
-/* Titanium: a lighter dark, for screens where Graphite feels too deep.
-   The same graphite ramp, two steps up. */
-[data-theme="titanium"] {
-  color-scheme: dark;
-  --bg-deep: #1c1b22;
-  --bg-base: #24222b;
-  --bg-panel: #2c2a34;
-  --bg-raised: #35323e;
-  --bg-hover: #3c3946;
-  --bg-active: #43404d;
-  --select: #3a3354;
-  --select-weak: #2f2b3b;
-  --line: #3a3744;
-  --line-strong: #5f5b6b;
-  --line-control: #8a8695;
-  --text-1: #f4f3f7;
-  --text-2: #c3c0ca;
-  --text-3: #b3afbd;
-  --text-off: #6c6878;
-  --icon: #cfccd6;
-  --accent-text: #c2b6f0;
-  --highlight: rgba(255, 255, 255, 0.07);
-  --error: #f2948c;
-  --warning: #e8bb6a;
-  --success: #74cc9f;
-  --info: #95bfee;
-  --art-scrim: rgb(18 17 22 / 0.76);
-  --backdrop: rgb(12 11 15 / 0.55);
-}
-
-/* Light ("Aluminium" in the picker; the spec's id is `light`).
-   Keep in sync with the `system` block below. */
 [data-theme="light"] {
   color-scheme: light;
-  --bg-deep: #ffffff;
-  --bg-base: #eceaf0;
-  --bg-panel: #f4f3f7;
-  --bg-raised: #ffffff;
-  --bg-hover: #e3e1e8;
-  --bg-active: #d8d5de;
-  --select: #e4def8;
-  --select-weak: #f3f0fc;
-  --line: #d8d5de;
-  --line-strong: #c3c0ca;
-  --line-control: #7a7685;
-  --text-1: #16151b;
-  --text-2: #43404d;
-  --text-3: #57535f;
-  --text-off: #a3a0ad;
-  --icon: #43404d;
-  --accent: #6f5cb6;
-  --accent-hover: #584993;
-  --accent-press: #4d4082;
-  --accent-text: #584993;
-  --on-accent: #ffffff;
-  --focus: #584993;
-  --highlight: rgba(255, 255, 255, 0.7);
-  --error: #b3261e;
-  --error-bg: #fbe9e7;
-  --warning: #7a5200;
-  --warning-bg: #fbf0d9;
-  --success: #1d7048;
-  --success-bg: #e2f2e9;
-  --info: #1f5c9e;
-  --info-bg: #e3edf8;
-  --danger: #b3261e;
-  --danger-hover: #96201a;
-  --shadow-pop: 0 8px 24px rgba(22, 21, 27, 0.16);
-  --art-scrim: rgb(12 11 15 / 0.74);
-  --backdrop: rgb(22 21 27 / 0.4);
 }
 
-/* System: Graphite (above) unless the device asks for light, then the Light values. */
 @media (prefers-color-scheme: light) {
   [data-theme="system"] {
     color-scheme: light;
-    --bg-deep: #ffffff;
-    --bg-base: #eceaf0;
-    --bg-panel: #f4f3f7;
-    --bg-raised: #ffffff;
-    --bg-hover: #e3e1e8;
-    --bg-active: #d8d5de;
-    --select: #e4def8;
-    --select-weak: #f3f0fc;
-    --line: #d8d5de;
-    --line-strong: #c3c0ca;
-    --line-control: #7a7685;
-    --text-1: #16151b;
-    --text-2: #43404d;
-    --text-3: #57535f;
-    --text-off: #a3a0ad;
-    --icon: #43404d;
-    --accent: #6f5cb6;
-    --accent-hover: #584993;
-    --accent-press: #4d4082;
-    --accent-text: #584993;
-    --on-accent: #ffffff;
-    --focus: #584993;
-    --highlight: rgba(255, 255, 255, 0.7);
-    --error: #b3261e;
-    --error-bg: #fbe9e7;
-    --warning: #7a5200;
-    --warning-bg: #fbf0d9;
-    --success: #1d7048;
-    --success-bg: #e2f2e9;
-    --info: #1f5c9e;
-    --info-bg: #e3edf8;
-    --danger: #b3261e;
-    --danger-hover: #96201a;
-    --shadow-pop: 0 8px 24px rgba(22, 21, 27, 0.16);
-    --art-scrim: rgb(12 11 15 / 0.74);
-    --backdrop: rgb(22 21 27 / 0.4);
   }
+}
+
+/* Focus ring: 2 px --focus, 2 px outside the control (3.7 in studio's UI overhaul doc). */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 :root {
   /* The token file names the families; these point them at the self-hosted
-     next/font files (no third-party font requests). */
-  --font: var(--font-archivo), system-ui, sans-serif;
+     next/font/local files in public/fonts (no third-party font requests).
+     Noto Sans comes first but carries only Greek and Cyrillic (unicode-range),
+     which Archivo does not have; everything else is Archivo. */
+  --font: var(--font-noto-sans), var(--font-archivo), system-ui, sans-serif;
   --mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 
   /* Type. The small steps are the token sizes (small 12, body 13, body-lg 14).
@@ -295,7 +182,7 @@ button {
   cursor: pointer;
 }
 
-/* The focus ring itself (2px --focus, 2px outside) comes from the token file. */
+/* TV mode: a heavier focus ring than the one at the top of this file. */
 [data-display="tv"] :focus-visible {
   outline-width: 4px;
   outline-offset: 4px;
