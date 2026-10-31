@@ -3,12 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-const tokens = readFileSync(new URL("../src/styles/metallic-tokens.css", import.meta.url), "utf8").replace(/
-/g, "
-");
-const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8").replace(/
-/g, "
-");
+// Normalise line ends so a CRLF checkout reads the same.
+const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8").replace(/\r\n/g, "\n");
+const tokens = read("../src/styles/metallic-tokens.css");
+const globals = read("../src/app/globals.css");
 
 describe("design tokens", () => {
   it("is the generated studio file with every theme", () => {
