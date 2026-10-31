@@ -1,6 +1,6 @@
 # Metallic web: design notes
 
-Why the site looks the way it does, one line per decision. Colours, spacing, radii, the cut and motion are the shared Metallic tokens in `src/styles/metallic-tokens.css` (a copy of studio's `docs/design/visual-language/assets/tokens.css`, from studio PR #199, until studio#196 generates it). `src/app/globals.css` adds the Titanium and Light theme blocks and the web-only values.
+Why the site looks the way it does, one line per decision. Colours, spacing, radii, the cut and motion are the shared Metallic tokens in `src/styles/metallic-tokens.css`. That file is generated from studio's `design/tokens/metallic.tokens.json` (all three themes, plus the site's System theme); its header says how to regenerate it, and nobody edits it by hand. `src/app/globals.css` sets no token values, only each theme's `color-scheme`, the focus ring and the web-only layout values. The fonts are Studio's own files in `public/fonts`, loaded with `next/font/local`.
 
 ## Reading of the brief
 
@@ -44,7 +44,7 @@ The design is set low on all three: ENERGY 2, RHYTHM 2, MOTION 1.
 - **Layout**
   - Lists of games are shelves that scroll sideways on phones and turn into grids on wide screens. No card borders, no shadows.
 - **Icons**
-  - The icon set is our own, with square caps and mitred joins to match the milled corner.
+  - The icons are Phosphor (MIT, `@phosphor-icons/react`), the set Studio and the Launcher use, so the platform has one icon voice. Regular weight; Fill only for a state that is on. They are mapped by name in `src/components/Icon.tsx`.
   - There are no emoji and no brand logos. Linked accounts are shown as text.
 - **Art**
   - Games and items use procedural flat SVG scenes, because there are no uploads yet.
