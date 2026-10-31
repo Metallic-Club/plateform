@@ -12,6 +12,7 @@
     "api:types": "openapi-typescript api/openapi.yaml -o src/lib/api/schema.d.ts"
   },
   "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0"

@@ -36,7 +36,7 @@ export function LauncherStatusSlot() {
     <p role="status" aria-live="polite" className={styles.launcherStatusWrap}>
       {text ? (
         <Link href="/downloads" className={styles.launcherStatus} data-tone={tone}>
-          <Icon name={tone === "update" ? "download" : "signal"} size={16} />
+          <Icon name={tone === "update" ? "download" : "progress"} size={16} />
           <span>{text}</span>
           {restart?.version ? <span className="visually-hidden">, version {restart.version}</span> : null}
         </Link>
