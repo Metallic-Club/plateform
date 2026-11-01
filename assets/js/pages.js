@@ -123,6 +123,7 @@
           '<h2 style="font-size:15px">Because you played ' + base.title + '</h2>' +
           '<span class="badge gray">' + base.genre + ' &middot; closest match</span></div>' +
           '<div class="shelf">' + like.map(card).join('') + '</div>';
+        if (UI.arrows) UI.arrows();
       }
     }
 

@@ -690,3 +690,20 @@ button.vote-up, button.vote-down { border: 0; font-family: inherit; cursor: poin
   .top-actions { gap: 12px; }
   .page-title { font-size: 24px; }
 }
+
+/* ---------- home furniture ---------- */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.home-note { font-size: 12.5px; color: var(--text-3); }
+.section-head { align-items: center; }
+.shelf { scroll-behavior: smooth; }
+.shelf-nav { display: flex; gap: 6px; margin-left: auto; }
+.section-head .link + .shelf-nav, .shelf-nav + .link { margin-left: 10px; }
+.shelf-nav button {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--text-2);
+  cursor: pointer; transition: color .12s, border-color .12s, background .12s;
+}
+.shelf-nav button:hover { color: var(--text); border-color: var(--text-3); background: var(--bg-alt); }
+.shelf-nav svg { width: 14px; height: 14px; }
+.thumb-card .meta { justify-content: flex-start; gap: 8px; }
+.thumb-card .meta .playing { color: var(--text-3); }

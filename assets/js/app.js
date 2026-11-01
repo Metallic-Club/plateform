@@ -74,6 +74,8 @@
     megaphone: '<path d="M4 10v4l12 5V5z"/><path d="M16 8a4 4 0 0 1 0 8M4 14v4h3v-3"/>',
     lock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    left: '<path d="M15 5l-7 7 7 7"/>',
+    right: '<path d="M9 5l7 7-7 7"/>',
     bell: '<path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16z"/><path d="M10 21h4"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>',
     hex: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/>'
@@ -408,7 +410,7 @@
       '</div>' +
       '<h3>' + g.title + '</h3>' +
       '<div class="meta"><span class="rating">' + ico('thumb') + g.rating + '% Rating</span>' +
-        '<span class="creator">' + g.creator + '</span></div>' +
+        '<span class="playing">' + short(g.players) + ' playing</span></div>' +
     '</a>';
   }
 
@@ -433,53 +435,127 @@
   }
 
   /* ---------- home ---------- */
+  function shelfArrows() {
+    $$('[data-shelf-block]').forEach(function (block) {
+      var shelf = $('.shelf', block);
+      var head = $('.section-head', block);
+      if (!shelf || !head || $('.shelf-nav', head)) return;
+      var nav = document.createElement('div');
+      nav.className = 'shelf-nav';
+      nav.innerHTML = '<button type="button" data-shelf-prev aria-label="Scroll left">' + ico('left') + '</button>' +
+        '<button type="button" data-shelf-next aria-label="Scroll right">' + ico('right') + '</button>';
+      var link = $('.link', head);
+      if (link) head.insertBefore(nav, link); else head.appendChild(nav);
+      var step = function () { return Math.max(240, shelf.clientWidth * 0.85); };
+      $('[data-shelf-prev]', nav).addEventListener('click', function () {
+        shelf.scrollBy({ left: -step(), behavior: 'smooth' });
+      });
+      $('[data-shelf-next]', nav).addEventListener('click', function () {
+        shelf.scrollBy({ left: step(), behavior: 'smooth' });
+      });
+    });
+  }
+
+  function fitScore(g) {
+    return g.rating + (state.fav[g.id] ? 18 : 0) + (g.firstParty ? 2 : 0);
+  }
+
+  var HOME_CHIPS = [
+    { label: 'For You', fit: true },
+    { label: 'Action', genre: 'Action' },
+    { label: 'Adventure', genre: 'RPG' },
+    { label: 'Roleplay', tag: 'Roleplay' },
+    { label: 'Obby', genre: 'Platformer' },
+    { label: 'Simulation', genre: 'Simulator' },
+    { label: 'Racing', genre: 'Racing' },
+    { label: 'Survival', genre: 'Survival' },
+    { label: 'Strategy', genre: 'Strategy' },
+    { label: 'Cozy', genre: 'Cozy' }
+  ];
+
   function renderHome() {
     var recent = [];
     (state.history || []).forEach(function (h) { if (recent.indexOf(h.id) === -1) recent.push(h.id); });
     var cont = recent.map(gameById).slice(0, 8);
     if (!cont.length) cont = GAMES.slice(0, 6);
     el('shelf-continue').innerHTML = cont.map(card).join('');
-    el('shelf-popular').innerHTML = GAMES.slice().sort(function (a, b) { return b.players - a.players; }).slice(0, 8).map(card).join('');
-    el('shelf-toprated').innerHTML = GAMES.slice().sort(function (a, b) { return b.rating - a.rating; }).slice(0, 8).map(card).join('');
+
+    el('shelf-popular').innerHTML = GAMES.slice()
+      .sort(function (a, b) { return b.players - a.players; }).slice(0, 10).map(card).join('');
+    el('shelf-toprated').innerHTML = GAMES.slice()
+      .sort(function (a, b) { return b.rating - a.rating; }).slice(0, 10).map(card).join('');
+    el('shelf-new').innerHTML = GAMES.slice()
+      .sort(function (a, b) { return b.id - a.id; }).slice(0, 10).map(card).join('');
+
+    var base = recent.length ? gameById(recent[0]) : GAMES[0];
+    var similar = GAMES.filter(function (g) { return g.id !== base.id && g.genre === base.genre; }).slice(0, 8);
+    GAMES.forEach(function (g) {
+      if (similar.length < 8 && g.id !== base.id && similar.indexOf(g) === -1) similar.push(g);
+    });
+    el('shelf-similar').innerHTML = similar.map(card).join('');
 
     var grid = el('grid-recommended');
     var chips = el('home-genres');
-    var genre = 'All';
+    var active = 0;
 
     function draw() {
-      var list = genre === 'All' ? GAMES.slice() : GAMES.filter(function (x) { return x.genre === genre; });
-      list.sort(function (a, b) { return b.rating - a.rating; });
-      grid.innerHTML = list.length
-        ? list.map(card).join('')
-        : '<div class="empty" style="grid-column:1/-1">Nothing in this category yet.</div>';
+      var c = HOME_CHIPS[active];
+      var list;
+      if (c.fit) list = GAMES.slice().sort(function (a, b) { return fitScore(b) - fitScore(a); });
+      else if (c.tag) list = GAMES.filter(function (g) { return g.tags.indexOf(c.tag) > -1; });
+      else list = GAMES.filter(function (g) { return g.genre === c.genre; });
+      if (!list.length) list = GAMES.slice(0, 4);
+      grid.innerHTML = list.map(card).join('');
     }
 
-    chips.innerHTML = M.genres.map(function (name) {
-      return '<button class="chip' + (name === genre ? ' on' : '') + '" data-genre="' + name + '">' + name + '</button>';
+    chips.innerHTML = HOME_CHIPS.map(function (c, i) {
+      return '<button class="chip' + (i === active ? ' on' : '') + '" data-chip="' + i + '">' + c.label + '</button>';
     }).join('');
 
     chips.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-genre]');
-      if (!btn) return;
-      genre = btn.getAttribute('data-genre');
-      $$('.chip', chips).forEach(function (b) { b.classList.toggle('on', b === btn); });
+      var b = e.target.closest('[data-chip]');
+      if (!b) return;
+      active = Number(b.getAttribute('data-chip'));
+      $$('.chip', chips).forEach(function (x) { x.classList.toggle('on', x === b); });
       draw();
     });
-
     draw();
 
+    var counts = {
+      plays: (state.history || []).length,
+      favs: Object.keys(state.fav).filter(function (k) { return state.fav[k]; }).length,
+      owned: Object.keys(state.owned || {}).length,
+      ratings: Object.keys(state.ratings || {}).length
+    };
+    var picks = (M.achievements || []).slice(0, 4);
+    el('home-achievements').innerHTML =
+      '<div class="section-head"><h2>Achievements</h2><a class="link" href="library.html">See all &rsaquo;</a></div>' +
+      '<div class="ach">' + picks.map(function (a) {
+        var v = counts[a.metric] || 0;
+        var done = v >= a.target;
+        return '<div class="ach-card' + (done ? '' : ' locked') + '">' +
+          '<div class="ach-medal">' + (done ? 'OK' : Math.min(v, 99)) + '</div>' +
+          '<h4>' + a.name + '</h4><p>' + a.desc + '</p>' +
+          '<div class="meter"><span style="width:' + Math.min(100, Math.round(v / a.target * 100)) + '%"></span></div>' +
+          '<div class="row" style="justify-content:space-between;font-size:11.5px;color:var(--text-3)">' +
+            '<span>' + Math.min(v, a.target) + '/' + a.target + '</span><span>+' + a.reward + ' alloy</span></div>' +
+        '</div>';
+      }).join('') + '</div>';
+
     el('home-stats').innerHTML = [
-      { k: 'Experiences', v: '14', d: 'first-party and community, hand-picked' },
+      { k: 'Experiences', v: String(GAMES.length), d: 'first-party and community, hand-picked' },
       { k: 'Live servers', v: '2,318', d: 'provisioned on request, not pre-bought' },
-      { k: 'Marketplace fee', v: '5%', d: 'flat, no listing fee' },
-      { k: 'Ads on this site', v: '0', d: 'no trackers, no sponsored ranking' }
-    ].map(function (s) {
-      return '<div class="stat"><div class="k">' + s.k + '</div><div class="v">' + s.v + '</div><div class="d">' + s.d + '</div></div>';
+      { k: 'Players online', v: short(GAMES.reduce(function (a, g) { return a + g.players; }, 0)), d: 'across every region right now' },
+      { k: 'Marketplace fee', v: '5%', d: 'flat, no listing fee' }
+    ].map(function (x) {
+      return '<div class="stat"><div class="k">' + x.k + '</div><div class="v">' + x.v + '</div><div class="d">' + x.d + '</div></div>';
     }).join('');
 
     el('home-firstparty').innerHTML =
-      '<div class="section-head"><h2>Made by Metallic Studio</h2><a class="link" href="charts.html">See all charts</a></div>' +
+      '<div class="section-head"><h2>Made by Metallic Studio</h2><a class="link" href="charts.html">See All &rsaquo;</a></div>' +
       '<div class="grid-cards">' + GAMES.filter(function (x) { return x.firstParty; }).map(card).join('') + '</div>';
+
+    shelfArrows();
   }
 
   /* ---------- charts ---------- */
@@ -1002,7 +1078,7 @@
 
   window.MetallicUI = {
     state: state, save: save, toast: toast, card: card, gameById: gameById,
-    num: num, short: short, ico: ico, el: el, $: $, $$: $$, setTheme: setTheme,
+    num: num, short: short, ico: ico, el: el, $: $, $$: $$, setTheme: setTheme, arrows: shelfArrows,
     games: GAMES, data: M, play: play
   };
 
