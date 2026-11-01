@@ -30,3 +30,21 @@ Metallic is a static platform site with no build step and no runtime dependencie
 - Pages are plain HTML that set `<body data-page="...">`; bump the `?v=` asset
   stamp on every page whenever CSS or JS changes, because GitHub Pages caches
   assets for about ten minutes.
+
+## Anti-slop filter
+
+Every task also runs through https://github.com/miqdadbadjuber/anti-slop, saved
+verbatim at `docs/antislop.md`. Read it before any UI, copy or code work here.
+
+- It is a filter, not a style guide: 40 rules (R-01 to R-40) in three tiers —
+  Hard Gate, Purpose-Gate and Quality Locks — plus a Liveliness Toolkit and a
+  Delivery Gate report.
+- Work in "during" mode: let the rules shape the work as it is built, then close
+  with the Delivery Gate PASS/FAIL report (four blocks) before saying it is done.
+- The filter only removes slop; visual direction still comes from the DESIGN.md
+  collection above. Both apply to the same task, in that order: direction first,
+  then filter.
+- Consequences for this repo: no invented statistics, fake testimonials or
+  made-up social proof; no performance number unless it was measured; no
+  decorative gradient blobs, emoji-as-UI or generic "elevate your experience"
+  copy; comments explain why, never narrate the diff.
