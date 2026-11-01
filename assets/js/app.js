@@ -369,24 +369,6 @@
 
   /* ---------- home ---------- */
   function renderHome() {
-    var g = GAMES[0];
-    el('hero').innerHTML =
-      '<div class="hero-art">' + poster(g) + '</div>' +
-      '<div class="hero-body">' +
-        '<span class="hero-eyebrow">Featured experience</span>' +
-        '<h1>' + g.title + '</h1>' +
-        '<p>' + g.desc + '</p>' +
-        '<div class="meta-row">' +
-          '<span><b>' + g.rating + '%</b> rating</span>' +
-          '<span><b>' + num(g.players) + '</b> playing</span>' +
-          '<span><b>' + g.servers + '</b> live servers</span>' +
-        '</div>' +
-        '<div class="row">' +
-          '<button class="btn btn-play" data-play="' + g.title + '">' + ico('play') + 'Play</button>' +
-          '<a class="btn btn-ghost" href="game.html?id=' + g.id + '" style="background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff">View details</a>' +
-        '</div>' +
-      '</div>';
-
     el('shelf-continue').innerHTML = GAMES.slice(0, 6).map(card).join('');
     el('shelf-popular').innerHTML = GAMES.slice().sort(function (a, b) { return b.players - a.players; }).slice(0, 8).map(card).join('');
     el('shelf-toprated').innerHTML = GAMES.slice().sort(function (a, b) { return b.rating - a.rating; }).slice(0, 8).map(card).join('');
