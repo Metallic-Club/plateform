@@ -55,16 +55,13 @@
   ];
 
   var LEFT = [
-    { group: 'Browse' },
     { href: 'index.html', label: 'Home', page: 'home', icon: 'home' },
     { href: 'charts.html', label: 'Charts', page: 'charts', icon: 'compass' },
     { href: 'marketplace.html', label: 'Marketplace', page: 'market', icon: 'bag' },
-    { group: 'You' },
-    { href: 'avatar.html', label: 'Avatar', page: 'avatar', icon: 'user' },
+    { label: 'Messages', icon: 'bell', action: 'notify', count: 6 },
     { href: 'servers.html', label: 'Servers', page: 'servers', icon: 'server' },
-    { group: 'Create' },
+    { href: 'avatar.html', label: 'Avatar', page: 'avatar', icon: 'user' },
     { href: 'create.html', label: 'Creator hub', page: 'create', icon: 'plus' },
-    { group: 'Platform' },
     { href: 'safety.html', label: 'Safety', page: 'safety', icon: 'shield' },
     { href: 'features.html', label: 'Feature scope', page: 'features', icon: 'list' },
     { href: 'docs.html', label: 'API docs', page: 'docs', icon: 'code' }
@@ -77,11 +74,17 @@
       return '<a href="' + n.href + '"' + (n.page === page ? ' class="active" aria-current="page"' : '') + '>' + n.label + '</a>';
     }).join('');
 
-    var leftNav = LEFT.map(function (item) {
-      if (item.group) return '<div class="group">' + item.group + '</div>';
-      return '<a href="' + item.href + '"' + (item.page === page ? ' class="on" aria-current="page"' : '') + '>' +
-        ico(item.icon) + '<span>' + item.label + '</span></a>';
-    }).join('');
+    var leftNav = '<a class="leftnav-user" href="avatar.html">' +
+        '<span class="avatar-chip">RD</span><span>RavenDev</span></a>' +
+      LEFT.map(function (item) {
+        var inner = ico(item.icon) + '<span>' + item.label + '</span>' +
+          (item.count ? '<span class="count">' + item.count + '</span>' : '');
+        if (item.action) {
+          return '<button type="button" class="nav-row" data-' + item.action + '>' + inner + '</button>';
+        }
+        return '<a class="nav-row' + (item.page === page ? ' on' : '') + '" href="' + item.href + '"' +
+          (item.page === page ? ' aria-current="page"' : '') + '>' + inner + '</a>';
+      }).join('');
 
     document.body.insertAdjacentHTML('afterbegin',
       '<header class="topbar"><div class="topbar-inner">' +
@@ -105,7 +108,17 @@
           '<div class="progress"><span id="pm-bar"></span></div>' +
           '<button class="btn btn-ghost btn-sm" data-close-modal>Cancel</button>' +
         '</div>' +
-      '</div>');
+      '</div>' +
+      '<aside class="notify-panel" id="notify-panel" aria-label="Messages">' +
+        '<div class="panel-head" style="margin-bottom:8px;padding-bottom:8px">' +
+          '<h3>Messages</h3><span class="badge blue">6 new</span></div>' +
+        [['Cyber Raven crew', 'Your server is ready — join US-East #01.', '2m'],
+         ['NovaFox', 'Sent you Obsidian Wings as a gift.', '18m'],
+         ['Metallic Studio', 'Rift Hunters patch 1.4 is live.', '1h']].map(function (m) {
+          return '<div class="notify-item"><span class="dot-badge"></span><div class="body"><b>' + m[0] +
+            '</b><br>' + m[1] + '<div class="time">' + m[2] + '</div></div></div>';
+        }).join('') +
+      '</aside>');
 
     document.body.insertAdjacentHTML('beforeend',
       '<footer class="footer"><div class="footer-inner">' +
@@ -699,6 +712,15 @@
   /* ---------- global events ---------- */
   function bindGlobal() {
     document.addEventListener('click', function (e) {
+      if (e.target.closest('[data-notify]')) {
+        var panel = el('notify-panel');
+        if (panel) panel.classList.toggle('on');
+        return;
+      }
+      var openPanel = el('notify-panel');
+      if (openPanel && openPanel.classList.contains('on') && !e.target.closest('#notify-panel')) {
+        openPanel.classList.remove('on');
+      }
       var playBtn = e.target.closest('[data-play]');
       if (playBtn) {
         e.preventDefault();
@@ -724,6 +746,8 @@
       if (e.key === 'Escape') {
         var modal = el('play-modal');
         if (modal) modal.classList.remove('on');
+        var panel = el('notify-panel');
+        if (panel) panel.classList.remove('on');
         clearInterval(playTimer);
       }
     });
