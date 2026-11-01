@@ -107,7 +107,12 @@
             '<span id="balance-v">' + num(state.balance) + '</span></span>' +
           '<a class="icon-btn" href="docs.html" title="Settings" aria-label="Settings">' + ico('gear') + '</a>' +
         '</div>' +        '</div></header>' +
-      '<nav class="leftnav" aria-label="Sections">' + leftNav + '</nav>' +
+      '<nav class="leftnav" aria-label="Sections">' + leftNav +
+        '<div class="rail-promo"><h4>Metallic Plus</h4>' +
+          '<p>More server slots and a flat fee on every trade, billed monthly.</p>' +
+          '<a href="features.html">See what is included</a>' +
+        '</div>' +
+      '</nav>' +
       '<div id="toast" aria-live="polite"></div>' +
       '<div class="modal" id="play-modal" role="dialog" aria-modal="true" aria-labelledby="pm-title">' +
         '<div class="modal-card">' +
