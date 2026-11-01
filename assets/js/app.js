@@ -130,6 +130,11 @@
           (item.page === page ? ' aria-current="page"' : '') + '>' + inner + '</a>';
       }).join('');
 
+    var strip = LEFT.filter(function (item) { return item.href; }).map(function (item) {
+      return '<a href="' + item.href + '"' + (item.page === page ? ' class="on" aria-current="page"' : '') +
+        '>' + item.label + '</a>';
+    }).join('');
+
     document.body.insertAdjacentHTML('afterbegin',
       '<header class="topbar"><div class="topbar-inner">' +
         '<a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true"></span><span>Metallic</span></a>' +
@@ -138,7 +143,7 @@
           '<input id="q" type="search" placeholder="Search" aria-label="Search" autocomplete="off"/>' +
         '</form>' +
         '<div class="top-actions">' +
-          '<a class="who" href="avatar.html"><span class="avatar-chip">RD</span>' +
+          '<a class="who" href="profile.html" title="Your profile"><span class="avatar-chip">RD</span>' +
             '<span class="who-name">RavenDev</span></a>' +
           '<button class="icon-btn bell-wrap" type="button" data-notify title="Notifications" aria-label="Notifications">' +
             ico('bell') + '<span class="bell-count">99+</span></button>' +
@@ -146,8 +151,9 @@
             '<svg class="hex" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
               'stroke-linejoin="round">' + ICONS.hex + '</svg>' +
             '<span id="balance-v">' + num(state.balance) + '</span></span>' +
-          '<a class="icon-btn" href="docs.html" title="Settings" aria-label="Settings">' + ico('gear') + '</a>' +
+          '<a class="icon-btn" href="settings.html" title="Settings" aria-label="Settings">' + ico('gear') + '</a>' +
         '</div>' +        '</div></header>' +
+      '<nav class="tabstrip" aria-label="All sections">' + strip + '</nav>' +
       '<nav class="leftnav" aria-label="Sections">' + leftNav +
         '<div class="rail-promo"><h4>Metallic Plus</h4>' +
           '<p>More server slots and a flat fee on every trade, billed monthly.</p>' +
