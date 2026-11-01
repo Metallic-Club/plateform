@@ -30,6 +30,7 @@
     play: '<path d="M8 5l11 7-11 7z"/>',
     up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
     down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+    thumb: '<path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1zM7 11l4-7a2 2 0 0 1 2 2v3h4a2 2 0 0 1 2 2l-1 6a2 2 0 0 1-2 2H7z"/>',
     home: '<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/>',
     compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
     user: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
@@ -204,17 +205,145 @@
     }, 110);
   }
 
-  /* ---------- shared markup ---------- */
+  /* ---------- generated cover art ---------- */
+  var POSTERS = {
+    1: { scene: 'arena', c1: '#3b1d6e', c2: '#0a0a16', c3: '#38e8f0' },
+    2: { scene: 'hills', c1: '#1e7d4f', c2: '#08170f', c3: '#7ef2a8' },
+    3: { scene: 'dungeon', c1: '#6d1b45', c2: '#12060f', c3: '#f472b6' },
+    4: { scene: 'arena', c1: '#5b1620', c2: '#0d0709', c3: '#fb7185' },
+    5: { scene: 'grid', c1: '#2a2a6e', c2: '#0a0a1a', c3: '#8b9dff' },
+    6: { scene: 'city', c1: '#0f4c4c', c2: '#05100f', c3: '#5eead4' },
+    7: { scene: 'space', c1: '#123a63', c2: '#050a12', c3: '#7dd3fc' },
+    8: { scene: 'dungeon', c1: '#6b4410', c2: '#120c06', c3: '#fbbf24' },
+    9: { scene: 'track', c1: '#5c1b47', c2: '#0d0610', c3: '#f472b6' },
+    10: { scene: 'ocean', c1: '#0b4a63', c2: '#04121a', c3: '#22d3ee' },
+    11: { scene: 'grid', c1: '#3a2a6b', c2: '#0b0817', c3: '#c4b5fd' },
+    12: { scene: 'dungeon', c1: '#1c4a35', c2: '#05110c', c3: '#34d399' },
+    13: { scene: 'hills', c1: '#4d6b12', c2: '#0d1405', c3: '#facc15' },
+    14: { scene: 'track', c1: '#5a2a08', c2: '#120a04', c3: '#fb923c' }
+  };
+
+  function figure(x, y, scale, fill, rim) {
+    return '<g transform="translate(' + x + ' ' + y + ') scale(' + scale + ')">' +
+      '<ellipse cx="0" cy="47" rx="15" ry="4" fill="#000" opacity="0.35"/>' +
+      '<path d="M-11 45V17a11 11 0 0 1 22 0v28z" fill="' + fill + '"/>' +
+      '<circle cx="0" cy="5" r="9" fill="' + fill + '"/>' +
+      '<path d="M7 11a10 10 0 0 0 5-6" fill="none" stroke="' + rim + '" stroke-width="2" ' +
+        'stroke-linecap="round" opacity="0.85"/>' +
+    '</g>';
+  }
+
+  function poster(g) {
+    var p = POSTERS[g.id] || { scene: 'city', c1: '#243049', c2: '#0a0c14', c3: '#a78bfa' };
+    var id = 'p' + g.id, s = p.scene, c1 = p.c1, c2 = p.c2, c3 = p.c3;
+    var defs = '<defs>' +
+      '<linearGradient id="sk' + id + '" x1="0" y1="0" x2="0.3" y2="1">' +
+        '<stop offset="0" stop-color="' + c1 + '"/><stop offset="1" stop-color="' + c2 + '"/></linearGradient>' +
+      '<radialGradient id="gl' + id + '"><stop offset="0" stop-color="' + c3 +
+        '" stop-opacity="0.85"/><stop offset="1" stop-color="' + c3 + '" stop-opacity="0"/></radialGradient>' +
+      '<linearGradient id="vg' + id + '" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0.4" stop-color="#000" stop-opacity="0"/>' +
+        '<stop offset="1" stop-color="#000" stop-opacity="0.55"/></linearGradient>' +
+    '</defs>';
+    var sky = '<rect width="480" height="270" fill="url(#sk' + id + ')"/>';
+    var body;
+
+    if (s === 'arena') {
+      body = '<ellipse cx="240" cy="252" rx="190" ry="44" fill="' + c3 + '" opacity="0.2"/>' +
+        '<ellipse cx="240" cy="252" rx="128" ry="28" fill="none" stroke="' + c3 + '" stroke-width="2" opacity="0.35"/>' +
+        '<rect x="44" y="98" width="26" height="140" rx="6" fill="' + c2 + '" opacity="0.9"/>' +
+        '<rect x="410" y="98" width="26" height="140" rx="6" fill="' + c2 + '" opacity="0.9"/>' +
+        '<circle cx="352" cy="58" r="76" fill="url(#gl' + id + ')" opacity="0.55"/>' +
+        figure(240, 178, 1.9, c2, c3) +
+        '<circle cx="126" cy="122" r="3" fill="' + c3 + '" opacity="0.7"/>' +
+        '<circle cx="376" cy="164" r="2.5" fill="' + c3 + '" opacity="0.6"/>';
+    } else if (s === 'city') {
+      body = '<circle cx="358" cy="66" r="34" fill="' + c3 + '" opacity="0.28"/>' +
+        '<circle cx="358" cy="66" r="15" fill="' + c3 + '" opacity="0.85"/>' +
+        '<path d="M0 202h40v-52h26v-30h34v82h30v-64h38v64h26v-98h30v98h34v-46h36v46h30v-72h34v72h46v-38h36v110H0z" ' +
+          'fill="' + c2 + '" opacity="0.92"/>' +
+        '<g fill="' + c3 + '" opacity="0.55">' +
+          '<rect x="52" y="132" width="6" height="8"/><rect x="150" y="126" width="6" height="8"/>' +
+          '<rect x="286" y="112" width="6" height="8"/><rect x="392" y="150" width="6" height="8"/>' +
+        '</g>' +
+        '<rect y="228" width="480" height="42" fill="' + c2 + '"/>' +
+        figure(196, 168, 1.5, c2, c3);
+    } else if (s === 'hills') {
+      body = '<circle cx="362" cy="70" r="56" fill="url(#gl' + id + ')" opacity="0.6"/>' +
+        '<circle cx="362" cy="70" r="21" fill="' + c3 + '" opacity="0.9"/>' +
+        '<path d="M0 190l90-56 70 40 80-52 90 62 70-34 80 40v80H0z" fill="' + c2 + '" opacity="0.7"/>' +
+        '<path d="M0 216l120-42 90 26 110-36 160 48v58H0z" fill="' + c2 + '"/>' +
+        '<g fill="' + c2 + '"><path d="M96 198l16-34 16 34z"/><rect x="109" y="198" width="6" height="16"/></g>' +
+        '<g fill="' + c2 + '"><path d="M372 200l14-30 14 30z"/><rect x="383" y="200" width="6" height="14"/></g>' +
+        figure(240, 176, 1.6, c2, c3);
+    } else if (s === 'ocean') {
+      body = '<circle cx="120" cy="92" r="48" fill="url(#gl' + id + ')" opacity="0.55"/>' +
+        '<circle cx="120" cy="92" r="17" fill="' + c3 + '" opacity="0.85"/>' +
+        '<path d="M0 186q60-18 120 0t120 0 120 0 120 0v84H0z" fill="' + c2 + '" opacity="0.8"/>' +
+        '<path d="M0 216q60-16 120 0t120 0 120 0 120 0v54H0z" fill="' + c2 + '"/>' +
+        '<g opacity="0.55" stroke="' + c3 + '" stroke-width="2" fill="none">' +
+          '<path d="M36 206q26-8 52 0"/><path d="M296 228q30-8 60 0"/></g>' +
+        '<g transform="translate(320 148)"><path d="M0 48h46L23 8z" fill="' + c2 + '"/>' +
+          '<rect x="22" y="-6" width="3" height="56" fill="' + c2 + '"/>' +
+          '<path d="M25-4l26 32H25z" fill="' + c3 + '" opacity="0.72"/></g>' +
+        '<g stroke="' + c2 + '" stroke-width="2" fill="none" opacity="0.75">' +
+          '<path d="M94 128q8-6 16 0"/><path d="M124 116q7-5 14 0"/></g>';
+    } else if (s === 'space') {
+      body = '<g fill="' + c3 + '">' +
+          '<circle cx="52" cy="48" r="1.8" opacity="0.9"/><circle cx="132" cy="96" r="1.4" opacity="0.7"/>' +
+          '<circle cx="392" cy="52" r="1.6" opacity="0.8"/><circle cx="316" cy="30" r="1.2" opacity="0.6"/>' +
+          '<circle cx="442" cy="140" r="1.5" opacity="0.7"/><circle cx="212" cy="38" r="1.2" opacity="0.5"/>' +
+        '</g>' +
+        '<circle cx="366" cy="178" r="58" fill="' + c1 + '"/>' +
+        '<circle cx="366" cy="178" r="58" fill="none" stroke="' + c3 + '" stroke-width="2" opacity="0.35"/>' +
+        '<ellipse cx="366" cy="178" rx="90" ry="15" fill="none" stroke="' + c3 + '" stroke-width="3" ' +
+          'opacity="0.5" transform="rotate(-16 366 178)"/>' +
+        '<g transform="translate(140 122) rotate(-12)"><path d="M0 20 58 0 50 32 12 36z" fill="' + c2 + '"/>' +
+          '<path d="M12 32 2 48 26 34z" fill="' + c3 + '" opacity="0.8"/>' +
+          '<circle cx="48" cy="16" r="4" fill="' + c3 + '" opacity="0.9"/></g>';
+    } else if (s === 'track') {
+      body = '<rect y="176" width="480" height="94" fill="' + c2 + '"/>' +
+        '<path d="M200 176 118 270h84l38-94z" fill="' + c3 + '" opacity="0.16"/>' +
+        '<path d="M280 176 362 270h-84l-38-94z" fill="' + c3 + '" opacity="0.16"/>' +
+        '<g stroke="' + c3 + '" stroke-width="2" opacity="0.45">' +
+          '<path d="M240 176v94"/><path d="M118 270 210 176"/><path d="M362 270 270 176"/></g>' +
+        '<circle cx="64" cy="118" r="72" fill="url(#gl' + id + ')" opacity="0.4"/>' +
+        '<g transform="translate(240 212)"><rect x="-58" y="-26" width="116" height="34" rx="12" fill="' + c1 + '"/>' +
+          '<rect x="-34" y="-42" width="68" height="22" rx="8" fill="' + c1 + '"/>' +
+          '<rect x="-30" y="-36" width="26" height="10" rx="3" fill="' + c3 + '" opacity="0.85"/>' +
+          '<circle cx="-34" cy="10" r="10" fill="' + c2 + '"/><circle cx="34" cy="10" r="10" fill="' + c2 + '"/></g>' +
+        '<g stroke="' + c3 + '" stroke-width="3" opacity="0.45" stroke-linecap="round">' +
+          '<path d="M40 208h34"/><path d="M20 232h50"/><path d="M420 200h40"/></g>';
+    } else {
+      body = '<g stroke="' + c3 + '" stroke-width="1.5" opacity="0.3">' +
+          '<path d="M-20 212 240 92l260 120"/><path d="M40 242 240 150l200 92"/>' +
+          '<path d="M100 272 240 208l140 64"/><path d="M60 132 240 212l180-80"/>' +
+          '<path d="M130 98 240 150l110-52"/></g>' +
+        '<g><path d="M150 192l50-24 50 24-50 24z" fill="' + c1 + '"/>' +
+          '<path d="M150 192v-34l50-24v34z" fill="' + c2 + '" opacity="0.9"/>' +
+          '<path d="M200 168v-34l50 24v34z" fill="' + c2 + '"/>' +
+          '<path d="M288 208l40-20 40 20-40 20z" fill="' + c1 + '"/>' +
+          '<path d="M328 188v-46l40 20v46z" fill="' + c2 + '" opacity="0.85"/></g>' +
+        figure(116, 170, 1.4, c2, c3);
+    }
+
+    return '<svg class="poster" viewBox="0 0 480 270" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
+      defs + sky + body +
+      '<rect width="480" height="270" fill="url(#vg' + id + ')"/>' +
+    '</svg>';
+  }
+
+/* ---------- shared markup ---------- */
   function card(g) {
     return '<a class="thumb-card" href="game.html?id=' + g.id + '">' +
-      '<div class="thumb art" style="--g:' + g.art + '">' +
+      '<div class="thumb">' + poster(g) +
         (g.firstParty ? '<span class="badge blue flag">Metallic</span>' : '') +
         '<span class="players"><span class="dot"></span>' + short(g.players) + '</span>' +
-        '<span class="glyph">' + initials(g.title) + '</span>' +
         '<span class="veil">' + ico('play') + '</span>' +
       '</div>' +
       '<h3>' + g.title + '</h3>' +
-      '<div class="meta"><span class="creator">' + g.creator + '</span><span class="sep">·</span><span>' + g.rating + '%</span></div>' +
+      '<div class="meta"><span class="rating">' + ico('thumb') + g.rating + '% Rating</span>' +
+        '<span class="creator">' + g.creator + '</span></div>' +
     '</a>';
   }
 
@@ -242,7 +371,7 @@
   function renderHome() {
     var g = GAMES[0];
     el('hero').innerHTML =
-      '<div class="hero-art"><div class="art" style="--g:' + g.art + '"><span class="glyph">' + initials(g.title) + '</span></div></div>' +
+      '<div class="hero-art">' + poster(g) + '</div>' +
       '<div class="hero-body">' +
         '<span class="hero-eyebrow">Featured experience</span>' +
         '<h1>' + g.title + '</h1>' +
@@ -338,7 +467,7 @@
       list.innerHTML = rows.length ? rows.map(function (g, i) {
         return '<a class="rank-row" href="game.html?id=' + g.id + '">' +
           '<div class="rank-num">' + (i + 1) + '</div>' +
-          '<div class="rank-thumb art" style="--g:' + g.art + '"><span class="glyph" style="font-size:20px">' + initials(g.title) + '</span></div>' +
+          '<div class="rank-thumb">' + poster(g) + '</div>' +
           '<div class="rank-body"><h3>' + g.title + '</h3><div class="by">by ' + g.creator + ' · ' + g.genre + '</div></div>' +
           '<div class="rank-side">' +
             '<span><b>' + short(g.players) + '</b> playing</span>' +
@@ -393,7 +522,7 @@
     host.innerHTML =
       '<div class="detail">' +
         '<div>' +
-          '<div class="detail-hero art" style="--g:' + g.art + '"><span class="glyph" style="font-size:60px">' + initials(g.title) + '</span></div>' +
+          '<div class="detail-hero">' + poster(g) + '</div>' +
           '<div class="detail-head">' +
             '<h1>' + g.title + '</h1>' +
             '<div class="row" style="font-size:13.5px;color:var(--text-2)">by <a href="#" style="color:var(--blue);font-weight:600">' + g.creator + '</a>' +
