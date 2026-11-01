@@ -132,7 +132,7 @@
 
     document.body.insertAdjacentHTML('afterbegin',
       '<header class="topbar"><div class="topbar-inner">' +
-        '<a class="brand" href="index.html"><span class="brand-mark">M</span><span>Metallic</span></a>' +
+        '<a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true"></span><span>Metallic</span></a>' +
         '<nav class="topnav" aria-label="Primary">' + nav + '</nav>' +
         '<form class="search" role="search" onsubmit="return false">' + ico('search') +
           '<input id="q" type="search" placeholder="Search" aria-label="Search" autocomplete="off"/>' +
@@ -178,7 +178,7 @@
     document.body.insertAdjacentHTML('beforeend',
       '<footer class="footer"><div class="footer-inner">' +
         '<div class="footer-top">' +
-          '<a class="brand" href="index.html"><span class="brand-mark">M</span><span>Metallic</span></a>' +
+          '<a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true"></span><span>Metallic</span></a>' +
           '<div class="footer-cols">' +
             '<div><h4>Play</h4><ul>' +
               '<li><a href="index.html">Home</a></li>' +
