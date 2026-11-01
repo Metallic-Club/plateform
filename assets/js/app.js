@@ -89,6 +89,8 @@
     { href: 'explore.html', label: 'Explore', page: 'explore' },
     { href: 'charts.html', label: 'Charts', page: 'charts' },
     { href: 'marketplace.html', label: 'Marketplace', page: 'market' },
+    { href: 'library.html', label: 'Library', page: 'library' },
+    { href: 'wallet.html', label: 'Wallet', page: 'wallet' },
     { href: 'create.html', label: 'Create', page: 'create' },
     { href: 'community.html', label: 'Community', page: 'community' }
   ];
@@ -97,18 +99,19 @@
     { href: 'index.html', label: 'Home', page: 'home', icon: 'home' },
     { href: 'explore.html', label: 'Explore', page: 'explore', icon: 'compass' },
     { href: 'charts.html', label: 'Charts', page: 'charts', icon: 'list' },
-    { href: 'library.html', label: 'Library', page: 'library', icon: 'trophy' },
     { href: 'marketplace.html', label: 'Marketplace', page: 'market', icon: 'bag' },
-    { href: 'wallet.html', label: 'Alloy wallet', page: 'wallet', icon: 'wallet' },
-    { label: 'Messages', icon: 'bell', action: 'notify', count: 6 },
-    { href: 'servers.html', label: 'Servers', page: 'servers', icon: 'server' },
+    { href: 'library.html', label: 'Library', page: 'library', icon: 'trophy' },
+    { href: 'wallet.html', label: 'Wallet', page: 'wallet', icon: 'wallet' },
     { href: 'avatar.html', label: 'Avatar', page: 'avatar', icon: 'user' },
     { href: 'profile.html', label: 'Profile', page: 'profile', icon: 'users' },
-    { href: 'create.html', label: 'Creator hub', page: 'create', icon: 'plus' },
+    { label: 'Messages', icon: 'bell', action: 'notify', count: 6 },
+    { href: 'profile.html#friends', label: 'Friends', page: 'friends', icon: 'users' },
+    { href: 'servers.html', label: 'Servers', page: 'servers', icon: 'server' },
+    { href: 'create.html', label: 'Creator Hub', page: 'create', icon: 'plus' },
     { href: 'community.html', label: 'Community', page: 'community', icon: 'megaphone' },
     { href: 'safety.html', label: 'Safety', page: 'safety', icon: 'shield' },
     { href: 'settings.html', label: 'Settings', page: 'settings', icon: 'gear' },
-    { href: 'docs.html', label: 'API docs', page: 'docs', icon: 'code' }
+    { href: 'docs.html', label: 'Help & Docs', page: 'docs', icon: 'code' }
   ];
 
   /* ---------- shell ---------- */
@@ -130,7 +133,7 @@
           (item.page === page ? ' aria-current="page"' : '') + '>' + inner + '</a>';
       }).join('');
 
-    var strip = LEFT.filter(function (item) { return item.href; }).map(function (item) {
+    var strip = LEFT.filter(function (item) { return item.href && item.label !== 'Friends'; }).map(function (item) {
       return '<a href="' + item.href + '"' + (item.page === page ? ' class="on" aria-current="page"' : '') +
         '>' + item.label + '</a>';
     }).join('');

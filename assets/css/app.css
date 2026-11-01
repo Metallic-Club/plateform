@@ -508,7 +508,23 @@ input[type='range'] { width: 100%; accent-color: var(--blue); }
 }
 .tabstrip a.on { color: #fff; background: var(--blue); border-color: var(--blue); }
 
-@media (max-height: 780px) { .rail-promo { display: none; } }
+#friends { scroll-margin-top: 64px; }
+
+/* short windows: shrink the rail instead of hiding rows behind a scroll */
+@media (max-height: 860px) {
+  .rail-promo { display: none; }
+  .leftnav { padding: 8px 6px 10px; }
+  .leftnav-user { padding: 2px 8px 10px; margin-bottom: 4px; font-size: 14px; }
+  .nav-row { padding: 6px 9px; font-size: 13.5px; }
+  .nav-row svg { width: 18px; height: 18px; }
+  .nav-row .count { min-width: 20px; height: 20px; font-size: 11px; }
+}
+@media (max-height: 700px) {
+  .nav-row { padding: 4px 8px; font-size: 13px; }
+  .nav-row svg { width: 17px; height: 17px; }
+  .leftnav-user { padding: 0 8px 8px; }
+  .leftnav-user .avatar-chip { width: 24px; height: 24px; }
+}
 
 @media (min-width: 900px) {
   .leftnav { display: flex; }

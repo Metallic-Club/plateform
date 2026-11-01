@@ -375,7 +375,7 @@
         '</div>' +
 
         '<div class="two-col">' +
-          '<div class="panel"><div class="panel-head"><h3>Friends</h3><span class="pill">' + friends.length + '</span></div>' +
+          '<div class="panel" id="friends"><div class="panel-head"><h3>Friends</h3><span class="pill">' + friends.length + '</span></div>' +
             '<div class="row" style="margin-bottom:6px"><input class="field" data-friend-name placeholder="Add a friend by name" aria-label="Friend name" style="flex:1"/>' +
               '<button class="btn btn-ghost btn-sm" data-add-friend>Add</button></div>' +
             (friends.length ? friends.map(function (f) {
