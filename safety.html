@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Trust &amp; safety — Metallic</title>
+  <meta name="description" content="Verification, alt-account limits, ban propagation and name-sniping rules — published, not implied."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="assets/css/app.css"/>
+</head>
+<body data-page="safety">
+  <main class="main page">
+    <div>
+      <h1 class="page-title">Trust &amp; safety</h1>
+      <p class="page-sub">These are the rules the platform actually enforces, written as rules rather than promises. All of them apply to every linked account, not just the one that broke them.</p>
+    </div>
+
+    <section class="stats">
+      <div class="stat"><div class="k">Alts per person</div><div class="v">5</div><div class="d">max, all linked to one identity</div></div>
+      <div class="stat"><div class="k">Verification window</div><div class="v">30 days</div><div class="d">then unverified accounts are deleted</div></div>
+      <div class="stat"><div class="k">Ban scope</div><div class="v">All alts</div><div class="d">one ban, every linked account</div></div>
+      <div class="stat"><div class="k">Appeal window</div><div class="v">14 days</div><div class="d">human review, no automated denials</div></div>
+    </section>
+
+    <section class="three-col">
+      <div class="panel">
+        <div class="panel-head"><h3>Account verification</h3><span class="badge mint">Enforced</span></div>
+        <ul class="list">
+          <li><span class="tick">✓</span><span>An account that is not verified within one month of creation is removed.</span></li>
+          <li><span class="tick">✓</span><span>Reminders go out on day 7, 21 and 28 — deletion is never silent.</span></li>
+          <li><span class="tick">✓</span><span>A 7-day recovery window follows deletion, then the data is purged.</span></li>
+        </ul>
+        <div class="warn" style="margin-top:12px">Owner's list says "a month for the timer"; the exact trigger for "verified" is still open.</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Alt accounts</h3><span class="badge mint">Linked</span></div>
+        <ul class="list">
+          <li><span class="tick">✓</span><span>Up to 5 accounts per person, all attached to one identity.</span></li>
+          <li><span class="tick">✓</span><span>A ban on one account bans every linked alt at the same moment.</span></li>
+          <li><span class="tick">✓</span><span>Shared devices and payment methods surface as link signals, never as auto-bans.</span></li>
+        </ul>
+        <div class="warn" style="margin-top:12px">The owner's wording is "5 accounts as alts minium" — most likely a maximum; confirm before build.</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Name sniping</h3><span class="badge mint">Blocked</span></div>
+        <ul class="list">
+          <li><span class="tick">✓</span><span>Released names enter a randomised claim window instead of a race.</span></li>
+          <li><span class="tick">✓</span><span>Renames carry a cooldown so a name cannot be cycled for profit.</span></li>
+          <li><span class="tick">✓</span><span>High-value names go through review before transfer.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="two-col">
+      <div class="panel">
+        <div class="panel-head"><h3>Multi-account detection</h3><span class="pill">signals, not verdicts</span></div>
+        <table>
+          <thead><tr><th>Signal</th><th>Used for</th><th>Weight</th></tr></thead>
+          <tbody>
+            <tr><td><strong>IP cluster</strong></td><td>Linking accounts to one person</td><td>Medium</td></tr>
+            <tr><td><strong>Device fingerprint</strong></td><td>Alt detection, evasion checks</td><td>High</td></tr>
+            <tr><td><strong>Payment metadata</strong></td><td>Alt linking, payout fraud</td><td>High</td></tr>
+            <tr><td><strong>Behaviour correlation</strong></td><td>Ban evasion review</td><td>Low</td></tr>
+          </tbody>
+        </table>
+        <div class="note" style="margin-top:12px">No single signal bans an account. Detection raises a review; a human closes it.</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Moderation flow</h3><span class="badge">Human in the loop</span></div>
+        <ul class="list">
+          <li><span class="tick">1</span><span>Player report, or an automated flag with its evidence attached.</span></li>
+          <li><span class="tick">2</span><span>Triage within 24h; low-risk cases are resolved by policy, not opinion.</span></li>
+          <li><span class="tick">3</span><span>Outcome is written to the account with the rule that was applied.</span></li>
+          <li><span class="tick">4</span><span>Appeal opens a second reviewer, never the original moderator.</span></li>
+        </ul>
+        <div class="divider"></div>
+        <div class="kv"><span>Zero tolerance</span><b>harassment, impersonation, exploits</b></div>
+        <div class="kv"><span>Escalation</span><b>warn → limit → freeze → ban</b></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Marketplace — Metallic</title>
+  <meta name="description" content="Buy, sell, trade and gift cosmetics with a flat 5% fee and no hidden spread."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="assets/css/app.css"/>
+</head>
+<body data-page="market">
+  <main class="main page">
+    <div>
+      <h1 class="page-title">Marketplace</h1>
+      <p class="page-sub">Alloy is the platform currency. Every listing shows the exact fee before you confirm, and creators keep 70% of a sale.</p>
+    </div>
+
+    <div class="filters">
+      <div class="chips" id="mkt-filters"></div>
+      <span class="pill" id="mkt-balance"></span>
+    </div>
+
+    <div class="grid-cards" id="mkt-grid" style="grid-template-columns:repeat(auto-fill,minmax(165px,1fr))"></div>
+
+    <section class="two-col">
+      <div class="panel">
+        <div class="panel-head"><h3>Fee breakdown</h3><span class="badge mint">Transparent</span></div>
+        <div class="kv"><span>Listing fee</span><b>0 alloy</b></div>
+        <div class="kv"><span>Sale fee</span><b>5% flat</b></div>
+        <div class="kv"><span>Creator share</span><b>70%</b></div>
+        <div class="kv"><span>Payment processing</span><b>included</b></div>
+        <div class="kv"><span>Withdraw minimum</span><b>none</b></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Earn alloy</h3><span class="pill">No purchase needed</span></div>
+        <ul class="list">
+          <li><span class="tick">✓</span><span>Daily challenge: +200 alloy</span></li>
+          <li><span class="tick">✓</span><span>Referral bonus: +500 alloy</span></li>
+          <li><span class="tick">✓</span><span>Creator drop: seasonal cosmetic</span></li>
+          <li><span class="tick">✓</span><span>Sell an owned item: full listed price minus 5%</span></li>
+        </ul>
+        <div class="warn" style="margin-top:12px">Currency is earned or bought, never gambled. There are no crates, spins or odds.</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

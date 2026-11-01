@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Creator hub — Metallic</title>
+  <meta name="description" content="Publish games, manage sandboxed server replicas, and see exactly what compute costs."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="assets/css/app.css"/>
+</head>
+<body data-page="create">
+  <main class="main page">
+    <div>
+      <h1 class="page-title">Creator hub</h1>
+      <p class="page-sub">Publish a game, pick a per-sandbox ceiling, and let replicas follow players. You see the same capacity numbers your players do.</p>
+    </div>
+
+    <section class="stats" id="creator-stats"></section>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Your games</h3><span class="badge mint">3 published</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Game</th><th>Players</th><th>Revenue (mo)</th><th>Replicas</th><th>CPU</th><th></th></tr>
+          </thead>
+          <tbody id="creator-games"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <section>
+      <div class="h-sec"><h2>Server orchestration</h2><span class="pill">24h rolling average · 64 players per replica</span></div>
+      <div class="orch" id="orchestrator"></div>
+    </section>
+
+    <section class="two-col">
+      <div class="panel">
+        <div class="panel-head"><h3>Publishing rules</h3><span class="badge amber">Read once</span></div>
+        <ul class="list">
+          <li><span class="tick">✓</span><span>Declare a player cap and resource ceiling per replica; the platform enforces both.</span></li>
+          <li><span class="tick">✓</span><span>No client-authoritative economy: currency and inventory writes happen server-side.</span></li>
+          <li><span class="tick">✓</span><span>Cosmetic-only monetisation — no stat advantages, no paid randomness.</span></li>
+          <li><span class="tick">✓</span><span>Payouts at 70% weekly, with no minimum and no withheld balance.</span></li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Cost model</h3><span class="pill">$0.04 / replica-hour</span></div>
+        <div class="kv"><span>Replica-hour</span><b>$0.04</b></div>
+        <div class="kv"><span>Idle replicas</span><b>scaled to zero</b></div>
+        <div class="kv"><span>Egress overage</span><b>capped, never billed</b></div>
+        <div class="kv"><span>Billing floor</span><b>none</b></div>
+        <div class="note" style="margin-top:12px">A hard limit means a runaway script throttles inside its sandbox instead of generating a surprise invoice.</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Feature scope — Metallic</title>
+  <meta name="description" content="Every platform feature the owner specified, grouped by area with build status."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="assets/css/app.css"/>
+</head>
+<body data-page="features">
+  <main class="main page">
+    <div>
+      <h1 class="page-title">Platform feature scope</h1>
+      <p class="page-sub">Every item below comes from the owner's own list, grouped only for reading. Status is honest: nothing here is shipped, and the design pass follows the Metallic Studio design.</p>
+    </div>
+
+    <div class="chips" id="features-meta"></div>
+
+    <div class="two-col" id="features-groups"></div>
+
+    <section class="panel">
+      <div class="panel-head"><h3>Open questions</h3><span class="badge amber">4 to confirm</span></div>
+      <ul class="list">
+        <li><span class="tick">?</span><span>"ai address" in the owner's list almost certainly means IP address.</span></li>
+        <li><span class="tick">?</span><span>"5 accounts as alts minium" — minimum or maximum?</span></li>
+        <li><span class="tick">?</span><span>What counts as verifying an account before the 30-day deletion?</span></li>
+        <li><span class="tick">?</span><span>Who owns currency naming — Alloy is a placeholder from the first build.</span></li>
+      </ul>
+      <div class="note" style="margin-top:12px">Source of truth: <code>docs/platform-feature-list.md</code> in the repository, which keeps the owner's wording verbatim.</div>
+    </section>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
