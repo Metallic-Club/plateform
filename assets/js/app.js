@@ -190,6 +190,11 @@
 
   var playTimer = null;
   function play(title, meta) {
+    var target = GAMES.filter(function (x) { return x.title === title; })[0];
+    if (target && window.MetallicArcade) {
+      window.MetallicArcade.start(target);
+      return;
+    }
     var modal = el('play-modal');
     if (!modal) return;
     var bar = el('pm-bar');
