@@ -19,17 +19,23 @@ https://github.com/VoltAgent/awesome-design-md
 
 Metallic is a static platform site with no build step and no runtime dependencies.
 
-- `assets/css/app.css` — the whole design system: tokens, header, left rail,
-  shelves, cards, experience page, footer and breakpoints.
-- `assets/js/app.js` — shared chrome (`shell()`) plus one renderer per page;
-  `poster()` generates the game cover art as inline SVG.
-- `assets/js/data.js` — `window.METALLIC` mock data (games, servers, wardrobe,
-  market, feature groups).
+- `src/app.js` — shared chrome (`shell()`) plus one view per route, and the
+  click, submit and input handlers that drive them.
+- `src/reference.css`, `src/styles.css`, `src/refinements.css`,
+  `src/platform.css`, `src/social.css`, `src/features.css` — the stylesheets,
+  loaded in that order from `index.html`; later files override earlier ones.
+- `src/catalog.js`, `src/platform.js`, `src/social.js`, `src/store.js` — sample
+  catalog, discovery and marketplace data, groups and servers, and the saved
+  browser state with its normalization.
+- `src/play.js`, `src/economy.js`, `src/theme.js` — play history, the daily
+  Alloy claim and gifts, and the `data-theme` list.
+- `src/router.js` — hash routes and query parameters, so filters and tabs are
+  bookmarkable.
 - `docs/platform-feature-list.md` — the owner's feature list, the source of truth
   for scope.
-- Pages are plain HTML that set `<body data-page="...">`; bump the `?v=` asset
-  stamp on every page whenever CSS or JS changes, because GitHub Pages caches
-  assets for about ten minutes.
+- One `index.html` entry point; pages are hash routes (`#/home`, `#/docs`), not
+  separate files. Run `npm run dev` on the loopback port 4173, `npm test` for the
+  node:test suite, and `npm run build` for `dist/`.
 
 ## Anti-slop filter
 
