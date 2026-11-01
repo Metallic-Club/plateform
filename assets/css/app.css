@@ -1,16 +1,16 @@
 /* Metallic — dark platform UI, tuned to the familiar game-platform layout */
 :root {
   color-scheme: dark;
-  --surface: #131317;
-  --surface-2: #1d1d24;
-  --bg: #0b0b0e;
-  --bg-alt: #17171c;
-  --bg-sunken: #26262d;
-  --line: #27272e;
-  --line-strong: #3a3a44;
-  --text: #f3f3f5;
-  --text-2: #a3a3ad;
-  --text-3: #7d7d88;
+  --surface: #24262b;
+  --surface-2: #2b2d33;
+  --bg: #101115;
+  --bg-alt: #22242a;
+  --bg-sunken: #303238;
+  --line: #33353b;
+  --line-strong: #44464e;
+  --text: #f7f7f8;
+  --text-2: #a7a9b1;
+  --text-3: #81858f;
   --blue: #3b82f6;
   --blue-dark: #86b7ff;
   --blue-soft: #14243c;
@@ -790,10 +790,10 @@ body.search-open { overflow: hidden; }
 /* ---------- grey frame, black stage ----------
    The app chrome reads as a grey frame so the tab content has a defined edge;
    the strip and the content behind it stay on the near-black stage. */
-:root { --canvas: #2a2a30; --canvas-2: #35353d; --canvas-line: #3d3d46; }
+:root { --canvas: #191b1f; --canvas-head: #1f2126; --canvas-2: #2b2d33; --canvas-line: #33353b; }
 html, body { background: var(--canvas); }
 body { background: var(--canvas); }
-.topbar { background: var(--canvas); border-bottom-color: var(--canvas-line); }
+.topbar { background: var(--canvas-head); border-bottom-color: var(--canvas-line); }
 .leftnav { background: var(--canvas); border-right-color: var(--canvas-line); }
 .footer { background: var(--canvas); border-top-color: var(--canvas-line); }
 .tabstrip { background: var(--bg); border-bottom-color: var(--canvas-line); }
