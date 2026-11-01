@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#0b0b0e" />
+  <title>Explore — Metallic</title>
+  <meta name="description" content="Browse every experience by category, with recommendations based on the genres you actually play."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="assets/css/app.css?v=20261101i"/>
+</head>
+<body data-page="explore">
+  <div class="wrap page">
+    <div>
+      <h1 class="page-title">Explore</h1>
+      <p class="page-sub" id="explore-blurb">Everything, ordered by how well it fits what you already play.</p>
+    </div>
+
+    <div class="filters">
+      <input class="field" id="explore-q" type="search" placeholder="Search experiences, creators, tags" aria-label="Search experiences" style="min-width:220px;flex:1;max-width:360px"/>
+      <select class="field" id="explore-sort" aria-label="Sort experiences">
+        <option value="fit">Best fit for you</option>
+        <option value="players">Most played</option>
+        <option value="rating">Top rated</option>
+        <option value="new">Newest</option>
+      </select>
+      <span class="pill" id="explore-meta"></span>
+    </div>
+
+    <div class="chips" id="explore-cats"></div>
+
+    <div class="grid-cards" id="explore-grid"></div>
+
+    <section id="explore-rec"></section>
+
+    <section class="two-col">
+      <div class="panel">
+        <div class="panel-head"><h3>How categories work</h3><span class="badge blue">Eight, not eighty</span></div>
+        <ul class="list">
+          <li><span class="tick">✓</span><span>Each experience sits in one clear category, with tags for the finer differences.</span></li>
+          <li><span class="tick">✓</span><span>Favourites and finished sessions push genres you actually play up the list.</span></li>
+          <li><span class="tick">✓</span><span>Nothing here can be bought into position, and there are no sponsored rows.</span></li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Recommendations</h3><span class="pill">match quality, not ads</span></div>
+        <p style="color:var(--text-2);font-size:14px;line-height:1.65">
+          Suggestions are built from genre overlap, rating quality and the creators you already play.
+          A game with a high rating but no overlap never outranks a good match.
+        </p>
+        <a class="btn btn-ghost btn-sm" href="library.html" style="margin-top:12px">Open your library</a>
+      </div>
+    </section>
+  </div>
+
+  <script src="assets/js/data.js?v=20261101i"></script>
+  <script src="assets/js/app.js?v=20261101i"></script>
+  <script src="assets/js/pages.js?v=20261101i"></script>
+  <script src="assets/js/arcade.js?v=20261101i"></script>
+</body>
+</html>

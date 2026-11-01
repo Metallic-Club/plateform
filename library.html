@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#0b0b0e" />
+  <title>Library — Metallic</title>
+  <meta name="description" content="Continue playing, play history, favourites and achievements in one place."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="assets/css/app.css?v=20261101i"/>
+</head>
+<body data-page="library">
+  <div class="wrap page">
+    <div>
+      <h1 class="page-title">Your library</h1>
+      <p class="page-sub">Sessions you started, favourites you kept and achievements you unlocked. History is written the moment a server opens.</p>
+    </div>
+
+    <div class="stack" id="library-root"></div>
+
+    <section class="panel">
+      <div class="panel-head"><h3>How history is kept</h3><span class="badge green">Local to this device</span></div>
+      <ul class="list">
+        <li><span class="tick">✓</span><span>A session is recorded when the server opens, not when the page loads.</span></li>
+        <li><span class="tick">✓</span><span>You can clear it at any time from settings, and nothing is shared with creators.</span></li>
+        <li><span class="tick">✓</span><span>Favourites feed the home shelf and the recommendation ranking on Explore.</span></li>
+      </ul>
+    </section>
+  </div>
+
+  <script src="assets/js/data.js?v=20261101i"></script>
+  <script src="assets/js/app.js?v=20261101i"></script>
+  <script src="assets/js/pages.js?v=20261101i"></script>
+  <script src="assets/js/arcade.js?v=20261101i"></script>
+</body>
+</html>

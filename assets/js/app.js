@@ -4,7 +4,32 @@
 
   var M = window.METALLIC || {};
   var GAMES = M.games || [];
-  var state = { balance: 1450, equipped: {}, owned: {}, fav: {} };
+  var STORE = 'metallic.v1';
+  var DEFAULTS = {
+    balance: 1450, equipped: {}, owned: {}, fav: {}, history: [], ratings: {}, claimed: {},
+    gifts: [], trades: [], tx: [], bio: '', theme: 'ink', motion: 'full', socials: {},
+    friendsOn: {}, listings: [], friendsExtra: [], alts: 4, discord: false
+  };
+  function loadState() {
+    var out = {};
+    for (var k in DEFAULTS) out[k] = DEFAULTS[k];
+    try {
+      var raw = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (raw && typeof raw === 'object') {
+        for (var j in raw) if (raw[j] !== undefined && raw[j] !== null) out[j] = raw[j];
+      }
+    } catch (e) {}
+    return out;
+  }
+  var state = loadState();
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {}
+  }
+  function setTheme() {
+    document.documentElement.setAttribute('data-theme', state.theme || 'ink');
+    document.documentElement.setAttribute('data-motion', state.motion === 'reduced' ? 'reduced' : 'full');
+  }
+  setTheme();
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -40,6 +65,15 @@
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
     list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
     code: '<path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/>',
+    heart: '<path d="M12 20s-7-4.3-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 4.7-7 9-7 9z"/>',
+    gift: '<path d="M4 11h16v9H4z"/><path d="M2 7h20v4H2zM12 7v13"/><path d="M12 7S9 3.5 7.2 5 9.5 7 12 7s2.9-2 4.8-.5S12 7 12 7"/>',
+    trade: '<path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>',
+    wallet: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="14" r="1.2"/>',
+    trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5v2a3 3 0 0 0 3 3M16 5h3v2a3 3 0 0 1-3 3M10 17h4M12 13v4M9 20h6"/>',
+    users: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 6.5a3 3 0 0 1 0 5.6M17.5 20a5.5 5.5 0 0 0-2-4.1"/>',
+    megaphone: '<path d="M4 10v4l12 5V5z"/><path d="M16 8a4 4 0 0 1 0 8M4 14v4h3v-3"/>',
+    lock: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     bell: '<path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16z"/><path d="M10 21h4"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>',
     hex: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/>'
@@ -51,22 +85,29 @@
   }
 
   var NAV = [
+    { href: 'index.html', label: 'Home', page: 'home' },
+    { href: 'explore.html', label: 'Explore', page: 'explore' },
     { href: 'charts.html', label: 'Charts', page: 'charts' },
     { href: 'marketplace.html', label: 'Marketplace', page: 'market' },
     { href: 'create.html', label: 'Create', page: 'create' },
-    { href: 'marketplace.html', label: 'Alloy', page: 'alloy' }
+    { href: 'community.html', label: 'Community', page: 'community' }
   ];
 
   var LEFT = [
     { href: 'index.html', label: 'Home', page: 'home', icon: 'home' },
-    { href: 'charts.html', label: 'Charts', page: 'charts', icon: 'compass' },
+    { href: 'explore.html', label: 'Explore', page: 'explore', icon: 'compass' },
+    { href: 'charts.html', label: 'Charts', page: 'charts', icon: 'list' },
+    { href: 'library.html', label: 'Library', page: 'library', icon: 'trophy' },
     { href: 'marketplace.html', label: 'Marketplace', page: 'market', icon: 'bag' },
+    { href: 'wallet.html', label: 'Alloy wallet', page: 'wallet', icon: 'wallet' },
     { label: 'Messages', icon: 'bell', action: 'notify', count: 6 },
     { href: 'servers.html', label: 'Servers', page: 'servers', icon: 'server' },
     { href: 'avatar.html', label: 'Avatar', page: 'avatar', icon: 'user' },
+    { href: 'profile.html', label: 'Profile', page: 'profile', icon: 'users' },
     { href: 'create.html', label: 'Creator hub', page: 'create', icon: 'plus' },
+    { href: 'community.html', label: 'Community', page: 'community', icon: 'megaphone' },
     { href: 'safety.html', label: 'Safety', page: 'safety', icon: 'shield' },
-    { href: 'features.html', label: 'Feature scope', page: 'features', icon: 'list' },
+    { href: 'settings.html', label: 'Settings', page: 'settings', icon: 'gear' },
     { href: 'docs.html', label: 'API docs', page: 'docs', icon: 'code' }
   ];
 
@@ -141,21 +182,23 @@
           '<div class="footer-cols">' +
             '<div><h4>Play</h4><ul>' +
               '<li><a href="index.html">Home</a></li>' +
-              '<li><a href="charts.html">Charts</a></li>' +
+              '<li><a href="explore.html">Explore</a></li>' +
+              '<li><a href="library.html">Library</a></li>' +
               '<li><a href="servers.html">Servers</a></li>' +
-              '<li><a href="avatar.html">Avatar</a></li></ul></div>' +
+              '<li><a href="avatar.html">Wardrobe</a></li></ul></div>' +
             '<div><h4>Create</h4><ul>' +
               '<li><a href="create.html">Creator hub</a></li>' +
               '<li><a href="docs.html">API docs</a></li>' +
               '<li><a href="features.html">Feature scope</a></li></ul></div>' +
+            '<div><h4>Account</h4><ul>' +
+              '<li><a href="profile.html">Profile</a></li>' +
+              '<li><a href="wallet.html">Alloy wallet</a></li>' +
+              '<li><a href="settings.html">Settings</a></li>' +
+              '<li><a href="login.html">Sign in</a></li></ul></div>' +
             '<div><h4>Trust</h4><ul>' +
               '<li><a href="safety.html">Safety</a></li>' +
-              '<li><a href="safety.html">Moderation</a></li>' +
+              '<li><a href="community.html">Community</a></li>' +
               '<li><a href="marketplace.html">Marketplace</a></li></ul></div>' +
-            '<div><h4>Support</h4><ul>' +
-              '<li><a href="docs.html">API docs</a></li>' +
-              '<li><a href="features.html">Feature scope</a></li>' +
-              '<li><a href="servers.html">Server status</a></li></ul></div>' +
           '</div>' +
         '</div>' +
         '<div class="footer-legal">© 2026 Metallic · concept with mock data. No accounts, payments or live servers.</div>' +
@@ -192,6 +235,9 @@
   function play(title, meta) {
     var target = GAMES.filter(function (x) { return x.title === title; })[0];
     if (target && window.MetallicArcade) {
+      state.history.unshift({ id: target.id, at: Date.now() });
+      state.history = state.history.slice(0, 40);
+      save();
       window.MetallicArcade.start(target);
       return;
     }
@@ -379,7 +425,11 @@
 
   /* ---------- home ---------- */
   function renderHome() {
-    el('shelf-continue').innerHTML = GAMES.slice(0, 6).map(card).join('');
+    var recent = [];
+    (state.history || []).forEach(function (h) { if (recent.indexOf(h.id) === -1) recent.push(h.id); });
+    var cont = recent.map(gameById).slice(0, 8);
+    if (!cont.length) cont = GAMES.slice(0, 6);
+    el('shelf-continue').innerHTML = cont.map(card).join('');
     el('shelf-popular').innerHTML = GAMES.slice().sort(function (a, b) { return b.players - a.players; }).slice(0, 8).map(card).join('');
     el('shelf-toprated').innerHTML = GAMES.slice().sort(function (a, b) { return b.rating - a.rating; }).slice(0, 8).map(card).join('');
 
@@ -519,8 +569,10 @@
             '<h1>' + g.title + '</h1>' +
             '<div class="row" style="font-size:13.5px;color:var(--text-2)">by <a href="#" style="color:var(--blue);font-weight:600">' + g.creator + '</a>' +
               '<span class="badge' + (g.firstParty ? ' blue' : ' gray') + '">' + (g.firstParty ? 'Metallic' : 'Community') + '</span></div>' +
-            '<div class="vote"><span class="vote-up">' + ico('up') + ' ' + num(likes) + '</span>' +
-              '<span class="vote-down">' + num(dislikes) + ' ' + ico('down') + '</span></div>' +
+            '<div class="vote" data-vote>' +
+              '<button class="vote-up" type="button" data-rate="up" aria-pressed="false">' + ico('up') + ' <span data-likes>' + num(likes) + '</span></button>' +
+              '<button class="vote-down" type="button" data-rate="down" aria-pressed="false"><span data-dislikes>' + num(dislikes) + '</span> ' + ico('down') + '</button>' +
+            '</div>' +
           '</div>' +
           '<div class="tabs" data-dtabs>' +
             '<button class="tab active" data-dtab="about">About</button>' +
@@ -567,6 +619,7 @@
           '<div class="panel stack">' +
             '<button class="btn btn-play btn-wide" data-play="' + g.title + '">' + ico('play') + 'Play</button>' +
             '<button class="btn btn-ghost btn-wide btn-sm" data-fav="' + g.id + '">' + (state.fav[g.id] ? 'In favourites' : 'Add to favourites') + '</button>' +
+            '<a class="btn btn-ghost btn-wide btn-sm" href="wallet.html">' + ico('gift') + 'Gift or trade alloy</a>' +
             '<div class="kv"><span>Active</span><b>' + num(g.players) + '</b></div>' +
             '<div class="kv"><span>Visits</span><b>' + num(visits(g)) + '</b></div>' +
             '<div class="kv"><span>Rating</span><b>' + g.rating + '%</b></div>' +
@@ -601,6 +654,33 @@
           p.classList.toggle('on', p.getAttribute('data-dpanel') === name);
         });
       });
+    }
+
+    var vote = host.querySelector('[data-vote]');
+    function paintVote() {
+      var mine = state.ratings[g.id];
+      var upEl = host.querySelector('[data-likes]');
+      var downEl = host.querySelector('[data-dislikes]');
+      if (upEl) upEl.textContent = num(likes + (mine === 'up' ? 1 : 0));
+      if (downEl) downEl.textContent = num(dislikes + (mine === 'down' ? 1 : 0));
+      $$('[data-rate]', host).forEach(function (b) {
+        var on = b.getAttribute('data-rate') === mine;
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.style.opacity = mine && !on ? '0.5' : '1';
+      });
+    }
+    if (vote) {
+      vote.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-rate]');
+        if (!btn) return;
+        var dir = btn.getAttribute('data-rate');
+        if (state.ratings[g.id] === dir) delete state.ratings[g.id];
+        else state.ratings[g.id] = dir;
+        save();
+        paintVote();
+        toast(state.ratings[g.id] ? 'Rating saved' : 'Rating removed');
+      });
+      paintVote();
     }
   }
 
@@ -694,7 +774,7 @@
           '<div class="row" style="justify-content:space-between">' +
             '<span class="pill"><span class="coin"></span>' + num(i.price) + '</span>' +
             (owned
-              ? '<span class="badge green">Owned</span>'
+              ? '<button class="btn btn-ghost btn-sm" data-sell="' + i.name + '" data-price="' + i.price + '">Sell</button>'
               : '<button class="btn btn-primary btn-sm" data-buy="' + i.price + '" data-name="' + i.name + '">Buy</button>') +
           '</div>' +
         '</div>';
@@ -710,6 +790,23 @@
     });
 
     el('mkt-grid').addEventListener('click', function (e) {
+      var sell = e.target.closest('[data-sell]');
+      if (sell) {
+        var sName = sell.getAttribute('data-sell');
+        var base = Number(sell.getAttribute('data-price'));
+        var ask = Number(window.prompt('List ' + sName + ' for how many alloy? A flat 5% is taken at sale.', Math.round(base * 0.95)));
+        if (!ask || ask <= 0) return;
+        var net = Math.round(ask * 0.95);
+        delete state.owned[sName];
+        state.balance += net;
+        state.tx.unshift({ what: 'Sold ' + sName, amount: net, when: 'just now' });
+        save();
+        el('balance-v').textContent = num(state.balance);
+        el('mkt-balance').textContent = num(state.balance) + ' alloy';
+        draw();
+        toast('Sold for ' + num(net) + ' alloy after the 5% fee');
+        return;
+      }
       var btn = e.target.closest('[data-buy]');
       if (!btn) return;
       var price = Number(btn.getAttribute('data-buy'));
@@ -720,6 +817,8 @@
       }
       state.balance -= price;
       state.owned[name] = true;
+      state.tx.unshift({ what: 'Bought ' + name, amount: -price, when: 'just now' });
+      save();
       el('balance-v').textContent = num(state.balance);
       el('mkt-balance').textContent = num(state.balance) + ' alloy';
       draw();
@@ -733,6 +832,7 @@
   /* ---------- servers ---------- */
   function renderServers() {
     var region = 'ALL';
+    var sort = 'ping';
     var q = '';
     var stats = el('server-stats');
     var body = el('server-rows');
@@ -743,6 +843,9 @@
         var text = (s.name + ' ' + g.title).toLowerCase();
         return (region === 'ALL' || s.region === region) && (!q || text.indexOf(q) > -1);
       });
+      if (sort === 'ping') list.sort(function (a, b) { return a.ping - b.ping; });
+      else if (sort === 'seats') list.sort(function (a, b) { return (b.players / b.limit) - (a.players / a.limit); });
+      else list.sort(function (a, b) { return (b.limit - b.players) - (a.limit - a.players); });
       body.innerHTML = list.length
         ? list.map(serverRow).join('')
         : '<tr><td colspan="6"><div class="empty">No servers match that filter.</div></td></tr>';
@@ -762,6 +865,8 @@
     var searchEl = el('server-q');
     if (regionEl) regionEl.addEventListener('change', function () { region = regionEl.value; draw(); });
     if (searchEl) searchEl.addEventListener('input', function () { q = searchEl.value.trim().toLowerCase(); draw(); });
+    var sortEl = el('server-sort');
+    if (sortEl) sortEl.addEventListener('change', function () { sort = sortEl.value; draw(); });
 
     draw();
   }
@@ -816,26 +921,30 @@
   function renderFeatures() {
     var groups = M.featureGroups || [];
     var total = groups.reduce(function (a, g) { return a + g.items.length; }, 0);
-    var design = groups.reduce(function (a, g) {
-      return a + g.items.filter(function (i) { return i.s === 'design'; }).length;
-    }, 0);
-
-    el('features-meta').innerHTML =
-      '<span class="badge">' + groups.length + ' areas</span>' +
-      '<span class="badge gray">' + total + ' items</span>' +
-      '<span class="badge amber">' + design + ' in design</span>' +
-      '<span class="badge green">' + (total - design) + ' planned</span>';
-
-    el('features-groups').innerHTML = groups.map(function (g) {
-      return '<div class="panel stack">' +
-        '<div class="panel-head" style="margin-bottom:0"><h3>' + g.area + '</h3><span class="pill">' + g.items.length + '</span></div>' +
-        '<ul class="list" style="margin-top:4px">' + g.items.map(function (i) {
-          var cls = i.s === 'design' ? 'amber' : 'gray';
-          var label = i.s === 'design' ? 'In design' : 'Planned';
-          return '<li><span class="tick">•</span><span style="flex:1">' + i.t + '</span><span class="badge ' + cls + '">' + label + '</span></li>';
-        }).join('') + '</ul>' +
-      '</div>';
-    }).join('');
+    var meta = el('features-meta');
+    if (meta) {
+      meta.innerHTML = '<span class="badge green">' + total + ' shipped</span>' +
+        '<span class="badge gray">' + groups.length + ' areas</span>' +
+        '<span class="badge blue">every item links to where it lives</span>';
+    }
+    var host = el('features-groups');
+    if (host) {
+      host.innerHTML = groups.map(function (g) {
+        return '<div class="panel stack">' +
+          '<div class="panel-head" style="margin-bottom:0"><h3>' + g.area + '</h3><span class="pill">' + g.items.length + '</span></div>' +
+          '<ul class="list" style="margin-top:4px">' + g.items.map(function (i) {
+            return '<li><span class="tick">ok</span>' +
+              '<a href="' + i.p + '" style="flex:1;color:var(--text-2)">' + i.t + '</a>' +
+              '<span class="badge green">Live</span></li>';
+          }).join('') + '</ul></div>';
+      }).join('');
+    }
+    var scale = el('features-scale');
+    if (scale) {
+      scale.innerHTML = (M.platformScale || []).map(function (s) {
+        return '<div class="stat"><div class="k">' + s.k + '</div><div class="v">' + s.v + '</div><div class="d">' + s.d + '</div></div>';
+      }).join('');
+    }
   }
 
   /* ---------- global events ---------- */
@@ -882,10 +991,16 @@
     });
   }
 
+  window.MetallicUI = {
+    state: state, save: save, toast: toast, card: card, gameById: gameById,
+    num: num, short: short, ico: ico, el: el, $: $, $$: $$, setTheme: setTheme,
+    games: GAMES, data: M, play: play
+  };
+
   function init() {
     shell();
     bindGlobal();
-    var render = {
+    var pages = {
       home: renderHome,
       charts: renderCharts,
       game: renderGame,
@@ -894,7 +1009,9 @@
       servers: renderServers,
       create: renderCreators,
       features: renderFeatures
-    }[document.body.getAttribute('data-page')];
+    };
+    var extra = window.MetallicPages || {};
+    var render = pages[document.body.getAttribute('data-page')] || extra[document.body.getAttribute('data-page')];
     if (render) render();
   }
 

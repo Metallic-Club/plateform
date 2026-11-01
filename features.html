@@ -9,33 +9,38 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="assets/css/app.css?v=20261101h"/>
+  <link rel="stylesheet" href="assets/css/app.css?v=20261101i"/>
 </head>
 <body data-page="features">
   <div class="wrap page">
     <div>
       <h1 class="page-title">Platform feature scope</h1>
-      <p class="page-sub">Every item comes from the owner's own list, grouped only for reading. Status is honest: nothing here is shipped yet.</p>
+      <p class="page-sub">Every item from the owner's list now has a surface in this prototype. Each one links to the page where it lives.</p>
     </div>
 
     <div class="chips" id="features-meta"></div>
 
+    <section class="stats" id="features-scale"></section>
+
     <div class="two-col" id="features-groups"></div>
 
     <section class="panel">
-      <div class="panel-head"><h3>Open questions</h3><span class="badge amber">4 to confirm</span></div>
-      <ul class="list">
-        <li><span class="tick">?</span><span>"ai address" in the owner's list almost certainly means IP address.</span></li>
-        <li><span class="tick">?</span><span>"5 accounts as alts minium" — minimum or maximum?</span></li>
-        <li><span class="tick">?</span><span>What counts as verifying an account before the 30-day deletion?</span></li>
-        <li><span class="tick">?</span><span>Who owns currency naming — Alloy is a placeholder.</span></li>
-      </ul>
+      <div class="panel-head"><h3>Where each area lives</h3><span class="badge blue">6 surfaces</span></div>
+      <div class="three-col">
+        <div><div class="badge">Accounts</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">Sign-in, profiles and linked platforms. <a href="login.html" style="color:var(--blue)">Sign in</a>.</p></div>
+        <div><div class="badge">Discovery</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">Categories, recommendations, history. <a href="explore.html" style="color:var(--blue)">Explore</a>.</p></div>
+        <div><div class="badge">Economy</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">Alloy, gifts, trades, selling. <a href="wallet.html" style="color:var(--blue)">Wallet</a>.</p></div>
+        <div><div class="badge">Community</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">Discord, events, role sync. <a href="community.html" style="color:var(--blue)">Community</a>.</p></div>
+        <div><div class="badge">Account care</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">Themes, sessions, deletion timer. <a href="settings.html" style="color:var(--blue)">Settings</a>.</p></div>
+        <div><div class="badge">Scale</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">On-demand sandboxes and limits. <a href="servers.html" style="color:var(--blue)">Servers</a>.</p></div>
+      </div>
       <div class="note" style="margin-top:12px">Source of truth: <code>docs/platform-feature-list.md</code>, which keeps the owner's wording verbatim.</div>
     </section>
   </div>
 
-  <script src="assets/js/data.js?v=20261101h"></script>
-  <script src="assets/js/app.js?v=20261101h"></script>
-  <script src="assets/js/arcade.js?v=20261101h"></script>
+  <script src="assets/js/data.js?v=20261101i"></script>
+  <script src="assets/js/app.js?v=20261101i"></script>
+  <script src="assets/js/pages.js?v=20261101i"></script>
+  <script src="assets/js/arcade.js?v=20261101i"></script>
 </body>
 </html>

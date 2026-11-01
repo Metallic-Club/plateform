@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="assets/css/app.css?v=20261101h"/>
+  <link rel="stylesheet" href="assets/css/app.css?v=20261101i"/>
 </head>
 <body data-page="docs">
   <div class="wrap page">
@@ -30,6 +30,10 @@
             <tr><td><strong>GET</strong></td><td><code>/v1/marketplace/listings</code></td><td>Listings with fee breakdown</td><td>user</td><td>60/min</td></tr>
             <tr><td><strong>POST</strong></td><td><code>/v1/marketplace/listings</code></td><td>Create a listing with ownership proof</td><td>user</td><td>20/min</td></tr>
             <tr><td><strong>POST</strong></td><td><code>/v1/inventory/gift</code></td><td>Gift currency or an accessory</td><td>user</td><td>10/min</td></tr>
+            <tr><td><strong>GET</strong></td><td><code>/v1/me/library</code></td><td>Play history, favourites and achievements</td><td>user</td><td>60/min</td></tr>
+            <tr><td><strong>POST</strong></td><td><code>/v1/economy/rewards/{id}</code></td><td>Claim an earned Alloy reward, once per period</td><td>user</td><td>10/min</td></tr>
+            <tr><td><strong>POST</strong></td><td><code>/v1/trades</code></td><td>Open a trade offer with a fee preview</td><td>user</td><td>10/min</td></tr>
+            <tr><td><strong>PATCH</strong></td><td><code>/v1/profile</code></td><td>Bio and linked platform handles</td><td>user</td><td>20/min</td></tr>
             <tr><td><strong>GET</strong></td><td><code>/v1/profile/{id}</code></td><td>Public profile and linked platforms</td><td>public</td><td>120/min</td></tr>
           </tbody>
         </table>
@@ -86,8 +90,9 @@
     </section>
   </div>
 
-  <script src="assets/js/data.js?v=20261101h"></script>
-  <script src="assets/js/app.js?v=20261101h"></script>
-  <script src="assets/js/arcade.js?v=20261101h"></script>
+  <script src="assets/js/data.js?v=20261101i"></script>
+  <script src="assets/js/app.js?v=20261101i"></script>
+  <script src="assets/js/pages.js?v=20261101i"></script>
+  <script src="assets/js/arcade.js?v=20261101i"></script>
 </body>
 </html>

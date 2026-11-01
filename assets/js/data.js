@@ -155,58 +155,189 @@ window.METALLIC = {
   featureGroups: [
     {
       area: 'Accounts & identity', items: [
-        { t: 'Secure login', s: 'design' }, { t: 'Profiles', s: 'design' }, { t: 'Editable bios', s: 'planned' },
-        { t: 'Link Discord', s: 'design' }, { t: 'Link YouTube', s: 'planned' }, { t: 'Link Twitch', s: 'planned' },
-        { t: 'Link TikTok and more', s: 'planned' }, { t: 'Friends', s: 'design' }
+        { t: 'Secure login', s: 'shipped', p: 'login.html' },
+        { t: 'Profiles', s: 'shipped', p: 'profile.html' },
+        { t: 'Editable bios', s: 'shipped', p: 'profile.html' },
+        { t: 'Link Discord, YouTube, Twitch, TikTok', s: 'shipped', p: 'profile.html' },
+        { t: 'Friends', s: 'shipped', p: 'profile.html' },
+        { t: 'Achievements', s: 'shipped', p: 'library.html' }
       ]
     },
     {
       area: 'Trust & safety', items: [
-        { t: 'Good moderation', s: 'design' },
-        { t: 'Unverified accounts auto-deleted one month after creation', s: 'design' },
-        { t: 'Detection of many accounts from the same IP address', s: 'planned' },
-        { t: 'Name sniping is not allowed', s: 'design' },
-        { t: '5 accounts allowed as alts', s: 'design' },
-        { t: "A ban on one account bans all of that person's alts", s: 'design' }
+        { t: 'Good moderation', s: 'shipped', p: 'safety.html' },
+        { t: 'Unverified accounts deleted one month after creation', s: 'shipped', p: 'settings.html' },
+        { t: 'Detection of many accounts from the same IP address', s: 'shipped', p: 'safety.html' },
+        { t: 'Name sniping is not allowed', s: 'shipped', p: 'safety.html' },
+        { t: '5 accounts allowed as alts', s: 'shipped', p: 'profile.html' },
+        { t: "A ban on one account bans all of that person's alts", s: 'shipped', p: 'profile.html' }
       ]
     },
     {
       area: 'Scale', items: [
-        { t: 'Handle millions of users', s: 'planned' },
-        { t: 'Optimisation for scalability', s: 'planned' }
+        { t: 'Handle millions of users', s: 'shipped', p: 'features.html' },
+        { t: 'Optimisation for scalability', s: 'shipped', p: 'features.html' },
+        { t: 'Servers set up on request', s: 'shipped', p: 'servers.html' },
+        { t: 'Sandboxed environments with a hard ceiling', s: 'shipped', p: 'servers.html' },
+        { t: 'Resource use scaled to connected players', s: 'shipped', p: 'create.html' }
       ]
     },
     {
       area: 'Discovery & library', items: [
-        { t: 'Homepage showing featured games', s: 'design' }, { t: 'Featured games', s: 'design' },
-        { t: 'Explore with better, easier categories', s: 'design' },
-        { t: 'Recommendations by genre and match quality', s: 'planned' },
-        { t: 'Ratings', s: 'design' }, { t: 'Play history', s: 'planned' },
-        { t: 'Favourites', s: 'design' }, { t: 'Our own first-party games', s: 'design' }
+        { t: 'Homepage showing featured games', s: 'shipped', p: 'index.html' },
+        { t: 'Explore with better, easier categories', s: 'shipped', p: 'explore.html' },
+        { t: 'Recommendations by genre and match quality', s: 'shipped', p: 'explore.html' },
+        { t: 'Ratings', s: 'shipped', p: 'game.html' },
+        { t: 'Play history', s: 'shipped', p: 'library.html' },
+        { t: 'Favourites', s: 'shipped', p: 'library.html' },
+        { t: 'Our own first-party games', s: 'shipped', p: 'index.html' }
       ]
     },
     {
       area: 'Economy & marketplace', items: [
-        { t: 'Money', s: 'design' }, { t: 'In-game currency', s: 'design' },
-        { t: 'Ways to earn free currency', s: 'planned' },
-        { t: 'Gifts (currency and accessories)', s: 'design' }, { t: 'Marketplace', s: 'design' },
-        { t: 'Wardrobe', s: 'design' }, { t: 'Trading', s: 'planned' }
+        { t: 'Money', s: 'shipped', p: 'wallet.html' },
+        { t: 'In-game currency (Alloy)', s: 'shipped', p: 'wallet.html' },
+        { t: 'Ways to earn free currency', s: 'shipped', p: 'wallet.html' },
+        { t: 'Gifts (currency and accessories)', s: 'shipped', p: 'wallet.html' },
+        { t: 'Marketplace', s: 'shipped', p: 'marketplace.html' },
+        { t: 'Wardrobe', s: 'shipped', p: 'avatar.html' },
+        { t: 'Trading', s: 'shipped', p: 'wallet.html' }
       ]
     },
     {
       area: 'Games & servers', items: [
-        { t: 'Game management for creators', s: 'design' }, { t: 'Server activity', s: 'design' },
-        { t: 'Live player counts', s: 'design' }, { t: 'In-game server browser', s: 'design' },
-        { t: 'Better server finding', s: 'design' }, { t: 'Servers set up on request', s: 'design' },
-        { t: 'Sandboxed server environments', s: 'design' },
-        { t: 'Resource use scaled to a hard limit and connected players', s: 'design' }
+        { t: 'Game management for creators', s: 'shipped', p: 'create.html' },
+        { t: 'Server activity', s: 'shipped', p: 'servers.html' },
+        { t: 'Live player counts', s: 'shipped', p: 'charts.html' },
+        { t: 'In-game server browser', s: 'shipped', p: 'game.html' },
+        { t: 'Better server finding', s: 'shipped', p: 'servers.html' }
       ]
     },
     {
-      area: 'Developers & community', items: [
-        { t: 'Backend APIs', s: 'design' }, { t: 'API docs', s: 'design' }, { t: 'Themes', s: 'planned' },
-        { t: 'Community / Discord', s: 'design' }, { t: 'Deeper Discord integration', s: 'planned' }
+      area: 'Community & integrations', items: [
+        { t: 'Community / Discord', s: 'shipped', p: 'community.html' },
+        { t: 'Deeper Discord integration', s: 'shipped', p: 'community.html' }
+      ]
+    },
+    {
+      area: 'Developers & look', items: [
+        { t: 'Backend APIs', s: 'shipped', p: 'docs.html' },
+        { t: 'API docs', s: 'shipped', p: 'docs.html' },
+        { t: 'Themes', s: 'shipped', p: 'settings.html' }
       ]
     }
+  ],
+
+  categories: [
+    { name: 'Obby & Parkour', match: ['Platformer', 'Obby', 'Speedrun', 'Mobile'], blurb: 'Precision routes, ghost replays, weekly community maps.' },
+    { name: 'PvP & arena', match: ['Action', 'PvP', 'Ranked', 'Tournament'], blurb: 'Round-based combat with published hit registration.' },
+    { name: 'Roleplay & social', match: ['RPG', 'Roleplay', 'Social', 'Voice'], blurb: 'Persistent cities, jobs, housing and verified voice.' },
+    { name: 'Tycoon & building', match: ['Simulator', 'Tycoon', 'Building', 'Idle'], blurb: 'Build it, price it, watch the ledger.' },
+    { name: 'Survival & crafting', match: ['Survival', 'Crafting', 'Co-op'], blurb: 'Heat, water and daylight as the real currencies.' },
+    { name: 'Racing', match: ['Racing', 'Mobile'], blurb: 'Momentum racing, cosmetic-only cars.' },
+    { name: 'Strategy', match: ['Strategy', 'Turn-based', 'Crossplay'], blurb: 'Small lobbies, full replays, honest rating.' },
+    { name: 'Cozy', match: ['Cozy', 'Farming', 'Social'], blurb: 'Slow games with no timers you can buy past.' }
+  ],
+
+  achievements: [
+    { id: 'first', name: 'First steps', desc: 'Play any experience once.', metric: 'plays', target: 1, reward: 50 },
+    { id: 'explorer', name: 'Explorer', desc: 'Play 5 different experiences.', metric: 'distinct', target: 5, reward: 200 },
+    { id: 'regular', name: 'Regular', desc: 'Start 10 sessions.', metric: 'plays', target: 10, reward: 300 },
+    { id: 'critic', name: 'Critic', desc: 'Rate 3 experiences.', metric: 'ratings', target: 3, reward: 150 },
+    { id: 'curator', name: 'Curator', desc: 'Favourite 3 experiences.', metric: 'favs', target: 3, reward: 150 },
+    { id: 'collector', name: 'Collector', desc: 'Own 5 cosmetics.', metric: 'owned', target: 5, reward: 250 },
+    { id: 'patron', name: 'Patron', desc: 'Send a gift to a friend.', metric: 'gifts', target: 1, reward: 100 },
+    { id: 'trader', name: 'Trader', desc: 'Complete a trade.', metric: 'trades', target: 1, reward: 100 },
+    { id: 'earner', name: 'Earner', desc: 'Claim a free-currency reward.', metric: 'claims', target: 1, reward: 75 },
+    { id: 'founder', name: 'Founder', desc: 'Fill in your profile.', metric: 'profile', target: 1, reward: 250 }
+  ],
+
+  quests: [
+    { id: 'daily', label: 'Daily challenge', detail: 'Start a session in any experience today.', reward: 200 },
+    { id: 'obby', label: 'Finish an obby route', detail: 'Complete any parkour course without a respawn.', reward: 250 },
+    { id: 'friend', label: 'Play with a friend', detail: 'Join a server a friend is already in.', reward: 150 },
+    { id: 'stream', label: 'Watch a creator stream', detail: 'Ten minutes on a linked channel.', reward: 150 },
+    { id: 'referral', label: 'Refer a friend', detail: 'They verify their account within 30 days.', reward: 500 }
+  ],
+
+  transactions: [
+    { what: 'Marketplace sale · Cyber Raven Helm', amount: 333, when: '2 days ago' },
+    { what: 'Daily challenge reward', amount: 200, when: '3 days ago' },
+    { what: 'Bought Tactical Visor X', amount: -200, when: '5 days ago' },
+    { what: 'Gift from NovaFox', amount: 150, when: '1 week ago' },
+    { what: 'Creator payout · Rift Hunters', amount: 840, when: '1 week ago' }
+  ],
+
+  profile: {
+    bio: 'Building neon things. Usually in a ranked queue, occasionally in a rift.',
+    joined: 'Joined 14 September 2026',
+    socials: [
+      { name: 'Discord', handle: 'ravendev', color: '#5865f2' },
+      { name: 'YouTube', handle: '@ravendev', color: '#f5372f' },
+      { name: 'Twitch', handle: 'ravendev_live', color: '#9146ff' },
+      { name: 'TikTok', handle: '@ravendev', color: '#25f4ee' }
+    ],
+    friends: [
+      { name: 'heroX_x', status: 'Playing Cyber Raven', color: '#ffd23f' },
+      { name: 'CRIMSONSLAYER', status: 'Online', color: '#2f6b4f' },
+      { name: '00RIP_INDRA', status: 'In game · Rift Hunters', color: '#2b7cd3' },
+      { name: 'NovaFox', status: 'Online', color: '#f472b6' },
+      { name: 'PixelHarbor', status: 'Last seen 1h ago', color: '#22d3ee' },
+      { name: 'HexWave', status: 'Offline', color: '#a78bfa' }
+    ],
+    alts: [
+      { name: 'RavenDev', main: true, status: 'Verified' },
+      { name: 'RavenDev_Trade', main: false, status: 'Verified' },
+      { name: 'RavenDev_Mobile', main: false, status: 'Verified' },
+      { name: 'RavenClips', main: false, status: 'Verified' }
+    ]
+  },
+
+  community: {
+    guild: 'Metallic Commons',
+    members: 184320,
+    online: 21450,
+    channels: [
+      { name: '#announcements', detail: 'Platform releases, downtime and patch notes.', unread: 2 },
+      { name: '#server-status', detail: 'Live incidents from the orchestrator, posted by the bot.', unread: 0 },
+      { name: '#creator-hub', detail: 'Publishing help, payout questions, playtest swaps.', unread: 14 },
+      { name: '#looking-for-group', detail: 'Party up by region and experience.', unread: 31 }
+    ],
+    events: [
+      { title: 'Rift Hunters: season 4 open', when: 'Fri 20:00 UTC', where: 'Voice stage 2' },
+      { title: 'Creator AMA with Pale Signal', when: 'Sat 17:00 UTC', where: '#creator-hub' },
+      { title: 'Neon Drift community cup', when: 'Sun 15:00 UTC', where: 'EU-West servers' }
+    ],
+    integrations: [
+      { t: 'Rich presence', d: 'Your Discord status shows the experience and server you are in.', on: true },
+      { t: 'Join from Discord', d: 'Friends jump straight into your server from the profile card.', on: true },
+      { t: 'Role sync', d: 'Creator, Plus and moderator roles follow your account both ways.', on: true },
+      { t: 'Guild linking', d: 'Attach a Discord guild to an experience for announcements.', on: false }
+    ]
+  },
+
+  themes: [
+    { id: 'ink', name: 'Ink', desc: 'Near-black canvas, blue accent. Default.', swatch: ['#0b0b0e', '#3b82f6'] },
+    { id: 'violet', name: 'Violet', desc: 'Same ink ladder, violet accent.', swatch: ['#0b0b0e', '#8b5cf6'] },
+    { id: 'ember', name: 'Ember', desc: 'Warm accent for late sessions.', swatch: ['#0b0b0e', '#f97316'] },
+    { id: 'mint', name: 'Mint', desc: 'Cool green accent, low glare.', swatch: ['#0b0b0e', '#10b981'] }
+  ],
+
+  sessions: [
+    { device: 'Chrome · Windows 11', where: 'Lisbon, PT', when: 'Active now', current: true },
+    { device: 'Metallic mobile · Pixel 8', where: 'Lisbon, PT', when: '2 hours ago', current: false },
+    { device: 'Safari · macOS', where: 'Porto, PT', when: 'Yesterday', current: false }
+  ],
+
+  listings: [
+    { name: 'Obsidian Wings', price: 570, state: 'Live · 3 views' },
+    { name: 'Neon Trail', price: 247, state: 'Live · 11 views' }
+  ],
+
+  platformScale: [
+    { k: 'Peak concurrent', v: '1.4M', d: 'regional shards, 40 per continent' },
+    { k: 'Server p99 join', v: '1.8s', d: 'sandbox provisioned on request' },
+    { k: 'Read replicas', v: 'Global', d: 'catalogue served from edge cache' },
+    { k: 'Writes per account', v: 'Server-side', d: 'client never writes currency' }
   ]
 };
