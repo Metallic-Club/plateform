@@ -786,3 +786,20 @@ body.search-open { overflow: hidden; }
   .dl-row { grid-template-columns: 34px minmax(0, 1fr) auto; }
   .dl-row .btn { display: none; }
 }
+
+/* ---------- grey frame, black stage ----------
+   The app chrome reads as a grey frame so the tab content has a defined edge;
+   the strip and the content behind it stay on the near-black stage. */
+:root { --canvas: #2a2a30; --canvas-2: #35353d; --canvas-line: #3d3d46; }
+html, body { background: var(--canvas); }
+body { background: var(--canvas); }
+.topbar { background: var(--canvas); border-bottom-color: var(--canvas-line); }
+.leftnav { background: var(--canvas); border-right-color: var(--canvas-line); }
+.footer { background: var(--canvas); border-top-color: var(--canvas-line); }
+.tabstrip { background: var(--bg); border-bottom-color: var(--canvas-line); }
+.wrap { background: var(--bg); }
+.topnav a:hover, .topnav a.active,
+.icon-btn:hover, .leftnav a:hover, .nav-row:hover { background: var(--canvas-2); }
+.leftnav a.on, .nav-row.on { background: #3b3b44; }
+.nav-row .count { background: #43434d; }
+.topnav a.active { color: var(--text); }
