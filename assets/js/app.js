@@ -39,7 +39,9 @@
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
     list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
     code: '<path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/>',
-    bell: '<path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16z"/><path d="M10 21h4"/>'
+    bell: '<path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16z"/><path d="M10 21h4"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>',
+    hex: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/>'
   };
 
   function ico(name) {
@@ -94,9 +96,15 @@
           '<input id="q" type="search" placeholder="Search" aria-label="Search" autocomplete="off"/>' +
         '</form>' +
         '<div class="top-actions">' +
-          '<button class="icon-btn" type="button" data-notify title="Notifications" aria-label="Notifications">' + ico('bell') + '</button>' +
-          '<span class="balance" title="Alloy balance"><span class="coin"></span><span id="balance-v">' + num(state.balance) + '</span></span>' +
-          '<a class="avatar-chip" href="avatar.html" title="Your avatar">RD</a>' +
+          '<a class="who" href="avatar.html"><span class="avatar-chip">RD</span>' +
+            '<span class="who-name">RavenDev</span></a>' +
+          '<button class="icon-btn bell-wrap" type="button" data-notify title="Notifications" aria-label="Notifications">' +
+            ico('bell') + '<span class="bell-count">99+</span></button>' +
+          '<span class="balance" title="Alloy balance">' +
+            '<svg class="hex" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+              'stroke-linejoin="round">' + ICONS.hex + '</svg>' +
+            '<span id="balance-v">' + num(state.balance) + '</span></span>' +
+          '<a class="icon-btn" href="docs.html" title="Settings" aria-label="Settings">' + ico('gear') + '</a>' +
         '</div>' +        '</div></header>' +
       '<nav class="leftnav" aria-label="Sections">' + leftNav + '</nav>' +
       '<div id="toast" aria-live="polite"></div>' +
