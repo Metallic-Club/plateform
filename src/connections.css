@@ -1,0 +1,72 @@
+/* Search fields retain their labels while placeholder hints fade on focus. */
+input[type="search"]::placeholder{opacity:1;transition:opacity .15s ease;color:#969aa5}
+input[type="search"]:focus::placeholder{opacity:0}
+#search-suggestions{max-height:min(640px,calc(100dvh - var(--header-h) - 28px));overflow-y:auto;background:#24262c;border-color:#41444c}
+#search-suggestions .suggestions-label:not(:first-child){border-top:1px solid #393c43;margin-top:6px;padding-top:12px}
+#search-suggestions .group-emblem{width:38px;height:38px;border-radius:8px;flex:none;font-size:19px}
+#search-suggestions .search-person-card .avatar{border-radius:50%}
+#search-suggestions a>span{min-width:0;flex:1}
+#search-suggestions a strong{white-space:normal;overflow-wrap:anywhere}
+.site-search-tabs{display:flex;gap:28px;border-bottom:1px solid #36383f;overflow-x:auto;margin-bottom:22px}
+.site-search-tabs a{padding:13px 0;font-size:13px;color:#a9acb6;border-bottom:2px solid transparent;white-space:nowrap;display:flex;gap:9px;align-items:center}
+.site-search-tabs a.selected{color:#f2f2f5;border-color:#dedfe5}
+.site-search-tabs a span{font-size:10px;padding:2px 6px;background:#2b2e35;border-radius:5px}
+.search-result-count{font-size:12px;color:#a5a8b2;margin-bottom:25px;overflow-wrap:anywhere}
+.site-search-section{margin:30px 0 40px}
+.search-people-grid,.search-groups-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.search-person-card,.search-group-card{display:flex;align-items:center;gap:13px;min-width:0;padding:18px;background:#22242a;border:1px solid #383b43;border-radius:10px;transition:background .15s}
+.search-person-card:hover,.search-group-card:hover{background:#2b2e35;border-color:#5a5e69}
+.search-person-card>.avatar{width:51px;height:51px;border-radius:50%;flex:none}
+.search-group-card>.group-emblem{width:51px;height:51px;font-size:25px;flex:none}
+.search-person-card>span,.search-group-card>span:not(.group-emblem){display:flex;flex-direction:column;gap:7px;min-width:0;flex:1}
+.search-person-card strong,.search-group-card strong{font-size:13px;overflow-wrap:anywhere}
+.search-person-card small,.search-group-card small{font-size:10px;color:#a8abb6;overflow-wrap:anywhere}
+.search-person-card>.ico,.search-group-card>.ico{flex:none;color:#a4a8b2}
+.friend-profile{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;width:100%}
+.friend-profile .friend-name{max-width:100%}
+.home-friend-preview .activity-trigger{border:0;background:none;padding:1px 0;display:flex;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:#a9adb8;font:inherit;font-size:10px;max-width:100%}
+.home-friend-preview .activity-trigger:hover{color:#fff}
+.friend-activity-popover{position:fixed;inset:auto;margin:0;width:270px;max-width:calc(100vw - 20px);box-sizing:border-box;padding:15px;background:#27292f;color:#f0f1f5;border:1px solid #494d57;border-radius:10px;box-shadow:0 12px 40px #0007;overflow:visible}
+.friend-activity-popover::backdrop{background:transparent;pointer-events:none}
+.friend-popover-label{display:block;color:#b5b8c2;font-size:10px;line-height:1.5;margin-bottom:11px;overflow-wrap:anywhere}
+.friend-playing-game{display:flex;gap:11px;align-items:center}
+.friend-playing-game>img{width:54px;height:54px;object-fit:cover;border-radius:7px;flex:none}
+.friend-playing-game>span{display:flex;flex-direction:column;gap:6px;min-width:0}
+.friend-playing-game strong{font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.friend-playing-game small{font-size:10px;color:#a9acb7}
+.friend-popover-actions{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid #3d4048}
+.friend-popover-actions .text-link,.friend-activity-popover>.text-link{font-size:10px}
+.friend-popover-actions .button{min-height:29px;padding:6px 15px;font-size:11px}
+.friend-activity-popover>p{font-size:12px;color:#b9bcc6;line-height:1.7;margin:0 0 12px}
+.profile-group-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.profile-group-card{display:flex;align-items:center;gap:15px;border:1px solid #383b43;border-radius:10px;padding:18px;background:#22242a;min-width:0}
+.profile-group-card:hover{background:#2a2c33;border-color:#565b66}
+.profile-group-emblem{position:relative;display:block;flex:none}
+.profile-group-emblem>.group-emblem{width:62px;height:62px;font-size:29px}
+.group-owner-icon{position:absolute;bottom:-5px;right:-5px;width:25px;height:25px;display:grid;place-items:center;border-radius:50%;background:#4b412b;color:#f1cf7d;border:3px solid #22242a}
+.profile-group-info{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.profile-group-info strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.profile-group-info small{font-size:10px;color:#969da9}
+.profile-group-info .profile-group-role{font-size:11px;color:#c9ccd5}
+.profile-group-card>.ico{flex:none;color:#a0a5af}
+@media(prefers-reduced-motion:reduce){input[type="search"]::placeholder{transition:none}}
+@media(max-width:1120px){.search-people-grid,.search-groups-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.profile-group-card{gap:12px;padding:15px}.profile-group-emblem>.group-emblem{width:48px;height:48px;font-size:25px}}
+@media(max-width:620px){.site-search-tabs{gap:22px}.site-search-tabs a{font-size:11px;gap:6px}.site-search-section{margin:24px 0 30px}.search-people-grid,.search-groups-grid{grid-template-columns:1fr;gap:10px}.search-person-card,.search-group-card{padding:14px}.profile-group-grid{grid-template-columns:1fr}.profile-group-emblem>.group-emblem{width:52px;height:52px}.profile-group-card{padding:15px}#search-suggestions{position:fixed;left:12px;right:12px;top:calc(var(--header-h) + 7px);min-width:0;max-width:none}.friend-activity-popover{width:250px}}
+
+/* Shared presence colors across every friend list. */
+.presence.offline{background:#8c929d}
+.presence.online{background:#4c9cff}
+.presence.playing{background:#35c87b}
+.presence.studio{background:#f0a044}
+/* Profile collections use compact square tiles at every breakpoint. */
+.profile-group-grid,.profile-main-column .badge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,180px));gap:16px}
+.profile-group-card,.profile-main-column .profile-badge{aspect-ratio:1;box-sizing:border-box;width:100%;min-width:0;min-height:0;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:13px;padding:18px;border-radius:10px}
+.profile-group-card>.ico{display:none}
+.profile-group-info{flex:0;align-items:center;gap:5px;width:100%}
+.profile-group-info strong{font-size:12px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.profile-group-info .profile-group-role{font-size:11px}
+.profile-group-emblem>.group-emblem{width:58px;height:58px;font-size:28px}
+.profile-main-column .profile-badge .badge-emblem{flex:none;width:48px;height:53px}
+.profile-main-column .profile-badge h3{font-size:12px;line-height:1.4;margin:0 0 6px}
+.profile-main-column .profile-badge p{font-size:10px;line-height:1.6;margin:0}
+@media(max-width:620px){.profile-group-grid,.profile-main-column .badge-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.profile-group-card,.profile-main-column .profile-badge{padding:12px;gap:10px}.profile-group-emblem>.group-emblem{width:46px;height:46px;font-size:23px}.profile-group-info{gap:3px}.profile-group-info strong{font-size:11px}.profile-group-info .profile-group-role{font-size:10px}.profile-main-column .profile-badge .badge-emblem{width:38px;height:43px}.profile-main-column .profile-badge h3{font-size:11px}.profile-main-column .profile-badge p{font-size:9px}}

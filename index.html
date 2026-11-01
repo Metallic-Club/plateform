@@ -1,140 +1,26 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <meta name="theme-color" content="#0b0b0e" />
-  <link rel="icon" type="image/svg+xml" href="assets/img/metallic.svg"/>
-  <link rel="shortcut icon" href="assets/img/metallic.svg"/>
-  <title>Metallic — home</title>
-  <meta name="description" content="Metallic is a social gaming platform: play first-party and community experiences on sandboxed servers that scale to published limits."/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="assets/css/app.css?v=20261101r"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#191a1e">
+  <meta name="description" content="Discover new games, find your people, and create something extraordinary on Metallic.">
+  <title>Metallic — A world of possibilities</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./src/reference.css">
+  <link rel="stylesheet" href="./src/styles.css">
+  <link rel="stylesheet" href="./src/refinements.css">
+  <link rel="stylesheet" href="./src/platform.css">
+  <link rel="stylesheet" href="./src/social.css">
+  <link rel="stylesheet" href="./src/connections.css">
+  <link rel="stylesheet" href="./src/features.css">
+  <script type="module" src="./src/app.js"></script>
 </head>
-<body data-page="home">
-  <div class="wrap page">
-    <div class="notice" role="status">
-      <div class="notice-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 3l9 17H3z"/><path d="M12 10v4M12 17h.01"/>
-        </svg>
-      </div>
-      <div class="notice-body">
-        <h3>Your password may be exposed</h3>
-        <p>To keep your account safe, change your password now. If you don't, it will be reset automatically in <strong>6 days</strong>. <a href="safety.html">Learn more</a>.</p>
-      </div>
-      <a class="btn btn-dark" href="safety.html">Change Password</a>
-    </div>
-
-    <div class="page-head">
-      <div>
-        <h1 class="page-title">Home</h1>
-        <p class="page-sub">Welcome back, RavenDev</p>
-      </div>
-      <span class="home-note">Your plans to play and explore</span>
-    </div>
-
-    <section>
-      <div class="section-head"><h2>Friends (3)</h2><a class="link" href="profile.html">See All &rsaquo;</a></div>
-      <div class="friends">
-        <a class="friend" href="profile.html">
-          <div class="face add">+</div>
-          <div class="name">Add Friends</div>
-        </a>
-        <a class="friend" href="profile.html">
-          <div class="face" style="--g:linear-gradient(140deg,#ffd23f,#f0a500)">H</div>
-          <div class="name">heroX_x</div>
-          <div class="status"><span class="on-dot"></span> Playing</div>
-        </a>
-        <a class="friend" href="profile.html">
-          <div class="face" style="--g:linear-gradient(140deg,#1f3b2d,#2f6b4f)">C</div>
-          <div class="name">CRIMSONSL…</div>
-          <div class="status"><span class="on-dot live"></span> Online</div>
-        </a>
-        <a class="friend" href="profile.html">
-          <div class="face" style="--g:linear-gradient(140deg,#8fd3f4,#2b7cd3)">O</div>
-          <div class="name">00RIP_INDRA</div>
-          <div class="status"><span class="on-dot"></span> In game</div>
-        </a>
-        <a class="friend" href="profile.html">
-          <div class="face" style="--g:linear-gradient(140deg,#f472b6,#a21caf)">N</div>
-          <div class="name">NovaFox</div>
-          <div class="status"><span class="on-dot live"></span> Online</div>
-        </a>
-      </div>
-    </section>
-
-    <section data-shelf-block>
-      <div class="section-head"><h2>Continue</h2><a class="link" href="library.html">See All &rsaquo;</a></div>
-      <div class="shelf" id="shelf-continue"></div>
-    </section>
-
-    <section data-shelf-block>
-      <div class="section-head"><h2>Popular Right Now</h2><a class="link" href="charts.html">See All &rsaquo;</a></div>
-      <div class="shelf" id="shelf-popular"></div>
-    </section>
-
-    <section>
-      <div class="section-head">
-        <h2>Recommended For You</h2>
-        <span class="badge gray">ranked by genre and playtime</span>
-      </div>
-      <div class="chips" id="home-genres" style="margin:10px 0 14px"></div>
-      <div class="grid-cards" id="grid-recommended"></div>
-    </section>
-
-    <section data-shelf-block>
-      <div class="section-head"><h2>Top Rated</h2><a class="link" href="charts.html">See All &rsaquo;</a></div>
-      <div class="shelf" id="shelf-toprated"></div>
-    </section>
-
-    <section data-shelf-block>
-      <div class="section-head"><h2>New &amp; Notable</h2><a class="link" href="explore.html">See All &rsaquo;</a></div>
-      <div class="shelf" id="shelf-new"></div>
-    </section>
-
-    <section class="panel" id="home-achievements"></section>
-
-    <section class="stats" id="home-stats"></section>
-
-    <section data-shelf-block>
-      <div class="section-head"><h2>Because you played something</h2><a class="link" href="explore.html">Explore more &rsaquo;</a></div>
-      <div class="shelf" id="shelf-similar"></div>
-    </section>
-
-    <section class="two-col">
-      <div class="panel">
-        <div class="panel-head"><h3>How this platform is different</h3><span class="badge blue">By design</span></div>
-        <ul class="list">
-          <li><span class="tick">✓</span><span>No ads, no sponsored ranking, no engagement timers.</span></li>
-          <li><span class="tick">✓</span><span>Server capacity and hard limits are published before you press play.</span></li>
-          <li><span class="tick">✓</span><span>Flat 5% marketplace fee, no listing fee, no hidden spread.</span></li>
-          <li><span class="tick">✓</span><span>Bans cover linked alts, so enforcement is not cosmetic.</span></li>
-          <li><span class="tick">✓</span><span>Two font requests, one stylesheet, no trackers.</span></li>
-        </ul>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3>Creator spotlight</h3><span class="pill">Void Crafters 3D</span></div>
-        <p style="color:var(--text-2);font-size:14px;line-height:1.65">
-          Hollowlight publishes a per-sandbox resource ceiling and lets replicas follow players.
-          Players see the cap, creators see the cost, payouts land weekly at 70%.
-        </p>
-        <div class="kv" style="margin-top:10px"><span>Monthly payout</span><b>$148,200</b></div>
-        <div class="kv"><span>Revenue share</span><b>70%</b></div>
-        <div class="kv"><span>Payout hold</span><b>none</b></div>
-        <a class="btn btn-ghost btn-sm btn-wide" href="create.html" style="margin-top:12px">Open creator hub</a>
-      </div>
-    </section>
-
-    <section class="panel" id="home-firstparty"></section>
-  </div>
-
-  <script src="assets/js/data.js?v=20261101r"></script>
-  <script src="assets/js/app.js?v=20261101r"></script>
-  <script src="assets/js/pages.js?v=20261101r"></script>
-  <script src="assets/js/launcher.js?v=20261101r"></script>
-  <script src="assets/js/arcade.js?v=20261101r"></script>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div id="app"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+  <noscript>Enable JavaScript to explore the Metallic website.</noscript>
 </body>
 </html>
