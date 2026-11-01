@@ -3,31 +3,31 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Avatar & wardrobe — Metallic</title>
+  <title>Avatar — Metallic</title>
   <meta name="description" content="Build an avatar from owned cosmetics. Nothing sold here changes a stat."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="assets/css/app.css"/>
 </head>
 <body data-page="avatar">
-  <main class="main page">
+  <div class="wrap page">
     <div>
-      <h1 class="page-title">Avatar &amp; wardrobe</h1>
-      <p class="page-sub">Everything you can wear is cosmetic. Pick a slot, equip it, and the preview updates immediately — no purchase prompt in the way.</p>
+      <h1 class="page-title">Avatar</h1>
+      <p class="page-sub">Cosmetics only. Choose a slot, equip it, and the preview updates right away.</p>
     </div>
 
     <div class="avatar-grid">
       <div class="panel stack">
         <div class="avatar-stage" id="avatar-stage"></div>
-        <div class="panel-head" style="margin:0;padding-bottom:8px"><h3>Equipped</h3><span class="badge mint">5 slots</span></div>
+        <div class="panel-head" style="margin:0;padding-bottom:8px"><h3>Equipped</h3><span class="badge green">5 slots</span></div>
         <div id="equipped"></div>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Wardrobe</h3><span class="pill" id="wardrobe-count"></span></div>
+        <div class="panel-head"><h3>Inventory</h3><span class="pill" id="wardrobe-count"></span></div>
         <div class="wardrobe" id="wardrobe"></div>
-        <div class="note" style="margin-top:12px">Wardrobe items are yours permanently. Trading and gifting are separate flows with the same flat 5% fee.</div>
+        <div class="note" style="margin-top:12px">Items are yours permanently. Trading and gifting use the same flat 5% fee as listings.</div>
       </div>
     </div>
 
@@ -35,9 +35,9 @@
       <div class="stat"><div class="k">Cosmetic slots</div><div class="v">5</div><div class="d">suit, hat, face, back, effect</div></div>
       <div class="stat"><div class="k">Stat bonuses</div><div class="v">0</div><div class="d">no item changes gameplay</div></div>
       <div class="stat"><div class="k">Resale fee</div><div class="v">5%</div><div class="d">same as every listing</div></div>
-      <div class="stat"><div class="k">Trade lock</div><div class="v">0 days</div><div class="d">no artificial holding period</div></div>
+      <div class="stat"><div class="k">Trade lock</div><div class="v">0 days</div><div class="d">no artificial hold</div></div>
     </section>
-  </main>
+  </div>
 
   <script src="assets/js/data.js"></script>
   <script src="assets/js/app.js"></script>

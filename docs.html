@@ -4,26 +4,26 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>API docs — Metallic</title>
-  <meta name="description" content="Backend API reference: games, servers, marketplace and webhooks with published rate limits."/>
+  <meta name="description" content="Backend API reference: experiences, servers, marketplace and webhooks with published rate limits."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="assets/css/app.css"/>
 </head>
 <body data-page="docs">
-  <main class="main page">
+  <div class="wrap page">
     <div>
       <h1 class="page-title">Backend API</h1>
-      <p class="page-sub">Version 1. Every endpoint below is server-authoritative: currency, inventory and server state are written by the platform, never by the client.</p>
+      <p class="page-sub">Version 1. Every endpoint is server-authoritative: currency, inventory and server state are written by the platform, never by the client.</p>
     </div>
 
     <div class="panel">
-      <div class="panel-head"><h3>Endpoints</h3><span class="badge">v1</span></div>
+      <div class="panel-head"><h3>Endpoints</h3><span class="badge blue">v1</span></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Method</th><th>Path</th><th>Purpose</th><th>Auth</th><th>Rate limit</th></tr></thead>
           <tbody>
-            <tr><td><strong>GET</strong></td><td><code>/v1/games/{id}</code></td><td>Metadata, tags, live player count, rating</td><td>public</td><td>120/min</td></tr>
+            <tr><td><strong>GET</strong></td><td><code>/v1/games/{id}</code></td><td>Metadata, tags, live players, rating</td><td>public</td><td>120/min</td></tr>
             <tr><td><strong>GET</strong></td><td><code>/v1/games/{id}/servers</code></td><td>Servers with seats used and hard limit</td><td>public</td><td>120/min</td></tr>
             <tr><td><strong>POST</strong></td><td><code>/v1/servers</code></td><td>Provision a sandboxed server on request</td><td>creator</td><td>10/min</td></tr>
             <tr><td><strong>GET</strong></td><td><code>/v1/marketplace/listings</code></td><td>Listings with fee breakdown</td><td>user</td><td>60/min</td></tr>
@@ -58,7 +58,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Webhooks</h3><span class="badge mint">Signed</span></div>
+        <div class="panel-head"><h3>Webhooks</h3><span class="badge green">Signed</span></div>
         <div class="code">{
   "event": "server.health",
   "game_id": "cyber-raven",
@@ -69,7 +69,7 @@
   "throttled": false,
   "created_at": "2026-11-01T09:14:00Z"
 }</div>
-        <div class="kv" style="margin-top:12px"><span>Signature</span><b>HMAC-SHA256 header</b></div>
+        <div class="kv" style="margin-top:10px"><span>Signature</span><b>HMAC-SHA256 header</b></div>
         <div class="kv"><span>Retry policy</span><b>5 attempts, exponential</b></div>
         <div class="kv"><span>Replay window</span><b>5 minutes</b></div>
       </div>
@@ -78,12 +78,12 @@
     <section class="panel">
       <div class="panel-head"><h3>Conventions</h3><span class="badge gray">Read before shipping</span></div>
       <div class="three-col">
-        <div><div class="badge">Errors</div><p style="color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:8px">RFC 9457 problem details, with a stable <code>code</code> per failure. No stack traces, ever.</p></div>
-        <div><div class="badge">Ids</div><p style="color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:8px">Prefixed and opaque: <code>usr_</code>, <code>srv_</code>, <code>itm_</code>. Never parse them.</p></div>
-        <div><div class="badge">Time</div><p style="color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:8px">UTC ISO-8601 everywhere. Counts are integers, never pre-formatted strings.</p></div>
+        <div><div class="badge">Errors</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">RFC 9457 problem details with a stable <code>code</code>. No stack traces.</p></div>
+        <div><div class="badge">Ids</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">Prefixed and opaque: <code>usr_</code>, <code>srv_</code>, <code>itm_</code>.</p></div>
+        <div><div class="badge">Time</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">UTC ISO-8601. Counts are integers, never pre-formatted strings.</p></div>
       </div>
     </section>
-  </main>
+  </div>
 
   <script src="assets/js/data.js"></script>
   <script src="assets/js/app.js"></script>

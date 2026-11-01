@@ -3,64 +3,69 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Metallic — play, build, own your worlds</title>
-  <meta name="description" content="Metallic is a social gaming platform: first-party and community games, sandboxed servers that scale to published limits, and a transparent 5% marketplace."/>
+  <title>Metallic — home</title>
+  <meta name="description" content="Metallic is a social gaming platform: play first-party and community experiences on sandboxed servers that scale to published limits."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="assets/css/app.css"/>
 </head>
 <body data-page="home">
-  <main class="main page">
+  <div class="wrap page">
     <section class="hero" id="hero"></section>
 
     <section>
-      <div class="h-sec"><h2>Continue playing</h2><a href="explore.html">See all</a></div>
+      <div class="section-head"><h2>Continue</h2><a class="link" href="charts.html">See all</a></div>
       <div class="shelf" id="shelf-continue"></div>
     </section>
 
     <section>
-      <div class="h-sec">
+      <div class="section-head"><h2>Popular right now</h2><a class="link" href="charts.html">View charts</a></div>
+      <div class="shelf" id="shelf-popular"></div>
+    </section>
+
+    <section>
+      <div class="section-head">
         <h2>Recommended for you</h2>
-        <span class="badge gray">genre + playtime, no paid ranking</span>
+        <span class="badge gray">ranked by genre and playtime</span>
       </div>
-      <div class="chips" id="home-genres" style="margin-bottom:12px"></div>
+      <div class="chips" id="home-genres" style="margin-bottom:14px"></div>
       <div class="grid-cards" id="grid-recommended"></div>
     </section>
 
     <section>
-      <div class="h-sec"><h2>Trending now</h2><span class="pill"><span class="dot"></span> live counts</span></div>
-      <div class="shelf" id="shelf-trending"></div>
+      <div class="section-head"><h2>Top rated</h2><span class="badge green">98% and up</span></div>
+      <div class="shelf" id="shelf-toprated"></div>
     </section>
 
     <section class="stats" id="home-stats"></section>
 
     <section class="two-col">
       <div class="panel">
-        <div class="panel-head"><h3>Why it beats the alternatives</h3><span class="badge mint">By design</span></div>
+        <div class="panel-head"><h3>How this platform is different</h3><span class="badge blue">By design</span></div>
         <ul class="list">
-          <li><span class="tick">✓</span><span>No ads, no engagement timers, no loot boxes. Cosmetics never carry stats.</span></li>
+          <li><span class="tick">✓</span><span>No ads, no sponsored ranking, no engagement timers.</span></li>
           <li><span class="tick">✓</span><span>Server capacity and hard limits are published before you press play.</span></li>
-          <li><span class="tick">✓</span><span>Flat 5% marketplace fee, no listing fee, no hidden spread on trades.</span></li>
-          <li><span class="tick">✓</span><span>Moderation covers linked alts, so a ban is not a five-minute inconvenience.</span></li>
-          <li><span class="tick">✓</span><span>Pages ship as plain HTML and one stylesheet — no tracking scripts, no bundler runtime.</span></li>
+          <li><span class="tick">✓</span><span>Flat 5% marketplace fee, no listing fee, no hidden spread.</span></li>
+          <li><span class="tick">✓</span><span>Bans cover linked alts, so enforcement is not cosmetic.</span></li>
+          <li><span class="tick">✓</span><span>Two font requests, one stylesheet, no trackers.</span></li>
         </ul>
       </div>
       <div class="panel">
         <div class="panel-head"><h3>Creator spotlight</h3><span class="pill">Void Crafters 3D</span></div>
-        <p style="color:var(--muted);font-size:13px;line-height:1.7">
-          Hollowlight moved a 22,400-player building game to Metallic and publishes its resource ceiling per sandbox.
-          Players see the cap, creators see the cost, and payouts land weekly at 70%.
+        <p style="color:var(--text-2);font-size:14px;line-height:1.65">
+          Hollowlight publishes a per-sandbox resource ceiling and lets replicas follow players.
+          Players see the cap, creators see the cost, payouts land weekly at 70%.
         </p>
-        <div class="kv" style="margin-top:12px"><span>Monthly payout</span><b>$148,200</b></div>
-        <div class="kv"><span>Revenue share</span><b>70% to creator</b></div>
+        <div class="kv" style="margin-top:10px"><span>Monthly payout</span><b>$148,200</b></div>
+        <div class="kv"><span>Revenue share</span><b>70%</b></div>
         <div class="kv"><span>Payout hold</span><b>none</b></div>
-        <a class="btn btn-ghost btn-sm btn-wide" href="creators.html" style="margin-top:12px">Open the creator hub</a>
+        <a class="btn btn-ghost btn-sm btn-wide" href="create.html" style="margin-top:12px">Open creator hub</a>
       </div>
     </section>
 
     <section class="panel" id="home-firstparty"></section>
-  </main>
+  </div>
 
   <script src="assets/js/data.js"></script>
   <script src="assets/js/app.js"></script>

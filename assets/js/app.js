@@ -4,7 +4,7 @@
 
   var M = window.METALLIC || {};
   var GAMES = M.games || [];
-  var state = { balance: 1450, equipped: {}, owned: {} };
+  var state = { balance: 1450, equipped: {}, owned: {}, fav: {} };
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -23,77 +23,65 @@
     return hit || GAMES[0];
   }
   function pct(a, b) { return Math.min(100, Math.round((a / b) * 100)); }
+  function visits(g) { return g.players * 37 + g.rating * 1200; }
 
   var ICONS = {
-    home: '<path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/>',
-    compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
-    user: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
-    bag: '<path d="M6 8h12l1.5 12H4.5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
-    server: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>',
-    shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
-    list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
-    code: '<path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
-    play: '<path d="M8 5l11 7-11 7z"/>'
+    play: '<path d="M8 5l11 7-11 7z"/>',
+    up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+    down: '<path d="M12 5v14M6 13l6 6 6-6"/>'
   };
 
   function ico(name) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
       'stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || '') + '</svg>';
   }
 
   var NAV = [
-    { href: 'index.html', label: 'Home', page: 'home', icon: 'home' },
-    { href: 'explore.html', label: 'Explore', page: 'explore', icon: 'compass' },
-    { href: 'avatar.html', label: 'Avatar', page: 'avatar', icon: 'user' },
-    { href: 'marketplace.html', label: 'Market', page: 'market', icon: 'bag' },
-    { href: 'servers.html', label: 'Servers', page: 'servers', icon: 'server' },
-    { href: 'creators.html', label: 'Create', page: 'create', icon: 'plus' },
-    { href: 'safety.html', label: 'Safety', page: 'safety', icon: 'shield' },
-    { href: 'features.html', label: 'Features', page: 'features', icon: 'list' },
-    { href: 'docs.html', label: 'Docs', page: 'docs', icon: 'code' }
+    { href: 'index.html', label: 'Home', page: 'home' },
+    { href: 'charts.html', label: 'Charts', page: 'charts' },
+    { href: 'marketplace.html', label: 'Marketplace', page: 'market' },
+    { href: 'create.html', label: 'Create', page: 'create' },
+    { href: 'avatar.html', label: 'Avatar', page: 'avatar' },
+    { href: 'servers.html', label: 'Servers', page: 'servers' }
   ];
 
   /* ---------- shell ---------- */
   function shell() {
     var page = document.body.getAttribute('data-page');
-    var rail = NAV.map(function (n) {
-      return '<a href="' + n.href + '"' + (n.page === page ? ' class="on" aria-current="page"' : '') + '>' +
-        ico(n.icon) + '<span>' + n.label + '</span></a>';
+    var nav = NAV.map(function (n) {
+      return '<a href="' + n.href + '"' + (n.page === page ? ' class="active" aria-current="page"' : '') + '>' + n.label + '</a>';
     }).join('');
 
     document.body.insertAdjacentHTML('afterbegin',
-      '<header class="topbar">' +
-        '<a class="brand" href="index.html"><span class="brand-mark">M</span><span>METALLIC</span></a>' +
-        '<form class="search" role="search" onsubmit="return false">' +
-          ico('search') +
-          '<input id="q" type="search" placeholder="Search games, creators, items" aria-label="Search" autocomplete="off"/>' +
+      '<header class="topbar"><div class="topbar-inner">' +
+        '<a class="brand" href="index.html"><span class="brand-mark">M</span><span>Metallic</span></a>' +
+        '<nav class="topnav" aria-label="Primary">' + nav + '</nav>' +
+        '<form class="search" role="search" onsubmit="return false">' + ico('search') +
+          '<input id="q" type="search" placeholder="Search experiences, creators, items" aria-label="Search" autocomplete="off"/>' +
         '</form>' +
-        '<div class="topbar-right">' +
-          '<span class="pill"><span class="dot"></span> 6.2M online</span>' +
-          '<span class="balance" title="Alloy balance"><span class="diamond"></span><span id="balance-v">' + num(state.balance) + '</span><span>alloy</span></span>' +
+        '<div class="top-actions">' +
+          '<span class="balance" title="Alloy balance"><span class="coin"></span><span id="balance-v">' + num(state.balance) + '</span></span>' +
           '<a class="avatar-chip" href="avatar.html" title="Your avatar">RD</a>' +
         '</div>' +
-      '</header>' +
-      '<nav class="rail" aria-label="Primary">' + rail + '</nav>' +
+      '</div></header>' +
       '<div id="toast" aria-live="polite"></div>' +
       '<div class="modal" id="play-modal" role="dialog" aria-modal="true" aria-labelledby="pm-title">' +
         '<div class="modal-card">' +
-          '<span class="badge mint">Sandbox reserved</span>' +
-          '<h3 id="pm-title">Launching…</h3>' +
-          '<p id="pm-sub" style="color:var(--muted);font-size:12px">Requesting a server instance…</p>' +
+          '<span class="badge green">Server reserved</span>' +
+          '<h3 id="pm-title">Joining…</h3>' +
+          '<p id="pm-sub" style="color:var(--text-2);font-size:13px">Requesting a sandboxed server…</p>' +
           '<div class="progress"><span id="pm-bar"></span></div>' +
           '<button class="btn btn-ghost btn-sm" data-close-modal>Cancel</button>' +
         '</div>' +
       '</div>');
 
     document.body.insertAdjacentHTML('beforeend',
-      '<footer class="footer">' +
-        '<div>© 2026 Metallic · design concept, mock data, no live accounts or payments.</div>' +
+      '<footer class="footer"><div class="footer-inner">' +
+        '<div>© 2026 Metallic · concept with mock data. No accounts, payments or live servers.</div>' +
         '<nav><a href="features.html">Feature scope</a><a href="safety.html">Safety</a>' +
-        '<a href="creators.html">Creators</a><a href="docs.html">API</a></nav>' +
-      '</footer>');
+        '<a href="create.html">Creators</a><a href="docs.html">API docs</a></nav>' +
+      '</div></footer>');
 
     var q = el('q');
     if (q) {
@@ -102,7 +90,7 @@
       q.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
           e.preventDefault();
-          location.href = 'explore.html?q=' + encodeURIComponent(q.value.trim());
+          location.href = 'charts.html?q=' + encodeURIComponent(q.value.trim());
         }
       });
     }
@@ -119,7 +107,7 @@
       node.style.opacity = '0';
       node.style.transition = 'opacity .3s';
       setTimeout(function () { node.remove(); }, 320);
-    }, 2600);
+    }, 2400);
   }
 
   var playTimer = null;
@@ -127,7 +115,7 @@
     var modal = el('play-modal');
     if (!modal) return;
     var bar = el('pm-bar');
-    el('pm-title').textContent = 'Launching ' + title;
+    el('pm-title').textContent = 'Joining ' + title;
     el('pm-sub').textContent = 'Requesting a sandboxed server…';
     bar.style.width = '0%';
     modal.classList.add('on');
@@ -138,24 +126,22 @@
       bar.style.width = Math.min(v, 100) + '%';
       if (v >= 100) {
         clearInterval(playTimer);
-        el('pm-title').textContent = title + ' is ready';
-        el('pm-sub').textContent = meta || 'Sandbox isolated · hard limit enforced · region US-East';
+        el('pm-title').textContent = title;
+        el('pm-sub').textContent = meta || 'Sandbox isolated · 64 player hard limit · region US-East';
       }
     }, 110);
   }
 
   /* ---------- shared markup ---------- */
   function card(g) {
-    return '<a class="gcard" href="game.html?id=' + g.id + '">' +
-      '<div class="art" style="--g:' + g.art + '">' +
-        '<span class="badge' + (g.firstParty ? '' : ' gray') + '">' + (g.firstParty ? 'First-party' : 'Community') + '</span>' +
-        '<span class="live"><span class="dot"></span>' + short(g.players) + '</span>' +
+    return '<a class="thumb-card" href="game.html?id=' + g.id + '">' +
+      '<div class="thumb art" style="--g:' + g.art + '">' +
+        (g.firstParty ? '<span class="badge blue flag">Metallic</span>' : '') +
+        '<span class="players"><span class="dot"></span>' + short(g.players) + '</span>' +
         '<span class="glyph">' + initials(g.title) + '</span>' +
       '</div>' +
-      '<div class="gcard-body">' +
-        '<h3>' + g.title + '</h3>' +
-        '<div class="sub"><span>' + g.genre + '</span><span>' + g.rating + '% · ' + short(g.players) + '</span></div>' +
-      '</div>' +
+      '<h3>' + g.title + '</h3>' +
+      '<div class="meta"><span class="rating">' + g.rating + '%</span><span>' + g.genre + '</span></div>' +
     '</a>';
   }
 
@@ -163,7 +149,7 @@
     var p = pct(players, limit);
     return '<div class="row" style="gap:8px;flex-wrap:nowrap">' +
       '<div class="cap' + (p > 85 ? ' hot' : '') + '" style="flex:1"><span style="width:' + p + '%"></span></div>' +
-      '<span class="pill" style="padding:2px 6px">' + players + '/' + limit + '</span>' +
+      '<span style="font-size:12px;font-weight:700;color:var(--text)">' + players + '/' + limit + '</span>' +
     '</div>';
   }
 
@@ -171,37 +157,37 @@
     var g = gameById(s.gameId);
     return '<tr>' +
       '<td><strong>' + s.name + '</strong></td>' +
-      '<td><a href="game.html?id=' + g.id + '" style="color:var(--muted)">' + g.title + '</a></td>' +
-      '<td><span class="pill">' + s.region + '</span></td>' +
+      '<td><a href="game.html?id=' + g.id + '" style="color:var(--blue)">' + g.title + '</a></td>' +
+      '<td>' + s.region + '</td>' +
       '<td>' + s.ping + 'ms</td>' +
-      '<td style="min-width:150px">' + capacity(s.players, s.limit) + '</td>' +
-      '<td style="text-align:right"><button class="btn btn-mint btn-sm" data-play="' + g.title + '">Join</button></td>' +
+      '<td style="min-width:160px">' + capacity(s.players, s.limit) + '</td>' +
+      '<td style="text-align:right"><button class="btn btn-play btn-sm" data-play="' + g.title + '">Join</button></td>' +
     '</tr>';
   }
 
-  /* ---------- pages ---------- */
+  /* ---------- home ---------- */
   function renderHome() {
     var g = GAMES[0];
     el('hero').innerHTML =
       '<div class="hero-body">' +
-        '<span class="eyebrow">Spotlight · first-party</span>' +
-        '<h1>' + g.title.toUpperCase() + '</h1>' +
+        '<span class="hero-eyebrow">Featured experience</span>' +
+        '<h1>' + g.title + '</h1>' +
         '<p>' + g.desc + '</p>' +
         '<div class="meta-row">' +
           '<span><b>' + g.rating + '%</b> rating</span>' +
-          '<span><b>' + num(g.players) + '</b> playing now</span>' +
+          '<span><b>' + num(g.players) + '</b> playing</span>' +
           '<span><b>' + g.servers + '</b> live servers</span>' +
-          '<span><b>64</b> player hard limit</span>' +
         '</div>' +
         '<div class="row">' +
-          '<button class="btn btn-primary" data-play="' + g.title + '">' + ico('play') + 'Play now</button>' +
-          '<a class="btn btn-ghost" href="game.html?id=' + g.id + '">Game page</a>' +
+          '<button class="btn btn-play" data-play="' + g.title + '">' + ico('play') + 'Play</button>' +
+          '<a class="btn btn-ghost" href="game.html?id=' + g.id + '" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28);color:#fff">View details</a>' +
         '</div>' +
       '</div>' +
       '<div class="hero-art"><div class="art" style="--g:' + g.art + '"><span class="glyph">' + initials(g.title) + '</span></div></div>';
 
     el('shelf-continue').innerHTML = GAMES.slice(0, 6).map(card).join('');
-    el('shelf-trending').innerHTML = GAMES.slice().sort(function (a, b) { return b.players - a.players; }).slice(0, 8).map(card).join('');
+    el('shelf-popular').innerHTML = GAMES.slice().sort(function (a, b) { return b.players - a.players; }).slice(0, 8).map(card).join('');
+    el('shelf-toprated').innerHTML = GAMES.slice().sort(function (a, b) { return b.rating - a.rating; }).slice(0, 8).map(card).join('');
 
     var grid = el('grid-recommended');
     var chips = el('home-genres');
@@ -212,7 +198,7 @@
       list.sort(function (a, b) { return b.rating - a.rating; });
       grid.innerHTML = list.length
         ? list.map(card).join('')
-        : '<div class="empty" style="grid-column:1/-1">No games in this category yet.</div>';
+        : '<div class="empty" style="grid-column:1/-1">Nothing in this category yet.</div>';
     }
 
     chips.innerHTML = M.genres.map(function (name) {
@@ -230,49 +216,81 @@
     draw();
 
     el('home-stats').innerHTML = [
-      { k: 'Peak concurrent', v: '6.2M', d: 'modelled platform ceiling, not a live figure' },
-      { k: 'Match satisfaction', v: '98.7%', d: 'post-match rating across all games' },
-      { k: 'Marketplace fee', v: '5%', d: 'flat, no listing fee, no hidden spread' },
-      { k: 'Ads & loot boxes', v: '0', d: 'cosmetics only, never stat advantages' }
+      { k: 'Experiences', v: '14', d: 'first-party and community, hand-picked' },
+      { k: 'Live servers', v: '2,318', d: 'provisioned on request, not pre-bought' },
+      { k: 'Marketplace fee', v: '5%', d: 'flat, no listing fee' },
+      { k: 'Ads on this site', v: '0', d: 'no trackers, no sponsored ranking' }
     ].map(function (s) {
       return '<div class="stat"><div class="k">' + s.k + '</div><div class="v">' + s.v + '</div><div class="d">' + s.d + '</div></div>';
     }).join('');
 
     el('home-firstparty').innerHTML =
-      '<div class="h-sec"><h2>From Metallic Studio</h2><a href="explore.html">All games</a></div>' +
+      '<div class="section-head"><h2>Made by Metallic Studio</h2><a class="link" href="charts.html">See all charts</a></div>' +
       '<div class="grid-cards">' + GAMES.filter(function (x) { return x.firstParty; }).map(card).join('') + '</div>';
   }
 
-  function renderExplore() {
+  /* ---------- charts ---------- */
+  function renderCharts() {
     var params = new URLSearchParams(location.search);
     var q = (params.get('q') || '').toLowerCase();
     var genre = params.get('genre') || 'All';
-    var sort = 'rating';
-    var grid = el('grid-explore');
-    var count = el('explore-count');
-    var chips = el('genre-chips');
-    var search = el('explore-q');
+    var tab = 'popular';
+    var tabs = el('chart-tabs');
+    var list = el('chart-list');
+    var meta = el('chart-meta');
+    var chips = el('chart-genres');
 
-    if (search) search.value = params.get('q') || '';
+    var TABS = [
+      { id: 'popular', label: 'Popular' },
+      { id: 'toprated', label: 'Top rated' },
+      { id: 'earning', label: 'Top earning' },
+      { id: 'upcoming', label: 'Up and coming' }
+    ];
+
+    function ranking() {
+      var rows = GAMES.filter(function (g) {
+        var text = (g.title + ' ' + g.creator + ' ' + g.genre + ' ' + g.tags.join(' ')).toLowerCase();
+        return (genre === 'All' || g.genre === genre) && (!q || text.indexOf(q) > -1);
+      });
+      if (tab === 'popular') rows.sort(function (a, b) { return b.players - a.players; });
+      if (tab === 'toprated') rows.sort(function (a, b) { return b.rating - a.rating; });
+      if (tab === 'earning') rows.sort(function (a, b) { return visits(b) * b.rating - visits(a) * a.rating; });
+      if (tab === 'upcoming') rows.sort(function (a, b) { return b.id - a.id; });
+      return rows.slice(0, 10);
+    }
+
+    function draw() {
+      var rows = ranking();
+      if (meta) meta.textContent = rows.length + (rows.length === 1 ? ' experience' : ' experiences');
+      list.innerHTML = rows.length ? rows.map(function (g, i) {
+        return '<a class="rank-row" href="game.html?id=' + g.id + '">' +
+          '<div class="rank-num">' + (i + 1) + '</div>' +
+          '<div class="rank-thumb art" style="--g:' + g.art + '"><span class="glyph" style="font-size:20px">' + initials(g.title) + '</span></div>' +
+          '<div class="rank-body"><h3>' + g.title + '</h3><div class="by">by ' + g.creator + ' · ' + g.genre + '</div></div>' +
+          '<div class="rank-side">' +
+            '<span><b>' + short(g.players) + '</b> playing</span>' +
+            '<span><b>' + g.rating + '%</b> rating</span>' +
+            '<span class="badge' + (g.firstParty ? ' blue' : ' gray') + '">' + (g.firstParty ? 'Metallic' : 'Community') + '</span>' +
+          '</div>' +
+        '</a>';
+      }).join('') : '<div class="empty">No experiences match that filter.</div>';
+    }
+
+    tabs.innerHTML = TABS.map(function (t) {
+      return '<button class="tab' + (t.id === tab ? ' active' : '') + '" data-tab="' + t.id + '">' + t.label + '</button>';
+    }).join('');
+
+    tabs.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-tab]');
+      if (!btn) return;
+      tab = btn.getAttribute('data-tab');
+      $$('.tab', tabs).forEach(function (b) { b.classList.toggle('active', b === btn); });
+      draw();
+    });
 
     chips.innerHTML = M.genres.map(function (name) {
       return '<button class="chip' + (name === genre ? ' on' : '') + '" data-genre="' + name + '">' + name + '</button>';
     }).join('');
-
-    function draw() {
-      var list = GAMES.filter(function (g) {
-        var text = (g.title + ' ' + g.creator + ' ' + g.genre + ' ' + g.tags.join(' ')).toLowerCase();
-        return (genre === 'All' || g.genre === genre) && (!q || text.indexOf(q) > -1);
-      });
-      if (sort === 'players') list.sort(function (a, b) { return b.players - a.players; });
-      else if (sort === 'new') list.sort(function (a, b) { return b.id - a.id; });
-      else list.sort(function (a, b) { return b.rating - a.rating; });
-
-      count.textContent = list.length + (list.length === 1 ? ' game' : ' games');
-      grid.innerHTML = list.length
-        ? list.map(card).join('')
-        : '<div class="empty" style="grid-column:1/-1">Nothing matches that search. Try a genre chip or a shorter query.</div>';
-    }
 
     chips.addEventListener('click', function (e) {
       var btn = e.target.closest('[data-genre]');
@@ -282,15 +300,10 @@
       draw();
     });
 
-    if (search) {
-      search.addEventListener('input', function () { q = search.value.trim().toLowerCase(); draw(); });
-    }
-    var sortEl = el('sort');
-    if (sortEl) sortEl.addEventListener('change', function () { sort = sortEl.value; draw(); });
-
     draw();
   }
 
+  /* ---------- experience detail ---------- */
   function renderGame() {
     var host = el('game-detail');
     if (!host || !GAMES.length) return;
@@ -301,65 +314,64 @@
     var similar = GAMES.filter(function (x) { return x.id !== g.id && x.genre === g.genre; })
       .concat(GAMES.filter(function (x) { return x.id !== g.id && x.genre !== g.genre; }))
       .slice(0, 6);
-    var liveTotal = servers.reduce(function (sum, s) { return sum + s.players; }, 0);
+    var likes = Math.round(g.rating * 128);
+    var dislikes = Math.round(12800 - likes);
 
     host.innerHTML =
-      '<section class="detail-hero">' +
-        '<div class="art" style="--g:' + g.art + '"><span class="glyph">' + initials(g.title) + '</span></div>' +
-        '<div class="inner">' +
-          '<div class="row">' +
-            '<span class="badge' + (g.firstParty ? '' : ' gray') + '">' + (g.firstParty ? 'First-party' : 'Community') + '</span>' +
-            '<span class="pill"><span class="dot"></span>' + num(g.players) + ' playing</span>' +
-            '<span class="pill">' + g.rating + '% rating</span>' +
-            '<span class="pill">' + g.genre + '</span>' +
+      '<div class="detail">' +
+        '<div>' +
+          '<div class="detail-hero art" style="--g:' + g.art + '"><span class="glyph" style="font-size:60px">' + initials(g.title) + '</span></div>' +
+          '<div class="detail-head">' +
+            '<h1>' + g.title + '</h1>' +
+            '<div class="row" style="font-size:13.5px;color:var(--text-2)">by <a href="#" style="color:var(--blue);font-weight:600">' + g.creator + '</a>' +
+              '<span class="badge' + (g.firstParty ? ' blue' : ' gray') + '">' + (g.firstParty ? 'Metallic' : 'Community') + '</span></div>' +
+            '<div class="vote"><span class="vote-up">' + ico('up') + ' ' + num(likes) + '</span>' +
+              '<span class="vote-down">' + num(dislikes) + ' ' + ico('down') + '</span></div>' +
           '</div>' +
-          '<h1>' + g.title + '</h1>' +
-          '<div class="row" style="color:var(--muted);font-size:12px">by <strong style="color:var(--text)">' + g.creator + '</strong></div>' +
-          '<div class="row">' +
-            '<button class="btn btn-primary" data-play="' + g.title + '">' + ico('play') + 'Play</button>' +
-            '<button class="btn btn-ghost btn-sm" data-fav="' + g.id + '">' + (state.owned['fav' + g.id] ? 'In favourites' : 'Add to favourites') + '</button>' +
+          '<div class="panel stack" style="margin-bottom:16px">' +
+            '<div class="panel-head"><h3>About this experience</h3><span class="badge gray">' + g.tags.length + ' tags</span></div>' +
+            '<p style="color:var(--text-2);font-size:14px;line-height:1.65">' + g.desc + '</p>' +
+            '<div class="chips">' + g.tags.map(function (t) { return '<span class="pill">' + t + '</span>'; }).join('') + '</div>' +
           '</div>' +
-        '</div>' +
-      '</section>' +
-      '<div class="detail-grid">' +
-        '<div class="stack">' +
-          '<div class="panel"><div class="panel-head"><h3>About this game</h3><span class="badge gray">' + g.tags.length + ' tags</span></div>' +
-            '<p style="color:var(--muted);font-size:13px;line-height:1.7">' + g.desc + '</p>' +
-            '<div class="chips" style="margin-top:12px">' + g.tags.map(function (t) { return '<span class="pill">' + t + '</span>'; }).join('') + '</div>' +
-          '</div>' +
-          '<div class="panel"><div class="panel-head"><h3>Live servers</h3><span class="pill">' + num(liveTotal) + ' players · ' + servers.length + ' shown</span></div>' +
+          '<div class="panel" style="margin-bottom:16px">' +
+            '<div class="panel-head"><h3>Servers</h3><span class="pill">' + g.maxPlayers + ' players max · hard limit</span></div>' +
             (servers.length
-              ? '<div class="table-wrap"><table><thead><tr><th>Server</th><th>Game</th><th>Region</th><th>Ping</th><th>Capacity</th><th></th></tr></thead>' +
+              ? '<div class="table-wrap"><table class="servers-table"><thead><tr><th>Server</th><th>Experience</th><th>Region</th><th>Ping</th><th>Capacity</th><th></th></tr></thead>' +
                 '<tbody>' + servers.map(serverRow).join('') + '</tbody></table></div>'
-              : '<div class="empty">No servers online for this game right now.</div>') +
+              : '<div class="empty">No public servers right now. Join to spin one up.</div>') +
           '</div>' +
-          '<div><div class="h-sec"><h2>Similar games</h2><a href="explore.html?genre=' + encodeURIComponent(g.genre) + '">More ' + g.genre + '</a></div>' +
-            '<div class="shelf">' + similar.map(card).join('') + '</div></div>' +
+          '<div class="section-head"><h2>Recommended</h2><a class="link" href="charts.html?genre=' + encodeURIComponent(g.genre) + '">More ' + g.genre + '</a></div>' +
+          '<div class="shelf">' + similar.map(card).join('') + '</div>' +
         '</div>' +
-        '<aside class="side">' +
-          '<div class="panel"><div class="panel-head"><h3>Server model</h3><span class="badge mint">Sandboxed</span></div>' +
-            '<div class="kv"><span>Players per server</span><b>' + g.maxPlayers + ' hard limit</b></div>' +
-            '<div class="kv"><span>Server count</span><b>' + g.servers + '</b></div>' +
-            '<div class="kv"><span>Provisioned</span><b>on request</b></div>' +
+        '<aside class="side-card">' +
+          '<div class="panel stack">' +
+            '<button class="btn btn-play btn-wide" data-play="' + g.title + '">' + ico('play') + 'Play</button>' +
+            '<button class="btn btn-ghost btn-wide btn-sm" data-fav="' + g.id + '">' + (state.fav[g.id] ? 'In favourites' : 'Add to favourites') + '</button>' +
+            '<div class="kv"><span>Active</span><b>' + num(g.players) + '</b></div>' +
+            '<div class="kv"><span>Visits</span><b>' + num(visits(g)) + '</b></div>' +
+            '<div class="kv"><span>Rating</span><b>' + g.rating + '%</b></div>' +
+            '<div class="kv"><span>Servers</span><b>' + g.servers + '</b></div>' +
+          '</div>' +
+          '<div class="panel">' +
+            '<div class="panel-head"><h3>Server model</h3><span class="badge green">Sandboxed</span></div>' +
+            '<div class="kv"><span>Per server</span><b>' + g.maxPlayers + ' players</b></div>' +
+            '<div class="kv"><span>Provisioning</span><b>on request</b></div>' +
             '<div class="kv"><span>Scaling</span><b>to players, capped</b></div>' +
-            '<div class="note" style="margin-top:12px">Every server is an isolated sandbox with a published resource ceiling. Capacity is shown before you join, never after.</div>' +
+            '<div class="note" style="margin-top:10px">Capacity and resource ceilings are published before you join.</div>' +
           '</div>' +
-          '<div class="panel"><div class="panel-head"><h3>Play safely</h3></div>' +
+          '<div class="panel">' +
+            '<div class="panel-head"><h3>Safety</h3></div>' +
             '<ul class="list">' +
-              '<li><span class="tick">✓</span><span>Cosmetics only: no paid stat advantages.</span></li>' +
-              '<li><span class="tick">✓</span><span>Reports reviewed by humans, with an appeal window.</span></li>' +
-              '<li><span class="tick">✓</span><span>Alt accounts are linked, so bans stick.</span></li>' +
+              '<li><span class="tick">✓</span><span>Cosmetics only — no stat advantages.</span></li>' +
+              '<li><span class="tick">✓</span><span>Human review on reports, with an appeal.</span></li>' +
+              '<li><span class="tick">✓</span><span>Bans apply to every linked alt.</span></li>' +
             '</ul>' +
-          '</div>' +
-          '<div class="panel"><div class="panel-head"><h3>Creator</h3></div>' +
-            '<div class="kv"><span>Studio</span><b>' + g.creator + '</b></div>' +
-            '<div class="kv"><span>Revenue share</span><b>70% to creator</b></div>' +
-            '<div class="kv"><span>Payout schedule</span><b>weekly</b></div>' +
           '</div>' +
         '</aside>' +
       '</div>';
   }
 
+  /* ---------- avatar ---------- */
   function renderAvatar() {
     var items = M.wardrobe || [];
     var slots = ['suit', 'hat', 'face', 'back', 'fx'];
@@ -378,28 +390,26 @@
     function paint() {
       var suit = itemFor('suit').color || '#3b2f66';
       var hat = itemFor('hat').color || '#a78bfa';
-      var face = itemFor('face').color || '#a78bfa';
+      var face = itemFor('face').color || '#5eead4';
       var back = itemFor('back').color || '#8b5cf6';
       var fx = itemFor('fx').color || '#a78bfa';
 
       el('avatar-stage').innerHTML =
-        '<svg viewBox="0 0 220 270" width="240" height="294" role="img" aria-label="Avatar preview" ' +
+        '<svg viewBox="0 0 220 270" width="228" height="280" role="img" aria-label="Avatar preview" ' +
           'style="--suit:' + suit + ';--hat:' + hat + ';--face:' + face + ';--back:' + back + ';--fx:' + fx + '">' +
-          '<ellipse cx="110" cy="243" rx="54" ry="9" fill="#000" opacity=".45"/>' +
-          '<circle cx="110" cy="132" r="88" fill="var(--fx)" opacity=".2"/>' +
+          '<ellipse cx="110" cy="243" rx="54" ry="9" fill="#0d1220" opacity=".12"/>' +
+          '<circle cx="110" cy="132" r="88" fill="var(--fx)" opacity=".16"/>' +
           '<path d="M74 150C46 132 40 108 52 92c6 26 18 36 34 44z" fill="var(--back)" opacity=".8"/>' +
           '<path d="M146 150c28-18 34-42 22-58-6 26-18 36-34 44z" fill="var(--back)" opacity=".8"/>' +
           '<rect x="52" y="150" width="17" height="62" rx="8" fill="var(--suit)" opacity=".85"/>' +
           '<rect x="151" y="150" width="17" height="62" rx="8" fill="var(--suit)" opacity=".85"/>' +
           '<rect x="72" y="140" width="76" height="88" rx="24" fill="var(--suit)"/>' +
-          '<rect x="84" y="216" width="22" height="26" rx="9" fill="#231d33"/>' +
-          '<rect x="114" y="216" width="22" height="26" rx="9" fill="#231d33"/>' +
+          '<rect x="84" y="216" width="22" height="26" rx="9" fill="#1f2436"/>' +
+          '<rect x="114" y="216" width="22" height="26" rx="9" fill="#1f2436"/>' +
           '<circle cx="110" cy="102" r="36" fill="#f1dccb"/>' +
-          '<rect x="82" y="94" width="56" height="17" rx="8" fill="var(--face)" opacity=".92"/>' +
+          '<rect x="82" y="94" width="56" height="17" rx="8" fill="var(--face)" opacity=".95"/>' +
           '<path d="M72 66h76l-15-24H87z" fill="var(--hat)"/>' +
-          '<circle cx="110" cy="102" r="56" fill="var(--fx)" opacity=".22"/>' +
-        '</svg>' +
-        '<div class="pill" style="position:absolute;top:12px;left:12px">Avatar preview</div>';
+        '</svg>';
 
       el('equipped').innerHTML = slots.map(function (slot) {
         var it = itemFor(slot);
@@ -410,7 +420,7 @@
 
       el('wardrobe').innerHTML = items.map(function (i) {
         return '<div class="witem' + (state.equipped[i.slot] === i.name ? ' on' : '') + '" data-item="' + i.name + '" data-slot="' + i.slot + '">' +
-          '<div class="swatch" style="background:linear-gradient(140deg,' + i.color + ',#0b0912)">' + i.rarity.charAt(0) + '</div>' +
+          '<div class="swatch" style="background:linear-gradient(140deg,' + i.color + ',#1b2233)">' + i.rarity.charAt(0) + '</div>' +
           '<div class="name">' + i.name + '</div>' +
           '<div class="slot">' + i.slot + ' · ' + i.rarity + '</div>' +
         '</div>';
@@ -428,6 +438,7 @@
     });
   }
 
+  /* ---------- marketplace ---------- */
   function renderMarket() {
     var rarities = ['All', 'Common', 'Rare', 'Epic', 'Legendary'];
     var rarity = 'All';
@@ -439,19 +450,18 @@
 
     function draw() {
       var list = (M.market || []).filter(function (i) { return rarity === 'All' || i.rarity === rarity; });
-      el('mkt-grid').innerHTML = list.map(function (i, idx) {
+      el('mkt-grid').innerHTML = list.map(function (i) {
         var owned = state.owned[i.name];
-        return '<div class="panel stack" style="gap:9px">' +
-          '<div class="art" style="--g:linear-gradient(140deg,' + i.color + ',#0b0912);aspect-ratio:1;border-radius:11px;border:1px solid var(--line)">' +
-            '<span class="badge' + (i.rarity === 'Legendary' ? ' amber' : '') + '">' + i.rarity + '</span>' +
-            '<span class="glyph" style="font-size:30px">' + i.slot.charAt(0).toUpperCase() + '</span>' +
+        return '<div class="stack" style="gap:7px">' +
+          '<div class="thumb art" style="--g:linear-gradient(140deg,' + i.color + ',#151a28)">' +
+            '<span class="badge flag">' + i.rarity + '</span>' +
+            '<span class="glyph" style="font-size:26px">' + i.slot.charAt(0).toUpperCase() + '</span>' +
           '</div>' +
-          '<div><div style="font-size:12.5px;font-weight:800">' + i.name + '</div>' +
-          '<div style="font-size:10.5px;color:var(--dim);text-transform:capitalize">' + i.slot + '</div></div>' +
+          '<div style="font-size:13.5px;font-weight:700">' + i.name + '</div>' +
           '<div class="row" style="justify-content:space-between">' +
-            '<span class="pill"><span class="diamond"></span>' + num(i.price) + '</span>' +
+            '<span class="pill"><span class="coin"></span>' + num(i.price) + '</span>' +
             (owned
-              ? '<span class="badge mint">Owned</span>'
+              ? '<span class="badge green">Owned</span>'
               : '<button class="btn btn-primary btn-sm" data-buy="' + i.price + '" data-name="' + i.name + '">Buy</button>') +
           '</div>' +
         '</div>';
@@ -472,21 +482,22 @@
       var price = Number(btn.getAttribute('data-buy'));
       var name = btn.getAttribute('data-name');
       if (price > state.balance) {
-        toast('Not enough alloy — earn more from rewards or sell an item.');
+        toast('Not enough alloy. Earn it from rewards or sell an item.');
         return;
       }
       state.balance -= price;
       state.owned[name] = true;
       el('balance-v').textContent = num(state.balance);
-      el('mkt-balance').textContent = num(state.balance) + ' alloy available';
+      el('mkt-balance').textContent = num(state.balance) + ' alloy';
       draw();
-      toast(name + ' added to your wardrobe');
+      toast(name + ' added to your inventory');
     });
 
-    el('mkt-balance').textContent = num(state.balance) + ' alloy available';
+    el('mkt-balance').textContent = num(state.balance) + ' alloy';
     draw();
   }
 
+  /* ---------- servers ---------- */
   function renderServers() {
     var region = 'ALL';
     var q = '';
@@ -506,12 +517,12 @@
       var players = M.servers.reduce(function (a, s) { return a + s.players; }, 0);
       var limit = M.servers.reduce(function (a, s) { return a + s.limit; }, 0);
       stats.innerHTML =
-        '<div class="stat"><div class="k">Live players</div><div class="v">' + num(players) + '</div><div class="d">across ' + M.servers.length + ' sampled servers</div></div>' +
-        '<div class="stat"><div class="k">Seat usage</div><div class="v">' + pct(players, limit) + '%</div><div class="d">' + players + ' of ' + limit + ' seats used</div></div>' +
-        '<div class="stat"><div class="k">Avg ping</div><div class="v">' +
+        '<div class="stat"><div class="k">Players online</div><div class="v">' + num(players) + '</div><div class="d">across ' + M.servers.length + ' sampled servers</div></div>' +
+        '<div class="stat"><div class="k">Seats used</div><div class="v">' + pct(players, limit) + '%</div><div class="d">' + players + ' of ' + limit + '</div></div>' +
+        '<div class="stat"><div class="k">Average ping</div><div class="v">' +
           Math.round(M.servers.reduce(function (a, s) { return a + s.ping; }, 0) / M.servers.length) + 'ms</div>' +
-          '<div class="d">best-fit region chosen per player</div></div>' +
-        '<div class="stat"><div class="k">Podding</div><div class="v">On request</div><div class="d">new sandboxes spin up under load</div></div>';
+          '<div class="d">closest region per player</div></div>' +
+        '<div class="stat"><div class="k">Provisioning</div><div class="v">On request</div><div class="d">new sandboxes under load</div></div>';
     }
 
     var regionEl = el('server-region');
@@ -522,17 +533,16 @@
     draw();
   }
 
+  /* ---------- create ---------- */
   function renderCreators() {
-    var stats = el('creator-stats');
     var games = M.myGames;
+    el('creator-stats').innerHTML =
+      '<div class="stat"><div class="k">Monthly revenue</div><div class="v">$' + num(games.reduce(function (a, g) { return a + g.revenue; }, 0)) + '</div><div class="d">70% share, weekly</div></div>' +
+      '<div class="stat"><div class="k">Players</div><div class="v">' + num(games.reduce(function (a, g) { return a + g.players; }, 0)) + '</div><div class="d">across ' + games.length + ' experiences</div></div>' +
+      '<div class="stat"><div class="k">Active replicas</div><div class="v">' + games.reduce(function (a, g) { return a + g.replicas; }, 0) + '</div><div class="d">autoscaled to players</div></div>' +
+      '<div class="stat"><div class="k">Payout hold</div><div class="v">0 days</div><div class="d">no withheld balance</div></div>';
 
-    stats.innerHTML =
-      '<div class="stat"><div class="k">Monthly revenue</div><div class="v">$' + num(games.reduce(function (a, g) { return a + g.revenue; }, 0)) + '</div><div class="d">70% share, paid weekly</div></div>' +
-      '<div class="stat"><div class="k">Live players</div><div class="v">' + num(games.reduce(function (a, g) { return a + g.players; }, 0)) + '</div><div class="d">across ' + games.length + ' published games</div></div>' +
-      '<div class="stat"><div class="k">Active replicas</div><div class="v">' + games.reduce(function (a, g) { return a + g.replicas; }, 0) + '</div><div class="d">sandboxed, autoscaled to players</div></div>' +
-      '<div class="stat"><div class="k">Payout hold</div><div class="v">0 days</div><div class="d">no withheld balances or minimums</div></div>';
-
-    el('creator-games').innerHTML = games.map(function (g, i) {
+    el('creator-games').innerHTML = games.map(function (g) {
       return '<tr>' +
         '<td><strong>' + g.title + '</strong></td>' +
         '<td>' + num(g.players) + '</td>' +
@@ -546,14 +556,14 @@
     el('orchestrator').innerHTML = games.map(function (g, i) {
       return '<div class="panel stack">' +
         '<div class="row" style="justify-content:space-between">' +
-          '<strong style="font-size:12.5px">' + g.title + '</strong>' +
-          '<span class="badge mint">Live</span>' +
+          '<strong style="font-size:13.5px">' + g.title + '</strong>' +
+          '<span class="badge green">Live</span>' +
         '</div>' +
         '<div class="kv"><span>Replicas</span><b data-replicas="' + i + '">' + g.replicas + '</b></div>' +
-        '<div class="kv"><span>Player cap / replica</span><b>64</b></div>' +
-        '<div class="kv"><span>Est. compute</span><b data-cost="' + i + '">$' + (g.replicas * 0.04).toFixed(2) + '/hr</b></div>' +
+        '<div class="kv"><span>Players per replica</span><b>64</b></div>' +
+        '<div class="kv"><span>Compute</span><b data-cost="' + i + '">$' + (g.replicas * 0.04).toFixed(2) + '/hr</b></div>' +
         '<input type="range" min="0" max="' + g.maxReplicas + '" value="' + g.replicas + '" data-range="' + i + '" aria-label="Replicas for ' + g.title + '"/>' +
-        '<div class="note">Hard limits apply per sandbox: CPU, memory and egress are capped, then replicas scale with connected players.</div>' +
+        '<div class="note">Hard CPU, memory and egress ceilings per sandbox, then replicas follow players.</div>' +
       '</div>';
     }).join('');
 
@@ -569,6 +579,7 @@
     });
   }
 
+  /* ---------- features ---------- */
   function renderFeatures() {
     var groups = M.featureGroups || [];
     var total = groups.reduce(function (a, g) { return a + g.items.length; }, 0);
@@ -580,7 +591,7 @@
       '<span class="badge">' + groups.length + ' areas</span>' +
       '<span class="badge gray">' + total + ' items</span>' +
       '<span class="badge amber">' + design + ' in design</span>' +
-      '<span class="badge mint">' + (total - design) + ' planned</span>';
+      '<span class="badge green">' + (total - design) + ' planned</span>';
 
     el('features-groups').innerHTML = groups.map(function (g) {
       return '<div class="panel stack">' +
@@ -588,8 +599,7 @@
         '<ul class="list" style="margin-top:4px">' + g.items.map(function (i) {
           var cls = i.s === 'design' ? 'amber' : 'gray';
           var label = i.s === 'design' ? 'In design' : 'Planned';
-          return '<li><span class="tick">•</span><span style="flex:1">' + i.t + '</span>' +
-            '<span class="badge ' + cls + '">' + label + '</span></li>';
+          return '<li><span class="tick">•</span><span style="flex:1">' + i.t + '</span><span class="badge ' + cls + '">' + label + '</span></li>';
         }).join('') + '</ul>' +
       '</div>';
     }).join('');
@@ -607,18 +617,14 @@
       var fav = e.target.closest('[data-fav]');
       if (fav) {
         var id = fav.getAttribute('data-fav');
-        state.owned['fav' + id] = !state.owned['fav' + id];
-        fav.textContent = state.owned['fav' + id] ? 'In favourites' : 'Add to favourites';
-        toast(state.owned['fav' + id] ? 'Added to favourites' : 'Removed from favourites');
+        state.fav[id] = !state.fav[id];
+        fav.textContent = state.fav[id] ? 'In favourites' : 'Add to favourites';
+        toast(state.fav[id] ? 'Added to favourites' : 'Removed from favourites');
         return;
       }
-      if (e.target.closest('[data-close-modal]')) {
-        el('play-modal').classList.remove('on');
-        clearInterval(playTimer);
-        return;
-      }
-      if (e.target.id === 'play-modal') {
-        el('play-modal').classList.remove('on');
+      if (e.target.closest('[data-close-modal]') || e.target.id === 'play-modal') {
+        var modal = el('play-modal');
+        if (modal) modal.classList.remove('on');
         clearInterval(playTimer);
       }
     });
@@ -635,17 +641,16 @@
   function init() {
     shell();
     bindGlobal();
-    var page = document.body.getAttribute('data-page');
     var render = {
       home: renderHome,
-      explore: renderExplore,
+      charts: renderCharts,
       game: renderGame,
       avatar: renderAvatar,
       market: renderMarket,
       servers: renderServers,
       create: renderCreators,
       features: renderFeatures
-    }[page];
+    }[document.body.getAttribute('data-page')];
     if (render) render();
   }
 

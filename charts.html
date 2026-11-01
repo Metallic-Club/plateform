@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Charts — Metallic</title>
+  <meta name="description" content="Popular, top rated, top earning and up-and-coming experiences on Metallic."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="assets/css/app.css"/>
+</head>
+<body data-page="charts">
+  <div class="wrap page">
+    <div>
+      <h1 class="page-title">Charts</h1>
+      <p class="page-sub">Ranked by what players actually do, not by who paid. Pick a board, then filter by category.</p>
+    </div>
+
+    <div class="tabs" id="chart-tabs"></div>
+
+    <div class="filters">
+      <div class="chips" id="chart-genres"></div>
+      <span class="pill" id="chart-meta"></span>
+    </div>
+
+    <div class="panel" style="padding:6px 10px">
+      <div class="rank-list" id="chart-list"></div>
+    </div>
+
+    <section class="two-col">
+      <div class="panel">
+        <div class="panel-head"><h3>How a board is built</h3><span class="badge blue">No pay-to-rank</span></div>
+        <div class="three-col">
+          <div><div class="badge">Popular</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">Concurrent players, sampled every minute, with bot traffic removed.</p></div>
+          <div><div class="badge">Top rated</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">Upvote share from accounts older than 24 hours that finished a session.</p></div>
+          <div><div class="badge">Up and coming</div><p style="color:var(--text-2);font-size:13px;line-height:1.55;margin-top:7px">Fastest growth over 7 days, capped so one spike cannot camp the board.</p></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Your library</h3><span class="pill">0 saved filters</span></div>
+        <ul class="list">
+          <li><span class="tick">✓</span><span>Favourites and play history drive your home shelf.</span></li>
+          <li><span class="tick">✓</span><span>Mute a category here and it stays muted everywhere.</span></li>
+          <li><span class="tick">✓</span><span>Nothing on this page can be bought into position.</span></li>
+        </ul>
+        <a class="btn btn-ghost btn-sm" href="index.html" style="margin-top:12px">Back home</a>
+      </div>
+    </section>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

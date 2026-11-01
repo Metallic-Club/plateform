@@ -7,20 +7,20 @@
   <meta name="description" content="Live server browser with published capacity limits, region fit and ping."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="assets/css/app.css"/>
 </head>
 <body data-page="servers">
-  <main class="main page">
+  <div class="wrap page">
     <div>
-      <h1 class="page-title">Server browser</h1>
-      <p class="page-sub">Capacity is not a mystery number here. Every row shows seats used against the hard limit, plus the ping you will actually get.</p>
+      <h1 class="page-title">Servers</h1>
+      <p class="page-sub">Every row shows seats used against the hard limit and the ping you will actually get. No guessing, no hidden queues.</p>
     </div>
 
     <section class="stats" id="server-stats"></section>
 
     <div class="filters">
-      <input class="field" id="server-q" type="search" placeholder="Search server or game" style="min-width:220px;flex:1;max-width:340px"/>
+      <input class="field" id="server-q" type="search" placeholder="Search server or experience" style="min-width:220px;flex:1;max-width:340px"/>
       <select class="field" id="server-region" aria-label="Region">
         <option value="ALL">All regions</option>
         <option value="US">North America</option>
@@ -30,12 +30,10 @@
     </div>
 
     <div class="panel">
-      <div class="panel-head"><h3>Live servers</h3><span class="pill">autoscaling on request</span></div>
+      <div class="panel-head"><h3>Live servers</h3><span class="pill">provisioned on request</span></div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr><th>Server</th><th>Game</th><th>Region</th><th>Ping</th><th>Capacity</th><th></th></tr>
-          </thead>
+          <thead><tr><th>Server</th><th>Experience</th><th>Region</th><th>Ping</th><th>Capacity</th><th></th></tr></thead>
           <tbody id="server-rows"></tbody>
         </table>
       </div>
@@ -43,25 +41,24 @@
 
     <section class="two-col">
       <div class="panel">
-        <div class="panel-head"><h3>Provisioning model</h3><span class="badge mint">Sandboxed</span></div>
+        <div class="panel-head"><h3>Provisioning model</h3><span class="badge green">Sandboxed</span></div>
         <ul class="list">
           <li><span class="tick">✓</span><span>Servers are created on request, not pre-bought in fixed packs.</span></li>
           <li><span class="tick">✓</span><span>Each sandbox has a hard CPU, memory and egress ceiling.</span></li>
           <li><span class="tick">✓</span><span>Replica count follows connected players, so idle worlds cost nothing.</span></li>
-          <li><span class="tick">✓</span><span>Ceilings are published per game before you join.</span></li>
+          <li><span class="tick">✓</span><span>Ceilings are published per experience before you join.</span></li>
         </ul>
       </div>
       <div class="panel">
         <div class="panel-head"><h3>Region fit</h3><span class="pill">measured, not guessed</span></div>
-        <p style="color:var(--muted);font-size:13px;line-height:1.7">
-          We sample your round-trip time to each region and pick the lowest, then show the runner-up so a bad route is obvious.
-          Queue estimates come from real seat turnover, not a marketing average.
+        <p style="color:var(--text-2);font-size:14px;line-height:1.6">
+          We sample round-trip time to each region, pick the lowest, and show the runner-up so a bad route is obvious.
         </p>
-        <div class="kv" style="margin-top:12px"><span>Recommended</span><b>US-East · 16ms</b></div>
+        <div class="kv" style="margin-top:10px"><span>Recommended</span><b>US-East · 16ms</b></div>
         <div class="kv"><span>Second best</span><b>US-South · 28ms</b></div>
       </div>
     </section>
-  </main>
+  </div>
 
   <script src="assets/js/data.js"></script>
   <script src="assets/js/app.js"></script>
