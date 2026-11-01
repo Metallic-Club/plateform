@@ -78,9 +78,25 @@
 
     document.body.insertAdjacentHTML('beforeend',
       '<footer class="footer"><div class="footer-inner">' +
-        '<div>© 2026 Metallic · concept with mock data. No accounts, payments or live servers.</div>' +
-        '<nav><a href="features.html">Feature scope</a><a href="safety.html">Safety</a>' +
-        '<a href="create.html">Creators</a><a href="docs.html">API docs</a></nav>' +
+        '<div class="footer-top">' +
+          '<a class="brand" href="index.html"><span class="brand-mark">M</span><span>Metallic</span></a>' +
+          '<div class="footer-cols">' +
+            '<div><h4>Play</h4><ul>' +
+              '<li><a href="index.html">Home</a></li>' +
+              '<li><a href="charts.html">Charts</a></li>' +
+              '<li><a href="servers.html">Servers</a></li>' +
+              '<li><a href="avatar.html">Avatar</a></li></ul></div>' +
+            '<div><h4>Create</h4><ul>' +
+              '<li><a href="create.html">Creator hub</a></li>' +
+              '<li><a href="docs.html">API docs</a></li>' +
+              '<li><a href="features.html">Feature scope</a></li></ul></div>' +
+            '<div><h4>Trust</h4><ul>' +
+              '<li><a href="safety.html">Safety</a></li>' +
+              '<li><a href="safety.html">Moderation</a></li>' +
+              '<li><a href="marketplace.html">Marketplace</a></li></ul></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="footer-legal">© 2026 Metallic · concept with mock data. No accounts, payments or live servers.</div>' +
       '</div></footer>');
 
     var q = el('q');
@@ -139,9 +155,10 @@
         (g.firstParty ? '<span class="badge blue flag">Metallic</span>' : '') +
         '<span class="players"><span class="dot"></span>' + short(g.players) + '</span>' +
         '<span class="glyph">' + initials(g.title) + '</span>' +
+        '<span class="veil">' + ico('play') + '</span>' +
       '</div>' +
       '<h3>' + g.title + '</h3>' +
-      '<div class="meta"><span class="rating">' + g.rating + '%</span><span>' + g.genre + '</span></div>' +
+      '<div class="meta"><span class="creator">' + g.creator + '</span><span class="sep">·</span><span>' + g.rating + '%</span></div>' +
     '</a>';
   }
 
@@ -169,6 +186,7 @@
   function renderHome() {
     var g = GAMES[0];
     el('hero').innerHTML =
+      '<div class="hero-art"><div class="art" style="--g:' + g.art + '"><span class="glyph">' + initials(g.title) + '</span></div></div>' +
       '<div class="hero-body">' +
         '<span class="hero-eyebrow">Featured experience</span>' +
         '<h1>' + g.title + '</h1>' +
@@ -180,10 +198,9 @@
         '</div>' +
         '<div class="row">' +
           '<button class="btn btn-play" data-play="' + g.title + '">' + ico('play') + 'Play</button>' +
-          '<a class="btn btn-ghost" href="game.html?id=' + g.id + '" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28);color:#fff">View details</a>' +
+          '<a class="btn btn-ghost" href="game.html?id=' + g.id + '" style="background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff">View details</a>' +
         '</div>' +
-      '</div>' +
-      '<div class="hero-art"><div class="art" style="--g:' + g.art + '"><span class="glyph">' + initials(g.title) + '</span></div></div>';
+      '</div>';
 
     el('shelf-continue').innerHTML = GAMES.slice(0, 6).map(card).join('');
     el('shelf-popular').innerHTML = GAMES.slice().sort(function (a, b) { return b.players - a.players; }).slice(0, 8).map(card).join('');
