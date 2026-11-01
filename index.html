@@ -327,6 +327,7 @@
 
         <div class="header-nav-wrap flex items-center justify-center gap-2 flex-1 max-w-[720px] min-w-0">
             <button type="button" class="header-tab header-tab-active" data-tab="discover">Home</button>
+            <button type="button" class="header-tab" data-tab="features">Features</button>
             <button type="button" class="header-tab" data-tab="social">Social</button>
             <button type="button" class="header-tab" data-tab="marketplace">Marketplace</button>
             <button type="button" class="header-tab" data-tab="servers">Servers</button>
@@ -356,6 +357,7 @@
                 <div class="pt-4">
                     <div class="side-section-label">Platform</div>
                     <button class="side-menu-item" data-tab="discover"><i class="fa-solid fa-house"></i><span>Overview</span></button>
+                    <button class="side-menu-item" data-tab="features"><i class="fa-solid fa-list-check"></i><span>Platform Features</span></button>
                     <button class="side-menu-item" data-tab="social"><i class="fa-solid fa-user-group"></i><span>Profiles & Friends</span></button>
                     <button class="side-menu-item" data-tab="marketplace"><i class="fa-solid fa-bag-shopping"></i><span>Marketplace</span></button>
                     <button class="side-menu-item" data-tab="servers"><i class="fa-solid fa-server"></i><span>Server Browser</span></button>
@@ -497,6 +499,176 @@
                                     <div class="mt-2 text-xs text-raven-subtext">High engagement sessions, social play, and rapid matchmaking fit</div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-features" class="tab-content hidden space-y-5">
+                    <div class="game-card p-5 flex flex-col md:flex-row md:items-end justify-between gap-4 relative overflow-hidden">
+                        <div class="feature-glow"></div>
+                        <div class="space-y-2 relative z-10">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-2.5 py-1 rounded-full bg-raven-highlight text-raven-bg text-[10px] font-black uppercase tracking-[0.18em]">Feature list</span>
+                                <span class="text-[10px] font-mono text-raven-darktext">owner message · 30 oct 2026</span>
+                            </div>
+                            <h2 class="text-2xl md:text-4xl font-extrabold text-white tracking-[-0.05em] leading-[0.95]">PLATFORM FEATURES</h2>
+                            <p class="text-xs text-raven-subtext max-w-2xl leading-relaxed">Everything below is taken from the owner's own list, grouped only for reading. This is scope, not final design: each area still needs its own design pass.</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap relative z-10 font-mono text-[10px]">
+                            <span class="status-badge">● 7 areas</span>
+                            <span class="px-2.5 py-1.5 rounded-full bg-raven-bg/70 border border-raven-border text-raven-subtext">44 items</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div class="game-card p-4 space-y-3">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-2 gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <i class="fa-solid fa-fingerprint text-raven-highlight text-xs"></i>
+                                    <h3 class="text-[11px] font-bold text-white uppercase tracking-[0.15em] font-mono truncate">Accounts & identity</h3>
+                                </div>
+                                <span class="text-[10px] text-raven-darktext font-mono">8</span>
+                            </div>
+                            <ul class="space-y-1.5 text-xs text-raven-subtext">
+                                <li>Secure login</li>
+                                <li>Profiles</li>
+                                <li>Editable bios</li>
+                                <li>Link Discord</li>
+                                <li>Link YouTube</li>
+                                <li>Link Twitch</li>
+                                <li>Link TikTok and more</li>
+                                <li>Friends</li>
+                            </ul>
+                        </div>
+
+                        <div class="game-card p-4 space-y-3">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-2 gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <i class="fa-solid fa-shield-halved text-emerald-400 text-xs"></i>
+                                    <h3 class="text-[11px] font-bold text-white uppercase tracking-[0.15em] font-mono truncate">Trust & safety</h3>
+                                </div>
+                                <span class="text-[10px] text-raven-darktext font-mono">6</span>
+                            </div>
+                            <ul class="space-y-1.5 text-xs text-raven-subtext">
+                                <li>Good moderation</li>
+                                <li>Unverified accounts auto-deleted one month after creation</li>
+                                <li>Detection of many accounts from the same IP address</li>
+                                <li>Name sniping is not allowed</li>
+                                <li>5 accounts allowed as alts</li>
+                                <li>A ban on one account bans all of that person's alts</li>
+                            </ul>
+                        </div>
+
+                        <div class="game-card p-4 space-y-3">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-2 gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <i class="fa-solid fa-gauge-high text-cyan-400 text-xs"></i>
+                                    <h3 class="text-[11px] font-bold text-white uppercase tracking-[0.15em] font-mono truncate">Scale</h3>
+                                </div>
+                                <span class="text-[10px] text-raven-darktext font-mono">2</span>
+                            </div>
+                            <ul class="space-y-1.5 text-xs text-raven-subtext">
+                                <li>Handle millions of users "just in case"</li>
+                                <li>Optimisation for scalability</li>
+                            </ul>
+                        </div>
+
+                        <div class="game-card p-4 space-y-3">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-2 gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <i class="fa-solid fa-compass text-raven-highlight text-xs"></i>
+                                    <h3 class="text-[11px] font-bold text-white uppercase tracking-[0.15em] font-mono truncate">Discovery & library</h3>
+                                </div>
+                                <span class="text-[10px] text-raven-darktext font-mono">8</span>
+                            </div>
+                            <ul class="space-y-1.5 text-xs text-raven-subtext">
+                                <li>Homepage showing featured games</li>
+                                <li>Featured games</li>
+                                <li>Explore with better, easier categories</li>
+                                <li>Better recommendations: similar genres, good matches</li>
+                                <li>Ratings</li>
+                                <li>Play history</li>
+                                <li>Favourites</li>
+                                <li>Our own first-party games</li>
+                            </ul>
+                        </div>
+
+                        <div class="game-card p-4 space-y-3">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-2 gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <i class="fa-solid fa-coins text-amber-400 text-xs"></i>
+                                    <h3 class="text-[11px] font-bold text-white uppercase tracking-[0.15em] font-mono truncate">Economy & marketplace</h3>
+                                </div>
+                                <span class="text-[10px] text-raven-darktext font-mono">7</span>
+                            </div>
+                            <ul class="space-y-1.5 text-xs text-raven-subtext">
+                                <li>Money</li>
+                                <li>In-game currency</li>
+                                <li>Ways to earn free currency</li>
+                                <li>Gifts: currency and accessories</li>
+                                <li>Marketplace</li>
+                                <li>Wardrobe</li>
+                                <li>Trading</li>
+                            </ul>
+                        </div>
+
+                        <div class="game-card p-4 space-y-3">
+                            <div class="flex items-center justify-between border-b border-raven-border pb-2 gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <i class="fa-solid fa-code text-violet-400 text-xs"></i>
+                                    <h3 class="text-[11px] font-bold text-white uppercase tracking-[0.15em] font-mono truncate">Developers & community</h3>
+                                </div>
+                                <span class="text-[10px] text-raven-darktext font-mono">5</span>
+                            </div>
+                            <ul class="space-y-1.5 text-xs text-raven-subtext">
+                                <li>Backend APIs</li>
+                                <li>API docs</li>
+                                <li>Themes</li>
+                                <li>Community / Discord</li>
+                                <li>Deeper Discord integration</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="game-card p-5 space-y-4">
+                        <div class="flex items-center justify-between border-b border-raven-border pb-3 gap-2 flex-wrap">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-server text-emerald-400 text-xs"></i>
+                                <h3 class="text-[11px] font-bold text-white uppercase tracking-[0.15em] font-mono">Games & servers</h3>
+                            </div>
+                            <span class="text-[10px] text-raven-darktext font-mono">8</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5 text-xs text-raven-subtext">
+                            <div>Game management for creators</div>
+                            <div>Server activity</div>
+                            <div>Live player counts</div>
+                            <div>In-game server browser</div>
+                            <div>Better server finding</div>
+                            <div>Servers set up on request</div>
+                            <div>Sandboxed server environments</div>
+                            <div>Resource usage scaled to a hard limit and connected players</div>
+                        </div>
+                        <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3 space-y-2">
+                            <div class="text-[10px] uppercase text-raven-subtext font-mono">Owner requirement · 31 oct 2026</div>
+                            <p class="text-sm text-white leading-relaxed">"Servers need to be able to be setup when requested and be sandboxed environments that scale resource usage based off a hard limit and how many player are connected."</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div class="game-card p-4 space-y-1">
+                            <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Status</div>
+                            <div class="text-sm font-bold text-white">Raw scope captured</div>
+                            <div class="text-xs text-raven-subtext">No item is in build yet; the design pass follows the Metallic Studio design.</div>
+                        </div>
+                        <div class="game-card p-4 space-y-1">
+                            <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Open questions</div>
+                            <div class="text-sm font-bold text-white">4 readings to confirm</div>
+                            <div class="text-xs text-raven-subtext">"ai address" = IP address · min vs max alts · what counts as verified · who owns currency naming.</div>
+                        </div>
+                        <div class="game-card p-4 space-y-1">
+                            <div class="text-[10px] uppercase tracking-[0.18em] text-raven-subtext font-mono">Source</div>
+                            <div class="text-sm font-bold text-white">docs/platform-feature-list.md</div>
+                            <div class="text-xs text-raven-subtext">Owner's message kept verbatim alongside these grouped views.</div>
                         </div>
                     </div>
                 </div>
@@ -702,7 +874,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3">
                                     <div class="text-xs text-raven-subtext font-mono uppercase">Auto-delete policy</div>
-                                    <div class="mt-2 text-sm text-white">Inactive accounts are removed after configurable grace periods with notifications and recovery windows.</div>
+                                    <div class="mt-2 text-sm text-white">An account that is not verified within one month of creation is removed, with notifications and a recovery window before deletion.</div>
                                 </div>
                                 <div class="rounded-2xl border border-raven-border bg-raven-bg/70 p-3">
                                     <div class="text-xs text-raven-subtext font-mono uppercase">Alt detection</div>
@@ -823,6 +995,14 @@
                 { label: 'Featured', icon: 'fa-star', tab: 'discover' },
                 { label: 'Server Hub', icon: 'fa-server', tab: 'servers' },
                 { label: 'Marketplace', icon: 'fa-bag-shopping', tab: 'marketplace' }
+            ],
+            features: [
+                { label: 'All features', icon: 'fa-list-check', tab: 'features' },
+                { label: 'Accounts & safety', icon: 'fa-shield-halved', tab: 'features' },
+                { label: 'Discovery', icon: 'fa-compass', tab: 'features' },
+                { label: 'Economy', icon: 'fa-wallet', tab: 'features' },
+                { label: 'Servers & scale', icon: 'fa-server', tab: 'features' },
+                { label: 'Home', icon: 'fa-house', tab: 'discover' }
             ],
             social: [
                 { label: 'Profiles', icon: 'fa-user', tab: 'social' },

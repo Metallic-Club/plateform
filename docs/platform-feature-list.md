@@ -1,4 +1,4 @@
-# Metallic Platform: owner's feature list (raw, 2026-10-30)
+# Metallic Platform: owner's feature list (raw, 2026-10-30, last addition 2026-10-31)
 
 Captured from the owner's message as written, grouped only for reading. Not a design yet: the platform gets its own
 design pass after the Metallic Studio design is approved. Lines marked "reading:" are guesses to confirm with the owner.
@@ -46,6 +46,10 @@ design pass after the Metallic Studio design is approved. Lines marked "reading:
 - Live player counts
 - In-game server browser
 - Better server finding
+- On-demand servers (owner, 2026-10-31): "Servers need to be able to be setup when requested and be sandboxed
+  environments that scale resource usage based off a hard limit and how many player are connected."
+  (reading: every requested server is an isolated sandbox with a hard resource ceiling that scales up and down with
+  connected player count; confirm what the hard limit is measured in)
 
 ## Community and integrations
 - Community / Discord
