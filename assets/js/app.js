@@ -29,7 +29,16 @@
     search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
     play: '<path d="M8 5l11 7-11 7z"/>',
     up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
-    down: '<path d="M12 5v14M6 13l6 6 6-6"/>'
+    down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+    home: '<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/>',
+    compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
+    bag: '<path d="M6 8h12l1.5 12H4.5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    server: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+    shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+    list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+    code: '<path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/>'
   };
 
   function ico(name) {
@@ -38,7 +47,6 @@
   }
 
   var NAV = [
-    { href: 'index.html', label: 'Home', page: 'home' },
     { href: 'charts.html', label: 'Charts', page: 'charts' },
     { href: 'marketplace.html', label: 'Marketplace', page: 'market' },
     { href: 'create.html', label: 'Create', page: 'create' },
@@ -46,11 +54,33 @@
     { href: 'servers.html', label: 'Servers', page: 'servers' }
   ];
 
+  var LEFT = [
+    { group: 'Browse' },
+    { href: 'index.html', label: 'Home', page: 'home', icon: 'home' },
+    { href: 'charts.html', label: 'Charts', page: 'charts', icon: 'compass' },
+    { href: 'marketplace.html', label: 'Marketplace', page: 'market', icon: 'bag' },
+    { group: 'You' },
+    { href: 'avatar.html', label: 'Avatar', page: 'avatar', icon: 'user' },
+    { href: 'servers.html', label: 'Servers', page: 'servers', icon: 'server' },
+    { group: 'Create' },
+    { href: 'create.html', label: 'Creator hub', page: 'create', icon: 'plus' },
+    { group: 'Platform' },
+    { href: 'safety.html', label: 'Safety', page: 'safety', icon: 'shield' },
+    { href: 'features.html', label: 'Feature scope', page: 'features', icon: 'list' },
+    { href: 'docs.html', label: 'API docs', page: 'docs', icon: 'code' }
+  ];
+
   /* ---------- shell ---------- */
   function shell() {
     var page = document.body.getAttribute('data-page');
     var nav = NAV.map(function (n) {
       return '<a href="' + n.href + '"' + (n.page === page ? ' class="active" aria-current="page"' : '') + '>' + n.label + '</a>';
+    }).join('');
+
+    var leftNav = LEFT.map(function (item) {
+      if (item.group) return '<div class="group">' + item.group + '</div>';
+      return '<a href="' + item.href + '"' + (item.page === page ? ' class="on" aria-current="page"' : '') + '>' +
+        ico(item.icon) + '<span>' + item.label + '</span></a>';
     }).join('');
 
     document.body.insertAdjacentHTML('afterbegin',
@@ -63,8 +93,8 @@
         '<div class="top-actions">' +
           '<span class="balance" title="Alloy balance"><span class="coin"></span><span id="balance-v">' + num(state.balance) + '</span></span>' +
           '<a class="avatar-chip" href="avatar.html" title="Your avatar">RD</a>' +
-        '</div>' +
-      '</div></header>' +
+        '</div>' +        '</div></header>' +
+      '<nav class="leftnav" aria-label="Sections">' + leftNav + '</nav>' +
       '<div id="toast" aria-live="polite"></div>' +
       '<div class="modal" id="play-modal" role="dialog" aria-modal="true" aria-labelledby="pm-title">' +
         '<div class="modal-card">' +
