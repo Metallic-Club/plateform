@@ -28,58 +28,81 @@
       <a class="btn btn-dark" href="safety.html">Change Password</a>
     </div>
 
-    <h1 class="page-title">Home</h1>
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Home</h1>
+        <p class="page-sub">Welcome back, RavenDev</p>
+      </div>
+      <span class="home-note">Your plans to play and explore</span>
+    </div>
 
     <section>
-      <div class="section-head"><h2>Friends (3)</h2><a class="link" href="profile.html">See All →</a></div>
+      <div class="section-head"><h2>Friends (3)</h2><a class="link" href="profile.html">See All &rsaquo;</a></div>
       <div class="friends">
-        <a class="friend" href="safety.html">
+        <a class="friend" href="profile.html">
           <div class="face add">+</div>
           <div class="name">Add Friends</div>
         </a>
-        <a class="friend" href="avatar.html">
+        <a class="friend" href="profile.html">
           <div class="face" style="--g:linear-gradient(140deg,#ffd23f,#f0a500)">H</div>
           <div class="name">heroX_x</div>
           <div class="status"><span class="on-dot"></span> Playing</div>
         </a>
-        <a class="friend" href="avatar.html">
+        <a class="friend" href="profile.html">
           <div class="face" style="--g:linear-gradient(140deg,#1f3b2d,#2f6b4f)">C</div>
           <div class="name">CRIMSONSL…</div>
           <div class="status"><span class="on-dot live"></span> Online</div>
         </a>
-        <a class="friend" href="avatar.html">
+        <a class="friend" href="profile.html">
           <div class="face" style="--g:linear-gradient(140deg,#8fd3f4,#2b7cd3)">O</div>
           <div class="name">00RIP_INDRA</div>
           <div class="status"><span class="on-dot"></span> In game</div>
         </a>
+        <a class="friend" href="profile.html">
+          <div class="face" style="--g:linear-gradient(140deg,#f472b6,#a21caf)">N</div>
+          <div class="name">NovaFox</div>
+          <div class="status"><span class="on-dot live"></span> Online</div>
+        </a>
       </div>
     </section>
 
-    <section>
-      <div class="section-head"><h2>Continue</h2><a class="link" href="library.html">See All</a></div>
+    <section data-shelf-block>
+      <div class="section-head"><h2>Continue</h2><a class="link" href="library.html">See All &rsaquo;</a></div>
       <div class="shelf" id="shelf-continue"></div>
     </section>
 
-    <section>
-      <div class="section-head"><h2>Popular Near You</h2><a class="link" href="charts.html">See All</a></div>
+    <section data-shelf-block>
+      <div class="section-head"><h2>Popular Right Now</h2><a class="link" href="charts.html">See All &rsaquo;</a></div>
       <div class="shelf" id="shelf-popular"></div>
     </section>
 
     <section>
       <div class="section-head">
-        <h2>Recommended for You</h2>
+        <h2>Recommended For You</h2>
         <span class="badge gray">ranked by genre and playtime</span>
       </div>
-      <div class="chips" id="home-genres" style="margin-bottom:14px"></div>
+      <div class="chips" id="home-genres" style="margin:10px 0 14px"></div>
       <div class="grid-cards" id="grid-recommended"></div>
     </section>
 
-    <section>
-      <div class="section-head"><h2>Top Rated</h2><span class="badge green">98% and up</span></div>
+    <section data-shelf-block>
+      <div class="section-head"><h2>Top Rated</h2><a class="link" href="charts.html">See All &rsaquo;</a></div>
       <div class="shelf" id="shelf-toprated"></div>
     </section>
 
+    <section data-shelf-block>
+      <div class="section-head"><h2>New &amp; Notable</h2><a class="link" href="explore.html">See All &rsaquo;</a></div>
+      <div class="shelf" id="shelf-new"></div>
+    </section>
+
+    <section class="panel" id="home-achievements"></section>
+
     <section class="stats" id="home-stats"></section>
+
+    <section data-shelf-block>
+      <div class="section-head"><h2>Because you played something</h2><a class="link" href="explore.html">Explore more &rsaquo;</a></div>
+      <div class="shelf" id="shelf-similar"></div>
+    </section>
 
     <section class="two-col">
       <div class="panel">
