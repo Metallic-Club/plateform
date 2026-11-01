@@ -8,7 +8,8 @@
   var DEFAULTS = {
     balance: 1450, equipped: {}, owned: {}, fav: {}, history: [], ratings: {}, claimed: {},
     gifts: [], trades: [], tx: [], bio: '', theme: 'ink', motion: 'full', socials: {},
-    friendsOn: {}, listings: [], friendsExtra: [], alts: 4, discord: false
+    friendsOn: {}, listings: [], friendsExtra: [], alts: 4, discord: false,
+    installed: {}, downloads: []
   };
   function loadState() {
     var out = {};
@@ -76,6 +77,8 @@
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     left: '<path d="M15 5l-7 7 7 7"/>',
     right: '<path d="M9 5l7 7-7 7"/>',
+    download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    pause: '<path d="M9 5v14M15 5v14"/>',
     bell: '<path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16z"/><path d="M10 21h4"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>',
     hex: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/>'
@@ -103,6 +106,7 @@
     { href: 'charts.html', label: 'Charts', page: 'charts', icon: 'list' },
     { href: 'marketplace.html', label: 'Marketplace', page: 'market', icon: 'bag' },
     { href: 'library.html', label: 'Library', page: 'library', icon: 'trophy' },
+    { href: 'downloads.html', label: 'Downloads', page: 'downloads', icon: 'download' },
     { href: 'wallet.html', label: 'Wallet', page: 'wallet', icon: 'wallet' },
     { href: 'avatar.html', label: 'Avatar', page: 'avatar', icon: 'user' },
     { href: 'profile.html', label: 'Profile', page: 'profile', icon: 'users' },
@@ -1079,7 +1083,7 @@
   window.MetallicUI = {
     state: state, save: save, toast: toast, card: card, gameById: gameById,
     num: num, short: short, ico: ico, el: el, $: $, $$: $$, setTheme: setTheme, arrows: shelfArrows,
-    games: GAMES, data: M, play: play
+    games: GAMES, data: M, play: play, poster: poster, left: LEFT
   };
 
   function init() {
