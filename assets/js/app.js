@@ -38,7 +38,8 @@
     server: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
     list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
-    code: '<path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/>'
+    code: '<path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/>',
+    bell: '<path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16z"/><path d="M10 21h4"/>'
   };
 
   function ico(name) {
@@ -50,8 +51,7 @@
     { href: 'charts.html', label: 'Charts', page: 'charts' },
     { href: 'marketplace.html', label: 'Marketplace', page: 'market' },
     { href: 'create.html', label: 'Create', page: 'create' },
-    { href: 'avatar.html', label: 'Avatar', page: 'avatar' },
-    { href: 'servers.html', label: 'Servers', page: 'servers' }
+    { href: 'marketplace.html', label: 'Alloy', page: 'alloy' }
   ];
 
   var LEFT = [
@@ -88,9 +88,10 @@
         '<a class="brand" href="index.html"><span class="brand-mark">M</span><span>Metallic</span></a>' +
         '<nav class="topnav" aria-label="Primary">' + nav + '</nav>' +
         '<form class="search" role="search" onsubmit="return false">' + ico('search') +
-          '<input id="q" type="search" placeholder="Search experiences, creators, items" aria-label="Search" autocomplete="off"/>' +
+          '<input id="q" type="search" placeholder="Search" aria-label="Search" autocomplete="off"/>' +
         '</form>' +
         '<div class="top-actions">' +
+          '<button class="icon-btn" type="button" data-notify title="Notifications" aria-label="Notifications">' + ico('bell') + '</button>' +
           '<span class="balance" title="Alloy balance"><span class="coin"></span><span id="balance-v">' + num(state.balance) + '</span></span>' +
           '<a class="avatar-chip" href="avatar.html" title="Your avatar">RD</a>' +
         '</div>' +        '</div></header>' +
@@ -124,6 +125,10 @@
               '<li><a href="safety.html">Safety</a></li>' +
               '<li><a href="safety.html">Moderation</a></li>' +
               '<li><a href="marketplace.html">Marketplace</a></li></ul></div>' +
+            '<div><h4>Support</h4><ul>' +
+              '<li><a href="docs.html">API docs</a></li>' +
+              '<li><a href="features.html">Feature scope</a></li>' +
+              '<li><a href="servers.html">Server status</a></li></ul></div>' +
           '</div>' +
         '</div>' +
         '<div class="footer-legal">© 2026 Metallic · concept with mock data. No accounts, payments or live servers.</div>' +
@@ -375,20 +380,46 @@
             '<div class="vote"><span class="vote-up">' + ico('up') + ' ' + num(likes) + '</span>' +
               '<span class="vote-down">' + num(dislikes) + ' ' + ico('down') + '</span></div>' +
           '</div>' +
-          '<div class="panel stack" style="margin-bottom:16px">' +
-            '<div class="panel-head"><h3>About this experience</h3><span class="badge gray">' + g.tags.length + ' tags</span></div>' +
-            '<p style="color:var(--text-2);font-size:14px;line-height:1.65">' + g.desc + '</p>' +
-            '<div class="chips">' + g.tags.map(function (t) { return '<span class="pill">' + t + '</span>'; }).join('') + '</div>' +
+          '<div class="tabs" data-dtabs>' +
+            '<button class="tab active" data-dtab="about">About</button>' +
+            '<button class="tab" data-dtab="servers">Servers</button>' +
+            '<button class="tab" data-dtab="recommended">Recommended</button>' +
+            '<button class="tab" data-dtab="reviews">Reviews</button>' +
           '</div>' +
-          '<div class="panel" style="margin-bottom:16px">' +
-            '<div class="panel-head"><h3>Servers</h3><span class="pill">' + g.maxPlayers + ' players max · hard limit</span></div>' +
+          '<div class="tab-panel on" data-dpanel="about">' +
+            '<p style="color:var(--text-2);font-size:14px;line-height:1.65">' + g.desc + '</p>' +
+            '<div class="chips" style="margin-top:10px">' + g.tags.map(function (t) { return '<span class="pill">' + t + '</span>'; }).join('') + '</div>' +
+            '<div class="divider" style="margin:14px 0"></div>' +
+            '<div class="two-col">' +
+              '<div>' +
+                '<div class="kv"><span>Active</span><b>' + num(g.players) + '</b></div>' +
+                '<div class="kv"><span>Visits</span><b>' + num(visits(g)) + '</b></div>' +
+                '<div class="kv"><span>Favourites</span><b>' + num(Math.round(g.rating * 214)) + '</b></div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="kv"><span>Max players</span><b>' + g.maxPlayers + '</b></div>' +
+                '<div class="kv"><span>Genre</span><b>' + g.genre + '</b></div>' +
+                '<div class="kv"><span>Created</span><b>2026</b></div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="tab-panel" data-dpanel="servers">' +
             (servers.length
               ? '<div class="table-wrap"><table class="servers-table"><thead><tr><th>Server</th><th>Experience</th><th>Region</th><th>Ping</th><th>Capacity</th><th></th></tr></thead>' +
                 '<tbody>' + servers.map(serverRow).join('') + '</tbody></table></div>'
               : '<div class="empty">No public servers right now. Join to spin one up.</div>') +
           '</div>' +
-          '<div class="section-head"><h2>Recommended</h2><a class="link" href="charts.html?genre=' + encodeURIComponent(g.genre) + '">More ' + g.genre + '</a></div>' +
-          '<div class="shelf">' + similar.map(card).join('') + '</div>' +
+          '<div class="tab-panel" data-dpanel="recommended"><div class="shelf">' + similar.map(card).join('') + '</div></div>' +
+          '<div class="tab-panel" data-dpanel="reviews">' +
+            [['NovaFox', 5, 'Movement feels sharp and the server never dropped under load.'],
+             ['PixelHarbor', 4, 'Ranked ladder is honest about its numbers, which is rare.'],
+             ['HexWave', 5, 'Capacity was exactly what the page said. Joined in seconds.']].map(function (r) {
+              return '<div class="panel" style="margin-bottom:10px">' +
+                '<div class="row" style="justify-content:space-between"><strong style="font-size:13.5px">' + r[0] + '</strong>' +
+                '<span class="badge green">' + r[1] + '/5</span></div>' +
+                '<p style="color:var(--text-2);font-size:13.5px;margin-top:6px">' + r[2] + '</p></div>';
+            }).join('') +
+          '</div>' +
         '</div>' +
         '<aside class="side-card">' +
           '<div class="panel stack">' +
@@ -416,6 +447,19 @@
           '</div>' +
         '</aside>' +
       '</div>';
+
+    var tabsHost = host.querySelector('[data-dtabs]');
+    if (tabsHost) {
+      tabsHost.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-dtab]');
+        if (!btn) return;
+        var name = btn.getAttribute('data-dtab');
+        $$('.tab', tabsHost).forEach(function (b) { b.classList.toggle('active', b === btn); });
+        $$('[data-dpanel]', host).forEach(function (p) {
+          p.classList.toggle('on', p.getAttribute('data-dpanel') === name);
+        });
+      });
+    }
   }
 
   /* ---------- avatar ---------- */
