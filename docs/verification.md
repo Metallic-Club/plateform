@@ -4,7 +4,7 @@ Reviewed November 1, 2026. The supplied Metallic reference remains the basis of 
 
 ## Automated verification
 
-`npm test` covers 37 checks:
+`npm test` covers 43 checks:
 
 - Standalone SVG XML casing and internal paint references.
 - Global games/people/groups search, including custom groups, own profile, deduplication, and empty queries.
@@ -19,13 +19,13 @@ Reviewed November 1, 2026. The supplied Metallic reference remains the basis of 
 - Bookmarkable filters and tabs, invalid query values, and special characters in searches.
 - Preview HTTP asset delivery, HEAD handling, unsupported methods, and exclusion of repository/configuration files.
 
-The November 1 additions are covered by `tests/features.test.mjs`: play history ordering and bounds, the once-a-day Alloy claim, gift rules (friends only, amount bounds, funded balance, five gifts per friend a day), the closed theme list, and normalization of the new saved fields.
+The November 1 additions are covered by `tests/features.test.mjs` and `tests/trade.test.mjs`: play history ordering and bounds, the once-a-day Alloy claim, gift rules for Alloy and accessories, trade proposals and their cap, accept and decline paths, weekly quest progress and payouts, the closed theme list, first-party flags, and normalization of every new saved field.
 
 The production build and JavaScript syntax checks also pass. GitHub Actions runs the tests and builds the static output on every push and pull request.
 
 ## Not yet reviewed in a browser
 
-Play history, the daily claim, the gift dialog, the theme picker with its three palettes, the profile links fields, and the `/docs` and `/safety` pages were added after the browser review above. They have automated coverage and a clean build, but no browser pass yet.
+Play history, the daily claim, the gift dialog, the theme picker with its three palettes, the profile links fields, trading, the weekly quest panel, the community page, report and block, and the `/docs` and `/safety` pages were added after the browser review above. They have automated coverage and a clean build, but no browser pass yet.
 
 ## Browser review
 

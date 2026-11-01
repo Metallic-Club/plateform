@@ -20,6 +20,8 @@ export const defaults = {
   updateNotifications: true, friendPolicy: 'Everyone',
   previewAlloy: DEFAULT_ALLOY, reservedServers: [], myGroups: [], groupMemberships: [], groupRequests: [], joinPolicy: 'Friends',
   playHistory: [], lastDailyClaim: '', gifts: [], theme: 'charcoal', links: { discord: '', youtube: '', twitch: '', tiktok: '' },
+  tradeOffers: [{ id: 'trade-in-1', direction: 'in', counterpart: 'LunaBlocks', alloy: 75, item: 'signal-cap', status: 'pending', at: 1767225600000 }],
+  claimedQuests: {}, blocked: [], reports: 0,
 };
 const username = value => typeof value === 'string' && /^[A-Za-z0-9_]{3,20}$/.test(value);
 const gameIds = new Set(games.map(game => game.id));
@@ -77,10 +79,23 @@ export function loadState(storage) {
       for (const key of ['discord', 'youtube', 'twitch', 'tiktok']) if (typeof data.links[key] === 'string') state.links[key] = data.links[key].trim().slice(0, 80);
     }
     if (Array.isArray(data.gifts)) {
-      state.gifts = data.gifts.filter(gift => gift && /^[\w-]{1,40}$/.test(String(gift.id)) && username(gift.to)
-        && Number.isSafeInteger(gift.amount) && gift.amount > 0 && gift.amount <= 500 && Number.isFinite(gift.at))
-        .slice(-50).map(gift => ({ id: String(gift.id), to: gift.to, amount: gift.amount, at: gift.at }));
+      state.gifts = data.gifts.filter(gift => gift && /^[\w-]{1,40}$/.test(String(gift.id)) && username(gift.to) && Number.isSafeInteger(gift.amount) && gift.amount >= 0 && gift.amount <= 500 && (gift.amount > 0 || /^[\w-]{1,64}$/.test(String(gift.item || ''))) && Number.isFinite(gift.at))
+        .slice(-50).map(gift => ({ id: String(gift.id), to: gift.to, amount: gift.amount, at: gift.at, ...(gift.amount ? {} : { item: String(gift.item) }) }));
     }
+    if (Array.isArray(data.tradeOffers)) {
+      state.tradeOffers = data.tradeOffers.filter(offer => offer && /^[\w-]{1,40}$/.test(String(offer.id)) && username(offer.counterpart)
+        && ['in', 'out'].includes(offer.direction) && ['pending', 'accepted', 'cancelled'].includes(offer.status)
+        && Number.isSafeInteger(offer.alloy) && offer.alloy >= 0 && offer.alloy <= 1000000
+        && (!offer.item || /^[\w-]{1,64}$/.test(String(offer.item))) && Number.isFinite(offer.at))
+        .slice(0, 30).map(offer => ({ id: String(offer.id), direction: offer.direction, counterpart: offer.counterpart, alloy: offer.alloy, item: offer.item && /^[\w-]{1,64}$/.test(String(offer.item)) ? String(offer.item) : '', status: offer.status, at: offer.at }));
+    }
+    if (data.claimedQuests && typeof data.claimedQuests === 'object' && !Array.isArray(data.claimedQuests)) {
+      const questIds = ['play-three', 'two-genres', 'save-one'];
+      state.claimedQuests = Object.fromEntries(Object.entries(data.claimedQuests).filter(([key, value]) => /^\d{4}-W\d{2}$/.test(key) && Array.isArray(value))
+        .map(([key, value]) => [key, [...new Set(value.filter(id => questIds.includes(id)))]]) );
+    }
+    if (Array.isArray(data.blocked)) state.blocked = unique(data.blocked, username, 100).filter(name => name !== state.profile.name);
+    if (Number.isSafeInteger(data.reports) && data.reports >= 0 && data.reports <= 1000) state.reports = data.reports;
     normalizeSocialState(data, state);
   } catch { /* Unavailable or corrupt storage uses safe defaults. */ }
   return state;
@@ -98,7 +113,7 @@ export function filterGames(games, query = '', category = 'All', sort = 'recomme
 }
 // Preview transitions model requests without contacting real users.
 export function updateFriendship(state, action, name) {
-  if (!username(name) || name === state.profile.name) return false;
+  if (!username(name) || name === state.profile.name || state.blocked.includes(name)) return false;
   if (action === 'send' && ![...state.friends, ...state.requests, ...state.outgoing].includes(name)) state.outgoing.push(name);
   else if (action === 'accept' && state.requests.includes(name)) {
     state.requests = state.requests.filter(n => n !== name);

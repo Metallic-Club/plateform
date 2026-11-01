@@ -1,5 +1,8 @@
 // Sample content and client-side discovery for the platform preview.
 export const genres = ['Action', 'Adventure', 'Roleplay', 'Obby', 'Simulation', 'Racing'];
+// Titles the platform itself ships; they get a studio badge and their own shelf.
+export const firstPartyGames = ['1', '5', '11', '13'];
+export const isFirstParty = id => firstPartyGames.includes(String(id));
 export const cosmeticSlots = ['Hats', 'Shirts', 'Pants', 'Shoes', 'Shoulders', 'Back', 'Neck', 'Face', 'Waist'];
 export const creatorTypes = { games: 'Games', models: 'Models & meshes', audio: 'Audio & music', plugins: 'Plugins', cosmetics: 'Cosmetics' };
 export const settingsSections = {
@@ -8,6 +11,7 @@ export const settingsSections = {
   notifications: ['Notifications', 'Choose what appears in your notification inbox.'],
   discovery: ['Game preferences', 'Help Metallic find games you’ll enjoy.'],
   appearance: ['Themes', 'Choose how Metallic looks on this device.'],
+  community: ['Community', 'Connect the places where you already talk to players.'],
   security: ['Security', 'Manage account access when live accounts launch.'],
   data: ['Preview data', 'Manage the data saved in this browser.'],
 };

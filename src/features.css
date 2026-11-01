@@ -78,3 +78,46 @@
 .profile-header-action{display:flex;gap:8px;flex-wrap:wrap}
 
 @media(max-width:820px){.history-list,.doc-grid,.policy-grid,.theme-grid{grid-template-columns:1fr}.daily-strip{gap:12px}}
+
+.studio-flag{position:absolute;left:8px;bottom:8px;font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--text);background:#151619d9;border:1px solid var(--border);border-radius:5px;padding:3px 6px}
+.earn-panel{margin:26px 0 0}
+.quest-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.quest-card{display:flex;flex-direction:column;gap:9px;border:1px solid var(--border);background:var(--surface);border-radius:11px;padding:16px}
+.quest-card.ready{border-color:var(--green)}
+.quest-top{display:flex;align-items:flex-start;justify-content:space-between;gap:9px}
+.quest-top strong{font-size:13px;line-height:1.45}
+.quest-reward{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:750;color:var(--accent);flex:none}
+.quest-card p{margin:0;font-size:12px;line-height:1.6;color:var(--muted);flex:1}
+.quest-foot{display:flex;align-items:center;justify-content:space-between;gap:9px;font-size:11px;color:var(--subtle)}
+.trade-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.trade-column h2{font-size:16px}
+.trade-list{list-style:none;display:grid;gap:9px;margin:14px 0 0;padding:0}
+.trade-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--border);background:var(--bg-alt);border-radius:10px;padding:11px 13px}
+.trade-person{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.trade-person .avatar{width:36px;height:36px}
+.trade-person strong{display:block;font-size:13px}
+.trade-person small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.trade-give{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text)}
+.trade-give span{display:inline-flex;align-items:center;gap:5px}
+.trade-actions{display:flex;gap:7px}
+.trade-start{margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.trade-start h3{font-size:13px}
+.trade-start p{margin:7px 0 11px;font-size:12px}
+.trade-friends{display:flex;flex-wrap:wrap;gap:7px}
+.trade-form,.report-form{display:grid;gap:9px;margin-top:12px}
+.report-reasons{border:0;padding:0;margin:0;display:grid;gap:8px}
+.report-reasons legend{font-size:12px;font-weight:750;margin-bottom:4px}
+.discord-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;border:1px solid var(--border);background:var(--surface);border-radius:14px;padding:26px}
+.discord-copy h2{font-size:24px;margin-bottom:10px}
+.discord-copy p{font-size:13px;line-height:1.7;color:var(--muted);max-width:52ch;margin-bottom:16px}
+.discord-channels{border-left:1px solid var(--border);padding-left:24px}
+.channel-list{list-style:none;display:grid;gap:10px;margin:10px 0 0;padding:0}
+.channel-row{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:10px}
+.channel-hash{color:var(--subtle);font-weight:700}
+.channel-row strong{display:block;font-size:13px}
+.channel-row small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.channel-state{font-size:10px;color:var(--subtle);text-transform:uppercase;letter-spacing:.6px}
+.community-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0}
+.community-grid h2{font-size:16px;margin-bottom:14px}
+
+@media(max-width:820px){.quest-grid,.trade-layout,.community-grid,.discord-card{grid-template-columns:1fr}.discord-channels{border-left:0;padding-left:0;border-top:1px solid var(--border);padding-top:20px}}

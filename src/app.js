@@ -5,10 +5,12 @@ import { loadState, saveState, filterGames, updateFriendship, outfits, accessori
 import { readRoute, routeWithParams, categories, friendTabs } from './router.js';
 import { portrait, community, personInfo } from './avatar.js';
 import { SERVER_PRICE, groupRole, groupsForProfile, friendActivity, groupCategories, getGroups, findGroup, groupMembers, ownerForGame, friendsPlaying, friendSessions, sampleServers, serverAccess, friendJoinAccess, createServerPreview, reservedServerCards, updateGroupMembership } from './social.js';
-import { genres, cosmeticSlots, creatorTypes, settingsSections, gameDetails, recommendGames, recommendationGenres, discoverGames, connections, mutualFriends, sampleFavorites, badges, marketplaceAssets, assetMatches } from './platform.js';
+import { genres, cosmeticSlots, creatorTypes, settingsSections, gameDetails, recommendGames, recommendationGenres, discoverGames, connections, mutualFriends, sampleFavorites, badges, marketplaceAssets, assetMatches, firstPartyGames, isFirstParty } from './platform.js';
 import { themes, applyTheme, isTheme } from './theme.js';
 import { recordPlay } from './play.js';
-import { DAILY_REWARD, canClaimDaily, claimDaily, sendGift } from './economy.js';
+import { DAILY_REWARD, canClaimDaily, claimDaily, sendGift, giftItem } from './economy.js';
+import { proposeTrade, acceptTrade, cancelTrade, pendingTrades } from './trade.js';
+import { QUESTS, claimQuest, questProgress, weekKey } from './quests.js';
 
 let storage;
 try { storage = window.localStorage; } catch { storage = { getItem: () => null, setItem: () => { throw Error('Unavailable'); } }; }
@@ -49,6 +51,8 @@ const icons = {
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   docs: '<path d="M6 3h9l4 4v14H6zM15 3v4h4M9 12h6M9 16h6"/>',
   safety: '<path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  community: '<circle cx="9" cy="8" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M16 5a3 3 0 0 1 0 6M21 21v-2a5 5 0 0 0-3-4"/>',
+  trade: '<path d="M4 8h13l-4-4M20 16H7l4 4"/>',
 };
 function icon(name, size = 20) { return `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.explore}</svg>`; }
 function presenceDot(name) {
@@ -69,7 +73,7 @@ const empty = (title, text, action = '') => `<div class="empty-state">${icon('ex
 function card(game) {
   return `<a class="game-card" href="#/game/${game.id}" aria-label="${esc(game.title)}">
     <span class="game-art"><img class="poster-art" src="${game.art}" alt="" loading="lazy" width="240" height="240">
-      <span class="game-genre">${game.genre}</span><span class="game-play">${icon('play', 18)}</span>
+      <span class="game-genre">${game.genre}</span>${isFirstParty(game.id)?'<span class="studio-flag">Metallic</span>':''}<span class="game-play">${icon('play', 18)}</span>
       ${state.favorites.includes(game.id) ? `<span class="saved-marker" title="Saved to favorites">${icon('heart',13)}</span>` : ''}
     </span><span class="game-title">${esc(game.title)}</span>
     <span class="game-stats"><span class="stat-rating" aria-label="${game.rating} percent liked">${icon('thumbs',13)} ${game.rating}%</span><span aria-label="${esc(game.playing)} playing">${icon('profile',13)} ${esc(game.playing)}</span></span>
@@ -91,7 +95,7 @@ function shell(content, publicPage = false) {
     ${!publicPage?`<form class="top-search" id="search-form" role="search">${icon('search',18)}<input id="site-search" name="q" type="search" placeholder="Search games, people, groups" aria-label="Search games, people, and groups" value="${esc(route==='search'?params.get('q')||'':'')}" autocomplete="off" aria-controls="search-suggestions" aria-expanded="false"><button class="search-submit" type="submit" aria-label="Search">${icon('arrow',16)}</button><div id="search-suggestions" hidden aria-label="Search suggestions"></div></form>
     <div class="top-actions">${button('notifications',icon('bell')+(unread?'<span class="notification-dot"></span>':''),'plain-icon','id="notification-toggle" aria-label="Notifications" aria-controls="notification-popover" aria-expanded="false"')}<a href="#/alloy" class="wallet" title="Preview Alloy balance">${icon('alloy',19)}<span>${state.previewAlloy.toLocaleString()}</span></a><a href="#/profile" class="top-profile" aria-label="View your profile">${avatar()}<span class="username">${esc(state.profile.name)}</span></a></div>`:`<div class="top-actions">${link('login','Log in','button quiet')}${link('signup','Sign up','button primary')}</div>`}</header>
     ${!publicPage?`<section id="notification-popover" class="notification-popover" role="region" aria-label="Notification inbox" hidden></section><button class="mobile-backdrop" data-action="menu" aria-label="Close navigation"></button>
-    <aside class="sidebar" id="sidebar"><span class="side-section-label">COMMUNITY</span><nav class="nav-group" aria-label="Community navigation">${navItem('friends','Friends')}${navItem('groups','Groups')}${navItem('create','Create')}</nav><span class="side-section-label">YOUR ACCOUNT</span><nav class="nav-group" aria-label="Account navigation">${navItem('alloy','Buy Alloy')}${navItem('settings','Settings')}</nav><span class="side-section-label">METALLIC</span><nav class="nav-group" aria-label="Platform tools">${navItem('download','Download')}${navItem('docs','API docs')}${navItem('safety','Safety')}</nav><div class="sidebar-bottom"><div class="premium-box"><div class="premium-title">${icon('download',17)} Your next adventure</div><p>Get the latest on the Metallic launcher.</p>${link('download','Launcher availability','premium-link')}</div><a class="sidebar-about" href="#/">About Metallic ${icon('arrow',14)}</a></div></aside>`:''}
+    <aside class="sidebar" id="sidebar"><span class="side-section-label">COMMUNITY</span><nav class="nav-group" aria-label="Community navigation">${navItem('friends','Friends')}${navItem('groups','Groups')}${navItem('community','Community')}${navItem('create','Create')}</nav><span class="side-section-label">YOUR ACCOUNT</span><nav class="nav-group" aria-label="Account navigation">${navItem('trades','Trading')}${navItem('alloy','Buy Alloy')}${navItem('settings','Settings')}</nav><span class="side-section-label">METALLIC</span><nav class="nav-group" aria-label="Platform tools">${navItem('download','Download')}${navItem('docs','API docs')}${navItem('safety','Safety')}</nav><div class="sidebar-bottom"><div class="premium-box"><div class="premium-title">${icon('download',17)} Your next adventure</div><p>Get the latest on the Metallic launcher.</p>${link('download','Launcher availability','premium-link')}</div><a class="sidebar-about" href="#/">About Metallic ${icon('arrow',14)}</a></div></aside>`:''}
     <main id="main" tabindex="-1" class="${publicPage?'public-page':'page'}"><div class="${publicPage?'public-content':'content'}">${content}<footer class="footer"><span>© ${new Date().getFullYear()} Metallic <span class="demo-label">Platform preview · Sample content</span></span><div class="footer-links">${link('','About','')}${link('download','Download','')}${link('marketplace','Marketplace','')}${link('settings','Settings','')}</div></footer></div></main>`;
 }
 function landing() {
@@ -113,6 +117,7 @@ function home() {
     ${favorites.length ? shelf('Favorite games','Always worth coming back to',favorites,'favorites','profile') : ''}
     <section class="home-section"><div class="section-top"><div><h2>Recommended for you</h2><p class="section-sub">A new favorite is just around the corner</p></div>${link('explore','See all '+icon('arrow',15),'view-all')}</div>
     ${filters()}<div class="game-grid" id="game-results">${filterGames(recommendGames(games,state),'',category).slice(0,12).map(card).join('')}</div></section>
+    ${shelf('From Metallic Studio','Built in-house and free to play',games.filter(game=>isFirstParty(game.id)),'studio','explore')}
     ${shelf('Popular right now','Find out what everyone is exploring',filterGames(games,'','All','players').slice(0,8),'popular','explore?sort=players')}
     ${shelf('Top rated','Community favorites',filterGames(games,'','All','rating').slice(0,8),'top-rated','explore?sort=rating')}`;
 }
@@ -196,7 +201,7 @@ function create() {
     <p class="fine-print">Local planning drafts. Asset uploads, Studio editing, marketplace publication, and sales will connect when creator services launch.</p>`;
 }
 const packs = [{amount:400,price:'$4.99'},{amount:800,price:'$9.99'},{amount:1700,price:'$19.99'},{amount:4500,price:'$49.99'}];
-function alloy() { return `${pageHead('Buy Alloy','More ways to make Metallic your own.')}<section class="alloy-intro"><div class="alloy-coin">${icon('alloy',72)}</div><div><span class="eyebrow">MAKE MORE OF METALLIC</span><h2>Put your own spin on play.</h2><p>Personalize your avatar and discover more ways to express yourself.</p></div><div class="balance"><span>Preview balance</span><strong>${icon('alloy',24)} ${state.previewAlloy.toLocaleString()}</strong></div></section><div class="notice"><span>${icon('alloy')}<span><strong>Store preview</strong><small>Illustrative packs and prices. Purchases are not available and no payment is collected.</small></span></span></div><div class="alloy-packs">${packs.map((p,i)=>`<article class="alloy-pack ${i===2?'featured':''}">${i===2?'<span class="pack-ribbon">A little extra possibility</span>':''}${icon('alloy',44)}<h2>${p.amount.toLocaleString()}</h2><p>Alloy</p><strong class="pack-price">${p.price} <small>USD</small></strong>${button('review-pack','Preview pack','button '+(i===2?'primary':''),`data-index="${i}"`)}</article>`).join('')}</div><section class="faq"><h2>Good to know</h2><details><summary>What is Alloy?</summary><p>Alloy is the planned virtual currency for Metallic, designed for avatar items and in-game content.</p></details><details><summary>Can I buy Alloy now?</summary><p>Not yet. This is a store preview. Payment processing, final pricing, and purchase terms will be added before the store launches.</p></details><details><summary>Will my preview balance be saved?</summary><p>The displayed ${state.previewAlloy.toLocaleString()} Alloy is sample content. It is not a real wallet or a transferable balance.</p></details></section>`; }
+function alloy() { return `${pageHead('Buy Alloy','More ways to make Metallic your own.')}<section class="alloy-intro"><div class="alloy-coin">${icon('alloy',72)}</div><div><span class="eyebrow">MAKE MORE OF METALLIC</span><h2>Put your own spin on play.</h2><p>Personalize your avatar and discover more ways to express yourself.</p></div><div class="balance"><span>Preview balance</span><strong>${icon('alloy',24)} ${state.previewAlloy.toLocaleString()}</strong></div></section><div class="notice"><span>${icon('alloy')}<span><strong>Store preview</strong><small>Illustrative packs and prices. Purchases are not available and no payment is collected.</small></span></span></div>${earnPanel()}<div class="alloy-packs">${packs.map((p,i)=>`<article class="alloy-pack ${i===2?'featured':''}">${i===2?'<span class="pack-ribbon">A little extra possibility</span>':''}${icon('alloy',44)}<h2>${p.amount.toLocaleString()}</h2><p>Alloy</p><strong class="pack-price">${p.price} <small>USD</small></strong>${button('review-pack','Preview pack','button '+(i===2?'primary':''),`data-index="${i}"`)}</article>`).join('')}</div><section class="faq"><h2>Good to know</h2><details><summary>What is Alloy?</summary><p>Alloy is the planned virtual currency for Metallic, designed for avatar items and in-game content.</p></details><details><summary>Can I buy Alloy now?</summary><p>Not yet. This is a store preview. Payment processing, final pricing, and purchase terms will be added before the store launches.</p></details><details><summary>Will my preview balance be saved?</summary><p>The displayed ${state.previewAlloy.toLocaleString()} Alloy is sample content. It is not a real wallet or a transferable balance.</p></details></section>`; }
 function profile() {
   const requested=params.get('user'), own=!requested||requested===state.profile.name;
   const person=own?null:community.find(p=>p.name===requested)||(state.friends.includes(requested)?personInfo(requested):null);
@@ -207,7 +212,7 @@ function profile() {
   const friendAction=state.friends.includes(name)?button('remove-friend','Friends '+icon('check',16),'button',`data-name="${esc(name)}"`):state.requests.includes(name)?button('accept-friend','Accept request','button primary',`data-name="${esc(name)}"`):state.outgoing.includes(name)?button('cancel-friend','Cancel request','button',`data-name="${esc(name)}"`):button('add-friend','Add friend','button primary',`data-name="${esc(name)}"`);
   return `<section class="profile-cover"><div class="cover-mark">M</div><span class="eyebrow">${own?'YOUR CORNER OF METALLIC':'PLAYER PROFILE'}</span></section>
     <section class="profile-header">${own?avatar(0,'profile-avatar'):referenceAvatar(person.avatar,'profile-avatar')}<div><h1>${esc(name)}</h1><p>@${esc(name)} ${own?(state.activity?'<span class="profile-online">● Online in preview</span>':''):`<span class="profile-online">${person.activity}</span>`}</p>
-    ${!own?`<a class="mutual-summary" href="#/profile?user=${encodeURIComponent(name)}&friends=mutual"><span>${mutual.length} mutual friend${mutual.length===1?'':'s'}</span></a>`:''}</div><div class="profile-header-action">${own?link('settings?section=account','Edit profile','button'):friendAction}${!own&&state.friends.includes(name)?button('gift','Gift Alloy','button small'):''}</div></section>
+    ${!own?`<a class="mutual-summary" href="#/profile?user=${encodeURIComponent(name)}&friends=mutual"><span>${mutual.length} mutual friend${mutual.length===1?'':'s'}</span></a>`:''}</div><div class="profile-header-action">${own?link('settings?section=account','Edit profile','button'):friendAction}${!own&&state.friends.includes(name)?button('gift','Send gift','button small'):''}${!own?button('block',state.blocked.includes(name)?'Unblock':'Block','button small'):''}${!own?button('report','Report','text-button'):''}</div></section>
     <div class="account-profile-layout"><div class="profile-main-column">
     ${profileFriends(friends,own,mutual,params.get('friends')==='mutual')}
     <section class="profile-section"><div class="section-top"><h2>Favorite games <span class="muted">(${favorites.length})</span></h2>${own?link('explore','Find more →','view-all'):''}</div>${favorites.length?`<div class="game-grid profile-games">${favorites.map(card).join('')}</div>`:'<div class="inline-empty">No favorite games yet.'+(own?' '+link('explore','Find your next favorite →','text-link'):'')+'</div>'}</section>
@@ -229,6 +234,7 @@ function settings() {
   if(section==='notifications')content=settingsForm(section,`<label class="toggle-row"><span><strong>Friend requests</strong><small>See incoming friend requests in your inbox.</small></span><input name="notifications" type="checkbox" role="switch" ${state.notifications?'checked':''}></label><label class="toggle-row"><span><strong>Platform updates</strong><small>See welcome messages and platform announcements.</small></span><input name="updates" type="checkbox" role="switch" ${state.updateNotifications?'checked':''}></label><div class="settings-info">${icon('bell',20)}<p>Notifications open from the bell in the top right. These preferences control your preview inbox.</p></div>`);
   if(section==='discovery')content=settingsForm(section,`<fieldset class="genre-preferences"><legend>What do you like to play?</legend><p>Pick a few genres. Your favorites also help shape your recommendations.</p><div>${genres.map(genre=>`<label><input name="genres" type="checkbox" value="${genre}" ${state.preferredGenres.includes(genre)?'checked':''}><span>${genre}</span></label>`).join('')}</div></fieldset><div class="settings-info">${icon('explore',20)}<p>${state.hiddenGames.length} hidden games. Hidden games stay out of your recommendations.</p></div>${state.hiddenGames.length?button('reset-hidden','Restore hidden games','button small'):''}`);
   if(section==='appearance')content=settingsForm('appearance',themeSettings());
+  if(section==='community')content=settingsForm('community',`<label for="setting-discord">Discord username</label><input id="setting-discord" name="discord" maxlength="80" value="${esc(state.links.discord)}" placeholder="name or name#0000"><small class="field-hint">Linking carries your username, avatar, and roles between the site and the community server.</small><div class="settings-info">${icon('community',20)}<p>${state.links.discord?'Linked as '+esc(state.links.discord)+'. Channel roles follow this account.':'No Discord account linked yet. You can still browse the community page.'}</p></div>${link('community','Open the community page','text-link')}`);
   if(section==='security')content=`<section class="panel security-section"><h2>Security</h2><p class="settings-description">Your account access, in one place.</p><div class="security-row"><span>${icon('settings',22)}<span><strong>Password</strong><small>Live account authentication is not connected.</small></span></span><button class="button small" disabled>Change password</button></div><div class="security-row"><span>${icon('check',22)}<span><strong>Two-step verification</strong><small>Available when live accounts launch.</small></span></span><span class="tag">Coming later</span></div><div class="security-row"><span>${icon('profile',22)}<span><strong>Active sessions</strong><small>This preview does not create an authenticated session.</small></span></span></div></section>`;
   if(section==='data')content=`<section class="panel"><h2>Preview data</h2><p class="settings-description">Your preview stays in this browser.</p><div class="data-summary"><div><strong>${state.favorites.length}</strong><span>Favorite games</span></div><div><strong>${state.projects.length+state.creatorAssets.length}</strong><span>Creator drafts</span></div><div><strong>${state.friends.length}</strong><span>Friends</span></div></div><p class="muted small-text">Profile details, game preferences, saved looks, and drafts are stored locally. Emails and passwords are never stored.</p><div class="reset-panel"><div><h3>Reset preview</h3><p class="muted">Restore the sample data and remove your local changes.</p></div>${button('reset-demo','Reset preview','button danger')}</div></section>`;
   return `${pageHead('Settings','Your account. Your preferences.')}<div class="settings-layout"><nav class="settings-nav" aria-label="Settings sections">${Object.entries(settingsSections).map(([id,[label]])=>`<a href="#/settings?section=${id}" class="${section===id?'active':''}" ${section===id?'aria-current="page"':''}>${icon(id==='account'?'profile':id==='notifications'?'bell':id==='discovery'?'explore':'settings',18)}${label}</a>`).join('')}</nav><div class="settings-section-content">${content}</div></div>`;
@@ -246,6 +252,48 @@ function friends() {
       ${friendTab==='Requests'?button('accept-friend','Accept','button primary small',`data-name="${esc(name)}"`)+button('decline-friend','Ignore','button small',`data-name="${esc(name)}"`):friendTab==='Sent'||sent?button('cancel-friend','Cancel request','button small',`data-name="${esc(name)}"`):friendTab==='Find people'?button('add-friend',icon('create',14)+' Add friend','button primary small',`data-name="${esc(name)}"`):link('profile?user='+encodeURIComponent(name),'View profile','button small')+button('remove-friend','Remove','button quiet small',`data-name="${esc(name)}"`)}</div></article>`;}).join('')}</div>
     ${!shown.length?empty(query?'No people found':friendTab==='Requests'?'All caught up':friendTab==='Sent'?'No pending requests':'Find your people',query?'Try a different name.':friendTab==='Requests'?'New friend requests will appear here.':'Discover someone new to explore with.',query?button('clear-people','Clear search','button primary'):link('friends?tab=find','Find people')):''}
     <p class="fine-print">Preview community. Friend requests stay in this browser and are not sent to real people.</p>`;
+}
+function itemName(id){return marketplaceAssets.find(asset=>asset.id===id)?.name||'Accessory';}
+function earnPanel(){
+  const progress=questProgress(state),claimed=state.claimedQuests[weekKey()]||[];
+  return `<section class="earn-panel"><div class="section-top"><div><h2>Earn free currency</h2><p class="section-sub">Weekly quests, no purchase needed. They reset every Monday.</p></div><span class="tag">${claimed.length}/${QUESTS.length} claimed</span></div><div class="quest-grid">${QUESTS.map(quest=>{const value=progress[quest.id]||0,done=value>=quest.target,isClaimed=claimed.includes(quest.id);return `<article class="quest-card ${done?'ready':''}"><div class="quest-top"><strong>${quest.title}</strong><span class="quest-reward">${icon('alloy',13)} ${quest.reward}</span></div><p>${quest.detail}</p><div class="quest-foot"><span>${Math.min(value,quest.target)} / ${quest.target}</span>${isClaimed?'<span class="tag">Claimed</span>':button('claim-quest',done?'Claim':'Not yet','button small',done?`data-value="${quest.id}"`:'disabled aria-disabled="true"')}</div></article>`;}).join('')}</div></section>`;
+}
+function tradeRow(offer){
+  const person=personInfo(offer.counterpart);
+  return `<li class="trade-row"><div class="trade-person">${referenceAvatar(person.avatar)}<span><strong>${esc(offer.counterpart)}</strong><small>${offer.direction==='in'?'Offered to you':'Waiting for an answer'}</small></span></div><div class="trade-give">${offer.alloy?`<span>${icon('alloy',14)} ${offer.alloy} Alloy</span>`:''}${offer.item?`<span>${esc(itemName(offer.item))}</span>`:''}</div><div class="trade-actions">${offer.direction==='in'?button('trade-accept','Accept','button small primary',`data-id="${esc(offer.id)}"`):''}${button('trade-cancel',offer.direction==='in'?'Decline':'Cancel','button small quiet',`data-id="${esc(offer.id)}"`)}</div></li>`;
+}
+function tradesPage(){
+  const pending=pendingTrades(state).filter(offer=>offer.status==='pending');
+  const incoming=pending.filter(offer=>offer.direction==='in'),outgoing=pending.filter(offer=>offer.direction==='out');
+  const ownable=state.savedAssets.filter(id=>marketplaceAssets.some(asset=>asset.id===id));
+  return `${pageHead('Trading','Swap Alloy and accessories with friends.')}
+    <div class="notice"><span>${icon('trade',20)}<span><strong>Trade preview</strong><small>Offers are saved in this browser. Nothing is sent to another person and no item leaves this demo.</small></span></div>
+    <div class="trade-layout">
+      <section class="panel trade-column"><div class="section-top"><h2>Offers for you <span class="muted">(${incoming.length})</span></h2></div>${incoming.length?`<ul class="trade-list">${incoming.map(tradeRow).join('')}</ul>`:'<div class="inline-empty">No offers waiting right now.</div>'}</section>
+      <section class="panel trade-column"><div class="section-top"><h2>Your offers <span class="muted">(${outgoing.length})</span></h2></div>${outgoing.length?`<ul class="trade-list">${outgoing.map(tradeRow).join('')}</ul>`:'<div class="inline-empty">You have not offered a trade yet.</div>'}
+        <div class="trade-start"><h3>Start a trade</h3><p class="muted">Pick a friend, then choose Alloy, an accessory you own, or both.</p><div class="trade-friends">${state.friends.filter(friend=>!state.blocked.includes(friend)).map(friend=>button('trade',friend,'button small')).join('')||'<span class="muted small-text">Add a friend first.</span>'}</div><p class="fine-print">You own ${ownable.length} giftable ${ownable.length===1?'accessory':'accessories'} from the creator marketplace.</p></div></section>
+    </div>`;
+}
+function communityPage(){
+  const channels=[['announcements','Release notes and platform news','Read only'],['general','Everyday conversation','Open'],['creators','Builders sharing work in progress','Open'],['help','Questions, answers, and bug reports','Open'],['clips','Your best moments of the week','Open']];
+  const roles=[['Team','The people building Metallic'],['Creator','Published a game or asset'],['Moderator','Keeps channels and games tidy'],['Member','Everyone else']];
+  return `${pageHead('Community','The conversation carries on outside the site.')}
+    <section class="discord-card"><div class="discord-copy"><span class="eyebrow">METALLIC DISCORD</span><h2>${state.links.discord?'Linked as '+esc(state.links.discord):'Link your Discord account'}</h2><p>One identity across the site and the server. Roles follow the account you sign in with, so creators and moderators land in the right rooms without asking.</p><div class="button-row">${state.links.discord?link('settings?section=community','Manage the link','button'):link('settings?section=community','Link Discord','button primary')}${button('copy-community','Copy invite code','button')}</div></div><div class="discord-channels"><span class="side-section-label">CHANNELS</span><ul class="channel-list">${channels.map(([name,topic,stateLabel])=>`<li class="channel-row"><span class="channel-hash">#</span><span><strong>${name}</strong><small>${topic}</small></span><small class="channel-state">${stateLabel}</small></li>`).join('')}</ul></div></section>
+    <div class="community-grid"><section class="panel"><h2>Roles</h2><ul class="policy-list">${roles.map(([role,sets])=>`<li><strong>${role}</strong><span>${sets}</span></li>`).join('')}</ul></section><section class="panel"><h2>What carries across</h2><ul class="policy-list"><li><strong>Identity</strong><span>Your username and avatar, with one verification for both places.</span></li><li><strong>Enforcement</strong><span>A Discord ban records the same person as a site ban, so every linked account stays in step.</span></li><li><strong>Privacy</strong><span>The link is optional. Declining it does not change what you can play.</span></li></ul></section></div>
+    <p class="fine-print">Channels, roles, and the invite are sample content. The Discord connection is not live.</p>`;
+}
+function tradeEditor(name){
+  if(!state.friends.includes(name)){toast('Trades are between friends.');return;}
+  const items=state.savedAssets.filter(id=>marketplaceAssets.some(asset=>asset.id===id));
+  modal('Trade with '+esc(name),`<form id="trade-form" class="trade-form" data-name="${esc(name)}"><p class="muted">Choose what you are offering. The offer stays pending until your friend answers.</p><label for="trade-alloy">Alloy</label><input id="trade-alloy" name="alloy" type="number" min="0" max="1000000" step="1" value="25" inputmode="numeric">${items.length?`<label for="trade-item">Accessory</label><select id="trade-item" name="item"><option value="">No accessory</option>${items.map(id=>`<option value="${esc(id)}">${esc(itemName(id))}</option>`).join('')}</select>`:'<p class="fine-print">You own no marketplace accessories yet. Save one in the creator marketplace to trade it.</p>'}<p id="trade-error" class="form-error" role="alert"></p><div class="button-row">${button('close-dialog','Cancel','button')}<button class="button primary" type="submit">Send offer</button></div></form>`);
+}
+function reportEditor(name){
+  const reasons=['Harassment or bullying','Scam or phishing','Inappropriate content','Impersonation'];
+  modal('Report '+esc(name),`<form id="report-form" class="report-form"><p class="muted">Pick the closest reason. The report is queued with this profile name and the time.</p><fieldset class="report-reasons"><legend>Reason</legend>${reasons.map((reason,index)=>`<label class="radio-pill"><input type="radio" name="reason" value="${esc(reason)}" ${index===0?'checked':''}> <span>${reason}</span></label>`).join('')}</fieldset><p id="report-error" class="form-error" role="alert"></p><div class="button-row">${button('close-dialog','Cancel','button')}<button class="button primary" type="submit">Send report</button></div></form>`);
+}
+function copyText(value,message){
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(value).then(()=>toast(message),()=>toast('Copy failed. The invite is '+value+'.'));return;}
+  toast('The invite is '+value+'.');
 }
 function markSettingsDirty(){settingsDirty=true;const label=document.querySelector('.settings-save .muted');if(label)label.textContent='Unsaved changes';}
 function timeAgo(at,now=Date.now()){
@@ -286,7 +334,8 @@ function accountLinks(){
 function giftEditor(name){
   if(!state.friends.includes(name)){toast('Gifts go to friends on your list.');return;}
   const amounts=[25,50,100].map(amount=>`<label class="radio-pill"><input type="radio" name="amount" value="${amount}" ${amount===25?'checked':''}> <span>${amount} Alloy</span></label>`).join('');
-  modal('Send Alloy to '+esc(name),`<form id="gift-form" class="gift-form" data-name="${esc(name)}"><p class="muted">Your preview balance is ${state.previewAlloy.toLocaleString()} Alloy. Gifts spend the demo balance and cannot be undone.</p><fieldset class="gift-amounts"><legend>Amount</legend>${amounts}</fieldset><p id="gift-error" class="form-error" role="alert"></p><div class="button-row">${button('close-dialog','Cancel','button')}<button class="button primary" type="submit">Send gift</button></div></form>`);
+  const items=state.savedAssets.filter(id=>marketplaceAssets.some(asset=>asset.id===id));
+  modal('Send a gift to '+esc(name),`<form id="gift-form" class="gift-form" data-name="${esc(name)}"><p class="muted">Your preview balance is ${state.previewAlloy.toLocaleString()} Alloy. Gifts spend that demo balance or leave your collection, and cannot be undone.</p><fieldset class="gift-amounts"><legend>What are you sending?</legend><label class="radio-pill"><input type="radio" name="kind" value="alloy" checked> <span>Alloy</span></label>${items.length?`<label class="radio-pill"><input type="radio" name="kind" value="item"> <span>An accessory</span></label>`:''}</fieldset><fieldset class="gift-amounts"><legend>Amount</legend>${amounts}</fieldset>${items.length?`<label for="gift-item">Accessory</label><select id="gift-item" name="item">${items.map(id=>`<option value="${esc(id)}">${esc(itemName(id))}</option>`).join('')}</select>`:''}<p id="gift-error" class="form-error" role="alert"></p><div class="button-row">${button('close-dialog','Cancel','button')}<button class="button primary" type="submit">Send gift</button></div></form>`);
 }
 function docsPage(){
   const contract=[
@@ -299,6 +348,7 @@ function docsPage(){
     <div class="notice"><span>${icon('docs',20)}<span><strong>Reference only</strong><small>No endpoint below is live. This is the agreed shape of the API so the website and backend build against the same names.</small></span></div>
     <div class="doc-grid">${contract.map(([title,rows])=>`<section class="panel api-group"><h2>${title}</h2><ul class="api-list">${rows.map(([method,endpoint,note])=>`<li><span class="api-method method-${method.toLowerCase()}">${method}</span><code>${esc(endpoint)}</code><p>${note}</p></li>`).join('')}</ul></section>`).join('')}</div>
     <section class="panel api-notes"><h2>Conventions</h2><ul class="policy-list"><li><strong>Auth</strong><span>A session cookie for browsers and a bearer token for services. Every write is authorised server-side.</span></li><li><strong>Errors</strong><span>JSON with <code>code</code>, <code>message</code>, and <code>requestId</code>. Retries reuse the same request id.</span></li><li><strong>Limits</strong><span>Per-account rate limits with <code>Retry-After</code>; lists are cursor paged.</span></li><li><strong>Versioning</strong><span>The path carries the version. Additive fields do not bump it.</span></li></ul></section>
+    <section class="panel api-notes"><h2>Scale</h2><ul class="policy-list"><li><strong>Reads</strong><span>Catalog and game reads are cached at the edge and invalidated by version, so a popular release does not stampede the database.</span></li><li><strong>Writes</strong><span>Balances, gifts, and trades post to one authoritative service per account, which serialises them instead of trusting the browser.</span></li><li><strong>Sessions</strong><span>Servers are regional sandboxes with a hard ceiling; the fleet grows by adding regions, not by making one world bigger.</span></li><li><strong>Cost of scale</strong><span>Idle worlds cost nothing and only live sessions reserve resources, which is what keeps millions of accounts affordable.</span></li></ul></section>
     <p class="fine-print">This page is a planning contract, not a running service. Nothing here performs a request.</p>`;
 }
 function safetyPage(){
@@ -443,9 +493,9 @@ function render(preserveFocus=true) {
   closeFriendPreview();
   const focus=preserveFocus?focusIdentity():null;
   ({route,params,category,sort,friendTab}=readRoute(location.hash));
-  const pages={'':landing,home,explore,search:searchPage,login:auth,signup:auth,download,wardrobe,create,alloy,profile,settings,friends,marketplace,groups:groupsPage,docs:docsPage,safety:safetyPage};
+  const pages={'':landing,home,explore,search:searchPage,login:auth,signup:auth,download,wardrobe,create,alloy,profile,settings,friends,marketplace,groups:groupsPage,docs:docsPage,safety:safetyPage,trades:tradesPage,community:communityPage};
   const page=Object.hasOwn(pages,route)?pages[route]:/^game\/\d+$/.test(route)?gamePage:route.startsWith('groups/')?groupPage:notFound;
-  const titles={'':'A world of possibilities',home:'Home',explore:'Explore',search:'Search',signup:'Sign up',login:'Log in',download:'Download',wardrobe:'Wardrobe',create:'Creator hub',alloy:'Buy Alloy',profile:'Profile',settings:'Settings',friends:'Friends',marketplace:'Creator Marketplace',groups:'Groups',docs:'API documentation',safety:'Safety'};
+  const titles={'':'A world of possibilities',home:'Home',explore:'Explore',search:'Search',signup:'Sign up',login:'Log in',download:'Download',wardrobe:'Wardrobe',create:'Creator hub',alloy:'Buy Alloy',profile:'Profile',settings:'Settings',friends:'Friends',marketplace:'Creator Marketplace',groups:'Groups',docs:'API documentation',safety:'Safety',trades:'Trading',community:'Community'};
   const game=games.find(g=>route===`game/${g.id}`);
   document.title=`${(route.startsWith('groups/')?findGroup(state,route.split('/')[1])?.name:null) || game?.title || (Object.hasOwn(titles,route)?titles[route]:'Page not found')} | Metallic`;
   document.body.classList.remove('nav-open');
@@ -576,6 +626,17 @@ document.addEventListener('click',async e=>{
     case 'claim-daily':{const result=claimDaily(state);if(result.ok){persist('Claimed '+result.amount+' Alloy.');render();}else toast(result.error);break;}
     case 'gift':giftEditor(name);break;
     case 'clear-history':state.playHistory=[];persist('Play history cleared.');render();break;
+    case 'claim-quest':{const result=claimQuest(state,value);if(result.ok){persist('Quest claimed: +'+result.amount+' Alloy.');render();}else toast(result.error);break;}
+    case 'trade':tradeEditor(name);break;
+    case 'trade-cancel':if(cancelTrade(state,id)){persist('Trade closed.');render();}break;
+    case 'trade-accept':if(acceptTrade(state,id)){persist('Trade accepted. Your preview balance and collection are updated.');render();}break;
+    case 'block':{
+      if(state.blocked.includes(name)){state.blocked=state.blocked.filter(value=>value!==name);persist(name+' is unblocked in this preview.');}
+      else{state.blocked=[...state.blocked,name];updateFriendship(state,'remove',name);persist(name+' is blocked. Friend requests and trades stop here.');}
+      render();break;
+    }
+    case 'report':reportEditor(name);break;
+    case 'copy-community':copyText('metallic.gg/discord','Invite code copied.');break;
     case 'theme':if(isTheme(value)){state.theme=value;applyTheme(state);const choice=el.closest('.theme-choice');document.querySelectorAll('.theme-choice').forEach(node=>node.classList.toggle('selected',node===choice));markSettingsDirty();}break;
     case 'hide-game':if(games.some(game=>game.id===id)){if(!state.hiddenGames.includes(id))state.hiddenGames.push(id);persist('We’ll recommend other games.');render();}break;
     case 'reset-hidden':state.hiddenGames=[];persist('Hidden games restored to discovery.');render();break;
@@ -643,7 +704,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{
   const form=e.target;
-  if(!['search-form','friend-search','auth-form','project-form','settings-form','asset-form','preference-form','discovery-filter-form','marketplace-search','server-form','group-form','group-search','gift-form'].includes(form.id))return;
+  if(!['search-form','friend-search','auth-form','project-form','settings-form','asset-form','preference-form','discovery-filter-form','marketplace-search','server-form','group-form','group-search','gift-form','trade-form','report-form'].includes(form.id))return;
   e.preventDefault();if(!form.reportValidity())return;
   const data=new FormData(form);
   if(form.id==='search-form'){closeSuggestions();navigate(routeWithParams('search',new URLSearchParams(),{q:data.get('q').trim()}));}
@@ -661,16 +722,29 @@ document.addEventListener('submit',e=>{
     if(section==='account'){state.profile.name=data.get('name');state.profile.bio=data.get('bio').trim();for(const key of ['discord','youtube','twitch','tiktok'])state.links[key]=String(data.get(key)||'').trim().slice(0,80);}
     if(section==='privacy'){state.profile.visibility=data.get('visibility');state.friendPolicy=data.get('friendPolicy');state.joinPolicy=data.get('joinPolicy');state.activity=data.has('activity');}
     if(section==='notifications'){state.notifications=data.has('notifications');state.updateNotifications=data.has('updates');}
+    if(section==='community')state.links.discord=String(data.get('discord')||'').trim().slice(0,80);
     if(section==='discovery')state.preferredGenres=data.getAll('genres').filter(genre=>genres.includes(genre));
     if(section==='appearance'&&isTheme(data.get('theme')))state.theme=data.get('theme');
     settingsDirty=false;persist('Your settings are saved.');render();
   }
   if(form.id==='preference-form'){state.preferredGenres=data.getAll('genres').filter(genre=>genres.includes(genre));persist('Discovery updated for you.');dialog.close();render();}
   if(form.id==='gift-form'){
-    const recipient=form.dataset.name,amount=Number(data.get('amount'));
-    const result=sendGift(state,recipient,amount);
+    const recipient=form.dataset.name,kind=data.get('kind');
+    const result=kind==='item'?giftItem(state,recipient,String(data.get('item')||'')):sendGift(state,recipient,Number(data.get('amount')));
     if(!result.ok){document.querySelector('#gift-error').textContent=result.error;return;}
-    persist(result.gift.amount+' Alloy sent to '+result.gift.to+' in this preview.');
+    persist(kind==='item'?'Accessory sent to '+recipient+' in this preview.':result.gift.amount+' Alloy sent to '+recipient+' in this preview.');
+    dialog.close();render();
+  }
+  if(form.id==='trade-form'){
+    const recipient=form.dataset.name;
+    const result=proposeTrade(state,recipient,{alloy:Number(data.get('alloy')||0),item:String(data.get('item')||'')});
+    if(!result.ok){document.querySelector('#trade-error').textContent=result.error;return;}
+    persist('Trade offer saved for '+recipient+'.');
+    dialog.close();render();
+  }
+  if(form.id==='report-form'){
+    state.reports+=1;
+    persist('Report saved to this preview. Moderation services are not connected.');
     dialog.close();render();
   }
   if(form.id==='discovery-filter-form'){

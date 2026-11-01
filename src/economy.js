@@ -23,3 +23,12 @@ export function sendGift(state, name, amount, now = Date.now()) {
   return { ok: true, gift };
 }
 export const recentGifts = state => state.gifts.slice(-6).reverse();
+export function giftItem(state, name, itemId, now = Date.now()) {
+  if (!state.friends.includes(name)) return { ok: false, error: 'Gifts go to friends on your list.' };
+  if (!state.savedAssets.includes(itemId)) return { ok: false, error: 'You can only gift an accessory you own.' };
+  if (!/^[\w-]{1,64}$/.test(String(itemId))) return { ok: false, error: 'Pick an accessory to gift.' };
+  if (state.gifts.filter(gift => gift.to === name && dayKey(gift.at) === dayKey(now)).length >= 5) return { ok: false, error: 'That friend already received five gifts today.' };
+  state.savedAssets = state.savedAssets.filter(id => id !== itemId);
+  state.gifts.push({ id: `gift-${state.gifts.length + 1}-item`, to: name, amount: 0, item: itemId, at: now });
+  return { ok: true, gift: state.gifts.at(-1) };
+}

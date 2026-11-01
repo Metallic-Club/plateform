@@ -16,7 +16,7 @@ Open http://127.0.0.1:4173. The production build is in `dist/`; `node scripts/se
 
 ## Pages
 
-Landing `/`, login `/login`, signup `/signup`, launcher `/download`, home `/home`, explore `/explore`, wardrobe `/wardrobe`, creator hub `/create`, Alloy store `/alloy`, profile `/profile`, settings `/settings`, friends `/friends`, API documentation `/docs`, safety `/safety`, and game details `/game/:id`. Browser paths use `#/` before each route. The four primary tabs are Home, Explore, Wardrobe, and Marketplace; Create, groups, friends, downloads, docs, and safety live in the sidebar.
+Landing `/`, login `/login`, signup `/signup`, launcher `/download`, home `/home`, explore `/explore`, wardrobe `/wardrobe`, creator hub `/create`, Alloy store `/alloy`, profile `/profile`, settings `/settings`, friends `/friends`, API documentation `/docs`, safety `/safety`, trading `/trades`, community `/community`, and game details `/game/:id`. Browser paths use `#/` before each route. The four primary tabs are Home, Explore, Wardrobe, and Marketplace; Create, groups, friends, downloads, docs, and safety live in the sidebar.
 
 ## Working interactions
 
@@ -31,7 +31,12 @@ Landing `/`, login `/login`, signup `/signup`, launcher `/download`, home `/home
 
 Explore filters and friend tabs survive reloads and can be bookmarked. For example: `#/explore?category=Action&sort=rating` and `#/friends?tab=sent`. Community profile previews use `#/profile?user=heroX_x`. Game servers use `#/game/1?tab=servers`; groups use `#/groups` and `#/groups/metallic-studio`.
 
-- Play history records each game opened from a play control, powers the home continue shelf, and can be cleared from the profile.
+- Play history records each game opened from a play control, powers the home continue shelf and the history section, and can be cleared from the profile.
+- Trading offers Alloy, an owned accessory, or both to a friend; offers stay pending until accepted or cancelled, and accepting updates the demo balance and collection.
+- Weekly quests pay Alloy for opening three games, playing across two genres, and saving a favorite, once per quest per week.
+- Titles from Metallic itself carry a studio flag and their own shelf on Home.
+- Reporting and blocking live on other profiles; a block ends the friendship and stops further friend requests and trades in the preview.
+- The community page previews the Discord channels, roles, and what carries between the site and the server, using the optional link saved in settings.
 - A daily Alloy claim is available once per day, and friends can be sent Alloy through a gift dialog that spends the demo balance.
 - Settings gains Themes (Charcoal, Slate, Ember) and profile links for Discord, YouTube, Twitch, and TikTok, stored locally and shown as text.
 - Game pages include active-session previews, player avatars with hover/focus names, full-server and join-privacy states, friend joining, and links to the owning group or player.
@@ -57,7 +62,9 @@ The launcher is explicitly unavailable until signed release artifacts and suppor
 - `src/platform.js`: discovery ranking, filters, mutual-friend fixtures, creator categories, and marketplace sample data.
 - `src/social.js`: server previews, access checks, demo Alloy transitions, game ownership, groups, and social-state migration.
 - `src/play.js`: play history, newest first, one entry per game.
-- `src/economy.js`: the daily Alloy claim and friend gifts, including the demo-balance checks.
+- `src/economy.js`: the daily Alloy claim plus Alloy and accessory gifts, including the demo-balance checks.
+- `src/trade.js`: trade offers between friends, with the pending, accepted, and cancelled states.
+- `src/quests.js`: the weekly earning quests, measured from this week's play history and favorites.
 - `src/theme.js`: the theme list and the `data-theme` switch applied on every render.
 - `src/avatar.js`: saved-avatar portraits and stable sample community identities.
 - `src/catalog.js`: sample catalog extracted from the supplied reference.
