@@ -9,7 +9,7 @@ test('preview serves application assets and hides repository/configuration files
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => server.close(resolve)));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  for (const pathname of ['/', '/src/app.js', '/src/router.js', '/art/game-1.svg', '/favicon.svg']) {
+  for (const pathname of ['/', '/src/app.js', '/src/router.js', '/art/game-1.jpg', '/favicon.svg']) {
     assert.equal((await fetch(origin + pathname)).status, 200, pathname);
   }
   for (const pathname of ['/.git/config', '/.openai/hosting.json', '/package.json', '/README.md', '/src/../.git/HEAD', '/%2e%2e/.git/config']) {

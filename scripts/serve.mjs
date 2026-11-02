@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
 export function createPreviewServer({ directory = '.' } = {}) {
 const root = path.resolve(directory);
 return http.createServer(async (req, res) => {
@@ -14,7 +14,7 @@ return http.createServer(async (req, res) => {
     if (url === '/') url = '/index.html';
     // Serve application assets only; never expose repository metadata or local config.
     // Artwork lives beside index.html, so the same relative paths work here, in dist/ and on Pages.
-    if (!(url === '/index.html' || url === '/favicon.svg' || /^\/src\/[\w-]+\.(js|css)$/.test(url) || /^\/art\/[\w-]+\.svg$/.test(url))) {
+    if (!(url === '/index.html' || url === '/favicon.svg' || /^\/src\/[\w-]+\.(js|css)$/.test(url) || /^\/art\/[\w-]+\.(svg|jpg|jpeg|png|webp)$/.test(url))) {
       res.writeHead(404).end('Not found'); return;
     }
     const file = path.resolve(root, '.' + url);

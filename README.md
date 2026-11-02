@@ -74,7 +74,7 @@ The launcher is explicitly unavailable until signed release artifacts and suppor
 - `src/platform.css`: revised navigation, profile layouts, settings sections, creator libraries, marketplace, discovery, and responsive rules.
 - `src/social.css`: neutral discovery surfaces, game sessions, player tooltips, and group layouts.
 - `src/features.css`: theme palettes, the theme picker, play history rows, the gift dialog, and the API and safety pages.
-- `art/`: self-contained SVG artwork beside `index.html`, so `art/game-1.svg` resolves the same in `npm run dev`, in `dist/` and when the repository root is deployed. The 14 game posters are drawn by `tools/make-posters.py`; run it after editing a scene.
+- `art/`: artwork beside `index.html`, so every path resolves the same in `npm run dev`, in `dist/` and when the repository root is deployed. The 14 game posters are graded crops of CC0, public-domain and CC BY photographs from Wikimedia Commons, fetched by `tools/fetch-art.py` and credited in `docs/art-credits.md`; the avatars are original SVG.
 - `scripts/`: dependency-free development server and build copier.
 - `tests/`: state migration, friendship transitions, filtering, routing, escaping, SVG integrity, and preview HTTP tests using the Node test runner.
 
