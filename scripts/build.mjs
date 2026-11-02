@@ -7,6 +7,7 @@ if (path.dirname(output) !== workspace || path.basename(output) !== 'dist') thro
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 await copyFile('index.html', path.join(output, 'index.html'));
+await copyFile('favicon.svg', path.join(output, 'favicon.svg'));
 await cp('src', path.join(output, 'src'), { recursive: true });
-await cp('public', output, { recursive: true });
+await cp('art', path.join(output, 'art'), { recursive: true });
 console.log('Built Metallic to dist/');

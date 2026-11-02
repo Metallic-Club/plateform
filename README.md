@@ -74,7 +74,7 @@ The launcher is explicitly unavailable until signed release artifacts and suppor
 - `src/platform.css`: revised navigation, profile layouts, settings sections, creator libraries, marketplace, discovery, and responsive rules.
 - `src/social.css`: neutral discovery surfaces, game sessions, player tooltips, and group layouts.
 - `src/features.css`: theme palettes, the theme picker, play history rows, the gift dialog, and the API and safety pages.
-- `public/art/`: self-contained SVG artwork extracted from the reference; no external image dependencies.
+- `art/`: self-contained SVG artwork beside `index.html`, so `art/game-1.svg` resolves the same in `npm run dev`, in `dist/` and when the repository root is deployed.
 - `scripts/`: dependency-free development server and build copier.
 - `tests/`: state migration, friendship transitions, filtering, routing, escaping, SVG integrity, and preview HTTP tests using the Node test runner.
 
