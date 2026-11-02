@@ -99,8 +99,34 @@ function shell(content, publicPage = false) {
     <main id="main" tabindex="-1" class="${publicPage?'public-page':'page'}"><div class="${publicPage?'public-content':'content'}">${content}<footer class="footer"><span>© ${new Date().getFullYear()} Metallic <span class="demo-label">Platform preview · Sample content</span></span><div class="footer-links">${link('','About','')}${link('download','Download','')}${link('marketplace','Marketplace','')}${link('settings','Settings','')}</div></footer></div></main>`;
 }
 function landing() {
-  return `<section class="landing-hero"><div class="hero-copy"><span class="eyebrow"><span class="live-dot"></span> A new place to play</span><h1>Find your people.<br>Build your world.</h1><p>Jump into new games, make your own adventures, and turn a little imagination into something extraordinary.</p><div class="button-row">${link('signup','Join Metallic '+icon('arrow',18))}${link('explore','Explore games','button')}</div><small>Play. Create. Make it yours.</small></div><div class="hero-mosaic">${[games[0],games[1],games[4],games[5]].map(g=>`<a href="#/game/${g.id}"><img src="${g.art}" alt="${esc(g.title)}"><span>${esc(g.title)}</span></a>`).join('')}<div class="mosaic-caption">A world of possibilities. <span>Made by you.</span></div></div></section><section class="landing-intro"><span class="eyebrow">THIS IS METALLIC</span><h2>One platform.<br>Endless ways to belong.</h2><div class="feature-columns"><article>${icon('explore',28)}<h3>Follow your curiosity</h3><p>From obstacle courses to open worlds, discover a new favorite around every corner.</p>${link('explore','Find your next adventure →','text-link')}</article><article>${icon('wardrobe',28)}<h3>Show up as yourself</h3><p>Make an avatar that feels like you. Experiment with a new look and make your mark.</p>${link('wardrobe','Make it yours →','text-link')}</article><article>${icon('create',28)}<h3>Start with an idea</h3><p>Dream up your own game. Build a space for your friends and the next generation of players.</p>${link('create','Meet the creator hub →','text-link')}</article></div></section>${shelf('A little inspiration','A first look at the worlds of Metallic',games.slice(0,6),'landing-games')}<section class="cta-panel"><div><span class="eyebrow">YOUR NEXT CHAPTER</span><h2>Good things start with play.</h2><p>Take a look around. There’s a place for you here.</p></div>${link('home','Explore the platform '+icon('arrow',18))}</section>`;
+  const mosaic=[...new Map(games.map(game=>[game.genre,game])).values()].slice(0,4);
+  const studioCount=games.filter(game=>isFirstParty(game.id)).length;
+  return `<section class="landing-hero">
+    <div class="hero-copy"><span class="eyebrow"><span class="live-dot"></span> Preview build · sample catalog</span>
+      <h1>Pick a world.<br>Make it yours.</h1>
+      <p>${games.length} sample games, an avatar studio, and a creator hub. Everything here runs in your browser, so you can look around before you decide anything.</p>
+      <form class="hero-search" id="landing-search" role="search">${icon('search',18)}<input type="search" name="q" placeholder="Search worlds, genres, or people" aria-label="Search worlds, genres, or people" autocomplete="off"><button type="submit" class="button primary">Search</button></form>
+      <nav class="hero-genres" aria-label="Browse by genre">${categories.filter(name=>name!=='All').map(name=>`<a href="#/explore?category=${encodeURIComponent(name)}">${name}</a>`).join('')}</nav>
+      <div class="button-row">${link('signup','Join Metallic '+icon('arrow',18))}${link('explore','Look around','button quiet')}</div>
+      <small>No account needed to browse. Nothing is stored until you choose something.</small></div>
+    <div class="hero-mosaic">${mosaic.map(game=>`<a href="#/game/${game.id}"><img src="${game.art}" alt="${esc(game.title)}" width="240" height="240" loading="lazy"><span>${esc(game.title)}<small>${game.genre}</small></span></a>`).join('')}<div class="mosaic-caption">Four of ${games.length} sample worlds. <span>Made for this preview.</span></div></div></section>
+    <section class="landing-facts" aria-label="What is here">
+      <a href="#/explore"><strong>${games.length}</strong><span>sample worlds to open</span></a>
+      <a href="#/explore"><strong>${studioCount}</strong><span>built by Metallic Studio</span></a>
+      <a href="#/explore"><strong>${categories.length-1}</strong><span>genres to browse</span></a>
+    </section>
+    <section class="landing-intro"><span class="eyebrow">START SOMEWHERE</span><h2>Three ways in.</h2>
+      <div class="start-steps">
+        <a href="#/explore"><span class="step-num">01</span><h3>Open a world</h3><p>Sort by players or rating, filter by genre, and open anything that looks interesting. Your play history keeps the last few in reach.</p><span class="step-link">Explore games →</span></a>
+        <a href="#/wardrobe"><span class="step-num">02</span><h3>Make an avatar</h3><p>Layer outfits, pick a colour, and add an accessory. Changes stay in this browser until you reset the preview.</p><span class="step-link">Open the wardrobe →</span></a>
+        <a href="#/create"><span class="step-num">03</span><h3>Build something</h3><p>Draft a project, keep a list of assets, and read how the creator marketplace takes a listing from idea to sale.</p><span class="step-link">Visit the creator hub →</span></a>
+      </div>
+    </section>
+    ${shelf('A little inspiration','A first look at the worlds of Metallic',games.slice(0,6),'landing-games')}
+    ${shelf('Built by Metallic Studio','In-house sample worlds, free to open',games.filter(game=>isFirstParty(game.id)),'landing-studio','explore')}
+    <section class="cta-panel"><div><span class="eyebrow">READY WHEN YOU ARE</span><h2>Come for a game. Stay for the people.</h2><p>Groups, friends, trading, and weekly quests are all here to try. No email, no card, no live account.</p></div><div class="button-row">${link('signup','Pick a name')}${link('home','Explore the platform','button quiet')}</div></section>`;
 }
+
 function friendStrip() {
   return `<section class="home-section friends-section"><div class="section-top"><h2>Friends <span class="muted">(${state.friends.length})</span></h2>${link('friends','See all '+icon('arrow',15),'view-all')}</div>
     <div class="friends-list"><a class="friend" href="#/friends?tab=find"><span class="friend-picture add">${icon('create',28)}</span><span class="friend-name">Add friends</span><span class="friend-activity">Find your people</span></a>
@@ -704,10 +730,11 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{
   const form=e.target;
-  if(!['search-form','friend-search','auth-form','project-form','settings-form','asset-form','preference-form','discovery-filter-form','marketplace-search','server-form','group-form','group-search','gift-form','trade-form','report-form'].includes(form.id))return;
+  if(!['search-form','landing-search','friend-search','auth-form','project-form','settings-form','asset-form','preference-form','discovery-filter-form','marketplace-search','server-form','group-form','group-search','gift-form','trade-form','report-form'].includes(form.id))return;
   e.preventDefault();if(!form.reportValidity())return;
   const data=new FormData(form);
   if(form.id==='search-form'){closeSuggestions();navigate(routeWithParams('search',new URLSearchParams(),{q:data.get('q').trim()}));}
+  if(form.id==='landing-search')navigate(routeWithParams('search',new URLSearchParams(),{q:data.get('q').trim()}));
   if(form.id==='friend-search')setQuery({person:data.get('person').trim()});
   if(form.id==='auth-form'){if(route==='signup')state.profile.name=data.get('username');form.reset();persist('Welcome to the preview. No live account was created.');navigate('/home');}
   if(form.id==='project-form'){
