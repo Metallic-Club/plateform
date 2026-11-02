@@ -149,3 +149,6 @@
 .start-steps .step-link{margin-top:auto;padding-top:6px;font-size:12px;font-weight:800;color:#dcdee5}
 .cta-panel .button-row{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
 @media(max-width:820px){.landing-facts{grid-template-columns:1fr}.landing-facts a{padding:16px 0;border-right:0;border-bottom:1px solid #303239}.landing-facts a:last-child{border-bottom:0}.start-steps{grid-template-columns:1fr}.hero-search,.hero-genres{max-width:none}.hero-genres{margin-bottom:22px}}
+
+/* Five top tabs: keep the longest label from spilling on narrow phones. */
+@media(max-width:420px){.topbar .topnav a{font-size:11px;letter-spacing:-.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
