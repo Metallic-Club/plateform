@@ -23,3 +23,17 @@ test('avatar SVGs use XML casing and resolve paint references', async () => {
     for (const match of source.matchAll(/url\(#([^)]+)\)/g)) assert.ok(ids.includes(match[1]), `${file}: unresolved ${match[1]}`);
   }
 });
+
+test('every static art path in the app points at a file that exists', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const sources = (await readdir(new URL('../src', import.meta.url))).filter(name => name.endsWith('.js'));
+  for (const name of sources) {
+    const source = await readFile(new URL('../src/' + name, import.meta.url), 'utf8');
+    for (const match of source.matchAll(/art\/[A-Za-z0-9_-]+\.(?:svg|jpg|png)/g)) {
+      const path = match[0];
+      await readFile(new URL('../' + path, import.meta.url)).catch(() => {
+        assert.fail(`${name} references ${path}, which does not exist`);
+      });
+    }
+  }
+});
